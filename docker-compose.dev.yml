@@ -1,0 +1,102 @@
+# 로컬 개발용 인프라: Kafka · ClickHouse · PostgreSQL
+#
+#   실행:
+#   docker compose -f docker-compose.dev.yml up -d --wait
+#
+# 호스트 포트는 다른 프로젝트와 겹치지 않게 1로 시작하는 번호를 쓴다. 바꾸려면 .env (견본: .env.example)
+# 이미지 태그는 정확한 버전으로 고정한다. 올릴 때는 PR로.
+
+name: monimo-dev
+
+services:
+  kafka:
+    image: apache/kafka:3.9.2
+    ports:
+      - "${KAFKA_PORT:-19092}:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      # INTERNAL: 컨테이너끼리 (kafka:29092) / EXTERNAL: 내 컴퓨터에서 bootRun 한 앱 (localhost:19092)
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:-19092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # 토픽은 kafka-init 이 정해진 설정으로만 만든다. 오타 난 토픽이 저절로 생기지 않게 막는다.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    # "정상" = 브로커가 떴고 토픽 2개까지 만들어진 상태. 그래서 up --wait 은 토픽이 준비된 뒤에 끝난다.
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list 2> /dev/null | grep -qx raw.dlq"]
+      interval: 5s
+      timeout: 15s
+      retries: 30
+      start_period: 10s
+
+  # 토픽 만들기 (한 번 실행하고 끝나는 컨테이너). raw 7일 · raw.dlq 30일 보관 (ADR #34)
+  # Kafka 데이터는 컨테이너 안에만 있어서 down 하면 메시지와 토픽이 지워지고, 다시 켜면 이게 새로 만든다.
+  kafka-init:
+    image: apache/kafka:3.9.2
+    depends_on:
+      kafka:
+        condition: service_started
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        T=/opt/kafka/bin/kafka-topics.sh
+        for i in $$(seq 1 60); do
+          /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server kafka:29092 > /dev/null 2>&1 && break
+          sleep 2
+        done
+        $$T --bootstrap-server kafka:29092 --create --if-not-exists --topic raw     --partitions 3 --replication-factor 1 --config retention.ms=604800000
+        $$T --bootstrap-server kafka:29092 --create --if-not-exists --topic raw.dlq --partitions 1 --replication-factor 1 --config retention.ms=2592000000
+        $$T --bootstrap-server kafka:29092 --list
+    restart: "no"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8.10.6
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-18123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-19000}:9000"
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-monimo}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      # db/clickhouse/*.sql 은 데이터가 비어 있을 때(처음 켤 때)만 이름 순서대로 실행된다.
+      - ./db/clickhouse:/docker-entrypoint-initdb.d:ro
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'EXISTS DATABASE monimo' | grep -q 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  postgres:
+    image: postgres:17.11-alpine
+    ports:
+      - "${POSTGRES_PORT:-15432}:5432"
+    environment:
+      POSTGRES_DB: monimo
+      POSTGRES_USER: ${POSTGRES_USER:-monimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d monimo"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  clickhouse-data:
+  postgres-data:
