@@ -1,0 +1,29 @@
+# 라이브러리 버전은 이 파일 한 곳에서만 정한다. 모듈의 build.gradle.kts 에는 버전을 쓰지 않는다.
+
+[versions]
+java = "17"
+kotlin = "2.2.21"
+spring-boot = "3.5.16"
+opentelemetry-proto = "1.11.0-alpha"
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+# 임시 Kafka 메시지 형식: 수집기가 받은 OTLP를 protobuf 바이트 그대로 raw 토픽에 넣고, 적재 처리기가 이 라이브러리로 푼다.
+opentelemetry-proto = { module = "io.opentelemetry.proto:opentelemetry-proto", version.ref = "opentelemetry-proto" }
+
+[bundles]
+# 5개 서비스 모듈이 공통으로 쓰는 것
+service-base = ["spring-boot-starter-web", "spring-boot-starter-actuator", "jackson-module-kotlin", "kotlin-reflect"]
+service-test = ["spring-boot-starter-test", "kotlin-test-junit5"]
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }

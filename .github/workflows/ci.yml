@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+      - name: 빌드 + 테스트
+        run: ./gradlew build
+
+  docker-image:
+    name: docker-image (${{ matrix.module }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [collector, ingester]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: 이미지 만들기만 (1a에서는 올리지 않음)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.module }}/Dockerfile
+          push: false
+          tags: monimo/${{ matrix.module }}:ci
+          cache-from: type=gha,scope=${{ matrix.module }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.module }}

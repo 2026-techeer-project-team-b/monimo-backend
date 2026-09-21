@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: notifier
+
+server:
+  port: 8084

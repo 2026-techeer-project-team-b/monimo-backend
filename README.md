@@ -3,7 +3,7 @@
 수집기 · 적재 처리기 · API 서버 · 탐지 · 알림 5개 서비스와 공통 모듈을 담은 Kotlin Gradle 멀티모듈 레포
 
 - 기술: Kotlin · Java 17 · Spring Boot 3.x · Gradle
-- 상태: 뼈대만 있음 (개발환경 세팅 중)
+- 상태: Gradle 뼈대 완료, 기능 구현 전 (개발환경 세팅 중)
 
 ## 폴더 구성
 
@@ -18,7 +18,24 @@
 
 ## 로컬 실행
 
-준비 중
+필요한 것: JDK 17 (없으면 Gradle이 자동으로 내려받는다), Docker
+
+```bash
+./gradlew build                      # 전체 빌드 + 테스트
+./gradlew :collector:bootRun         # 서비스 하나만 실행 (collector 자리에 모듈 이름)
+./gradlew :collector:test            # 모듈 하나만 테스트
+
+# Docker 이미지 (레포 루트에서)
+docker build -f collector/Dockerfile -t monimo/collector .
+```
+
+Kafka · ClickHouse · PostgreSQL 로컬 실행(`docker-compose.dev.yml`)은 개발환경 5단계에서 추가한다.
+
+## 모듈 규칙
+
+- 모듈끼리는 `:common` 만 의존할 수 있다. 다른 모듈을 의존에 넣으면 빌드가 바로 실패한다.
+- 라이브러리 버전은 `gradle/libs.versions.toml` 한 곳에서만 정한다.
+- `common` 에는 공유 모델만 둔다. Entity · Repository · Service 금지.
 
 ## 환경변수
 
@@ -30,9 +47,15 @@
 
 ## 포트
 
+HTTP 포트(상태 확인 `/actuator/health`). 임시값이며 개발환경 6단계(로컬 연결 약속)에서 확정한다.
+
 | 서비스 | 포트 |
 |---|---|
-| (준비 중) | |
+| api-server | 8080 |
+| collector | 8081 (OTLP gRPC 4317은 구현 때 추가) |
+| ingester | 8082 |
+| detector | 8083 |
+| notifier | 8084 |
 
 ## 관련 문서
 
