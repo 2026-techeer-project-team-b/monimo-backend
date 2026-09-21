@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>플랫폼 상태</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#151A22;background:#F3F5F8}
+a{color:#3452D6;text-decoration:none}a:hover{color:#22389A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1100px; box-sizing: border-box; display: flex; position: relative; overflow: hidden; background: #F3F5F8; font-size: 13px; line-height: 1.45;">
+
+  <!-- ===== 사이드바 ===== -->
+  <nav aria-label="주 메뉴" style="width: 224px; flex-shrink: 0; background: #151A22; color: #C9D1DC; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 12px 16px;">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 12px 20px;">
+      <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 16px; font-weight: 600; color: #FFFFFF; letter-spacing: .04em;">MONIMO</div>
+      <div style="font-size: 11px; color: #8B96A5;">Pinpoint형 APM · 자기 감시</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <a href="ServerMap.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"></circle><circle cx="12" cy="4" r="2"></circle><circle cx="8" cy="12" r="2"></circle><path d="M5.5 5.5 7 10M10.5 5.5 9 10M6 4h4"></path></svg>
+        <span>서버맵</span>
+      </a>
+      <a href="Transactions.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M2 13V3"></path><circle cx="5" cy="9" r="1"></circle><circle cx="8" cy="6" r="1"></circle><circle cx="11" cy="10" r="1"></circle><circle cx="12" cy="5" r="1"></circle></svg>
+        <span>트랜잭션</span>
+      </a>
+      <a href="Inspector.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"></rect><path d="M5 10 7 7l2 2 2-4"></path></svg>
+        <span>인스펙터</span>
+      </a>
+      <a href="Errors.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 1.8 13h12.4L8 2Z"></path><path d="M8 6.5v3M8 11.5v.5"></path></svg>
+        <span>에러</span>
+      </a>
+      <a href="Logs.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M3 8h10M3 12h6"></path></svg>
+        <span>로그</span>
+      </a>
+      <a href="Alerts.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1H3l1-1ZM6.5 13.5a1.5 1.5 0 0 0 3 0"></path></svg>
+        <span>경보</span>
+        <span style="margin-left: auto; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #FFFFFF; background: #C8362F; border-radius: 999px; padding: 1px 7px;">3</span>
+      </a>
+      <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>
+        <span>설정</span>
+      </a>
+      <a href="Watchdog.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 600; box-shadow: inset 3px 0 0 #7B8FF0;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5 13 3.5v4c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5v-4L8 1.5Z"></path><path d="M5.5 8l1.8 1.8L10.5 6"></path></svg>
+        <span>플랫폼 상태</span>
+      </a>
+    </div>
+    <a href="Watchdog.dc.html" style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; text-decoration: none; color: inherit;">
+      <div style="font-size: 11px; font-weight: 600; color: #8B96A5; letter-spacing: .02em;">파수꾼 · 카나리</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 8px; height: 8px; border-radius: 999px; background: #34C46A; flex-shrink: 0;"></span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #FFFFFF;">12초 전</span>
+        <span style="font-size: 12px; color: #C9D1DC;">정상 (기준 60초)</span>
+      </div>
+    </a>
+  </nav>
+
+  <!-- ===== 우측 영역 ===== -->
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+    <!-- 상단바 (파수꾼은 앱 선택과 무관하므로 서비스 select 없음) -->
+    <header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #D9DEE6; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-sizing: border-box;">
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600; line-height: 1.2;">플랫폼 상태</h1>
+        <div style="font-size: 12px; color: #5E6875;">감시 체계가 살아 있는지 카나리로 관통 확인</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div role="group" aria-label="시간 범위" style="display: flex; border: 1px solid #B8C0CC; border-radius: 6px; overflow: hidden; height: 36px;">
+          <button style="height: 36px; padding: 0 12px; border: 0; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">5m</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">15m</button>
+          <button aria-pressed="true" style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #E4E9FB; font: inherit; font-size: 13px; font-weight: 600; color: #22389A; cursor: pointer;">1h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">6h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">24h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">사용자 지정</button>
+        </div>
+        <span style="font-size: 11px; font-weight: 500; color: #5E6875;">최대 7일</span>
+        <button style="height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.5-3.6"></path><path d="M13 2v3h-3"></path></svg>
+          <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px;">30s</span>
+        </button>
+        <button aria-label="사용자 메뉴" style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 6px; border: 1px solid #D9DEE6; border-radius: 999px; background: #FFFFFF; font: inherit; cursor: pointer;">
+          <span style="width: 26px; height: 26px; border-radius: 999px; background: #E4E9FB; color: #22389A; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;">김</span>
+          <span style="font-size: 13px; color: #151A22;">김승조</span>
+          <span style="font-size: 11px; font-weight: 600; color: #22389A; background: #E4E9FB; border-radius: 999px; padding: 1px 7px;">ADMIN</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 본문 -->
+    <main style="flex: 1; min-height: 0; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+
+      <!-- ① 상태 배너 -->
+      <section style="box-sizing: border-box; background: #DDF3E6; border: 1px solid #B7E0C8; border-radius: 10px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="width: 16px; height: 16px; border-radius: 999px; background: #1F8A4C; box-shadow: 0 0 0 4px rgba(31,138,76,.18); flex-shrink: 0;"></span>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 17px; font-weight: 600; color: #13673A;">플랫폼 정상 — 카나리 신선도 12초 (기준 60초)</span>
+            <span style="font-size: 12px; font-weight: 500; color: #1F6B45;"><span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px;">GET /internal/canary/freshness</span> · fresh = true · 2026-09-21 15:00:30</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: stretch; gap: 20px;">
+          <div style="display: flex; flex-direction: column; gap: 3px; padding-left: 20px; border-left: 1px solid #B7E0C8;">
+            <span style="font-size: 11px; font-weight: 600; color: #1F6B45; letter-spacing: .02em;">24h 카나리 성공률</span>
+            <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 20px; font-weight: 600; color: #13673A; line-height: 1.2;">99.8 %</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; padding-left: 20px; border-left: 1px solid #B7E0C8;">
+            <span style="font-size: 11px; font-weight: 600; color: #1F6B45; letter-spacing: .02em;">Dead Man's Switch 마지막 핑</span>
+            <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 20px; font-weight: 600; color: #13673A; line-height: 1.2;">38초 전</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; padding-left: 20px; border-left: 1px solid #B7E0C8;">
+            <span style="font-size: 11px; font-weight: 600; color: #1F6B45; letter-spacing: .02em;">수집→조회 p95 지연 (목표 30초)</span>
+            <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 20px; font-weight: 600; color: #13673A; line-height: 1.2;">21초</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ② 카나리 관통 경로 -->
+      <section style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">카나리 관통 경로</h2>
+          <span style="font-size: 12px; font-weight: 500; color: #5E6875;">마지막 카나리 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #3E4753;">trace_id 8f2c…41ab</span> · 발사 15:00:18 → 조회 가능 15:00:30</span>
+        </div>
+
+        <svg width="1120" height="124" viewBox="0 0 1120 124" fill="none" role="img" aria-label="파수꾼에서 쇼핑몰 주문 API, OTel Agent, 수집기, Kafka, 적재 처리기, ClickHouse를 거쳐 API 서버까지 카나리가 관통한 경로와 각 단계 통과 시각">
+          <defs>
+            <marker id="wdArrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0 0.8 L6 3.5 L0 6.2 Z" fill="#B8C0CC"></path>
+            </marker>
+          </defs>
+
+          <!-- 1. 파수꾼 (스택 바깥 · 점선) -->
+          <text x="0" y="12" font-size="10" font-weight="600" fill="#5E6875">스택 바깥</text>
+          <rect x="0.5" y="22.5" width="121" height="52" rx="8" fill="#FBEFD9" stroke="#B2680A" stroke-width="1.2" stroke-dasharray="4 3"></rect>
+          <circle cx="15" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="26" y="44" font-size="12" font-weight="600" fill="#151A22">파수꾼</text>
+          <text x="13" y="64" font-size="10" fill="#7A4806" font-family="'IBM Plex Mono', Menlo, monospace">AWS Lambda</text>
+          <text x="13" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:18</text>
+          <text x="13" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">발사 기준 +0.00s</text>
+          <path d="M126 48.5 H136" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 2. 쇼핑몰 주문 API -->
+          <rect x="142.5" y="22.5" width="121" height="52" rx="8" fill="#FFFFFF" stroke="#D9DEE6"></rect>
+          <circle cx="157" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="168" y="44" font-size="12" font-weight="600" fill="#151A22">쇼핑몰 주문 API</text>
+          <text x="155" y="64" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">POST /orders</text>
+          <text x="155" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:18</text>
+          <text x="155" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">+0.14s</text>
+          <text x="155" y="120" font-size="9" fill="{{accent}}" font-family="'IBM Plex Mono', Menlo, monospace">monimon=canary</text>
+          <path d="M268 48.5 H278" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 3. OTel Agent -->
+          <rect x="284.5" y="22.5" width="121" height="52" rx="8" fill="#FFFFFF" stroke="#D9DEE6"></rect>
+          <circle cx="299" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="310" y="44" font-size="12" font-weight="600" fill="#151A22">OTel Agent</text>
+          <text x="297" y="64" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">shop-order-7d9f4</text>
+          <text x="297" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:18</text>
+          <text x="297" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">+0.21s</text>
+          <path d="M410 48.5 H420" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 4. 수집기 -->
+          <rect x="426.5" y="22.5" width="121" height="52" rx="8" fill="#FFFFFF" stroke="#D9DEE6"></rect>
+          <circle cx="441" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="452" y="44" font-size="12" font-weight="600" fill="#151A22">수집기</text>
+          <text x="439" y="64" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">gRPC 4317 · mTLS</text>
+          <text x="439" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:19</text>
+          <text x="439" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">+0.93s</text>
+          <text x="439" y="120" font-size="9" fill="{{accent}}" font-family="'IBM Plex Mono', Menlo, monospace">1% 샘플링 예외</text>
+          <path d="M552 48.5 H562" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 5. Kafka raw -->
+          <rect x="568.5" y="22.5" width="121" height="52" rx="8" fill="#FFFFFF" stroke="#D9DEE6"></rect>
+          <circle cx="583" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="594" y="44" font-size="12" font-weight="600" fill="#151A22">Kafka raw</text>
+          <text x="581" y="64" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">partition 3 · lag 0</text>
+          <text x="581" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:19</text>
+          <text x="581" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">+1.40s</text>
+          <path d="M694 48.5 H704" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 6. 적재 처리기 -->
+          <rect x="710.5" y="22.5" width="121" height="52" rx="8" fill="#FFFFFF" stroke="#D9DEE6"></rect>
+          <circle cx="725" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="736" y="44" font-size="12" font-weight="600" fill="#151A22">적재 처리기</text>
+          <text x="723" y="64" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">batch 2,000행</text>
+          <text x="723" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:24</text>
+          <text x="723" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">+6.20s</text>
+          <path d="M836 48.5 H846" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 7. ClickHouse -->
+          <rect x="852.5" y="22.5" width="121" height="52" rx="8" fill="#FFFFFF" stroke="#D9DEE6"></rect>
+          <circle cx="867" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="878" y="44" font-size="12" font-weight="600" fill="#151A22">ClickHouse</text>
+          <text x="865" y="64" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">spans</text>
+          <text x="865" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:25</text>
+          <text x="865" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">+7.10s</text>
+          <path d="M978 48.5 H988" stroke="#B8C0CC" stroke-width="1.4" marker-end="url(#wdArrow)"></path>
+
+          <!-- 8. API 서버 -->
+          <rect x="994.5" y="22.5" width="121" height="52" rx="8" fill="#E4E9FB" stroke="#B3C0EE"></rect>
+          <circle cx="1009" cy="40" r="4" fill="#1F8A4C"></circle>
+          <text x="1020" y="44" font-size="12" font-weight="600" fill="#151A22">API 서버</text>
+          <text x="1007" y="64" font-size="10" fill="{{accent}}" font-family="'IBM Plex Mono', Menlo, monospace">canary/freshness</text>
+          <text x="1007" y="92" font-size="10" fill="#3E4753" font-family="'IBM Plex Mono', Menlo, monospace">15:00:30</text>
+          <text x="1007" y="106" font-size="10" fill="#5E6875" font-family="'IBM Plex Mono', Menlo, monospace">age_sec 12</text>
+        </svg>
+
+        <p style="margin: 0; font-size: 12px; font-weight: 500; color: #5E6875;">판정은 상수 하트비트가 아니라 실제 관통한 카나리의 신선도(<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">age_sec ≤ threshold_sec</span>)</p>
+      </section>
+
+      <!-- ③ 우리 서비스 6개 -->
+      <section style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+          <h2 style="margin: 0; font-size: 15px; font-weight: 600;">우리 서비스 6개</h2>
+          <span style="font-size: 12px; font-weight: 500; color: #5E6875;">판정 기준 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">/readyz</span> — 의존 저장소까지 닿아야 준비 완료</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+
+          <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #1F8A4C; flex-shrink: 0;"></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600;">monimo-api</span>
+              <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">READY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">PostgreSQL</span>
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">ClickHouse</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 500; color: #5E6875;">파드 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">3</span></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">확인 15:00:28</span>
+            </div>
+          </div>
+
+          <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #1F8A4C; flex-shrink: 0;"></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600;">monimo-collector</span>
+              <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">READY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">Kafka</span>
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">PG 설정 캐시 v7</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 500; color: #5E6875;">파드 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">4</span></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">확인 15:00:28</span>
+            </div>
+          </div>
+
+          <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #1F8A4C; flex-shrink: 0;"></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600;">monimo-ingest</span>
+              <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">READY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">Kafka</span>
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">ClickHouse</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 500; color: #5E6875;">파드 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2</span></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">확인 15:00:27</span>
+            </div>
+          </div>
+
+          <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #1F8A4C; flex-shrink: 0;"></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600;">monimo-detector</span>
+              <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">READY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">PostgreSQL</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 500; color: #5E6875;">파드 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2</span></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">확인 15:00:28</span>
+            </div>
+          </div>
+
+          <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #EBD5AC; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #B2680A; flex-shrink: 0;"></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600;">monimo-notifier</span>
+              <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #7A4806; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">NOT_READY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">PostgreSQL</span>
+              <span style="font-size: 11px; font-weight: 600; color: #7A4806; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">알림 실패 2건</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #F3E6CC;">
+              <span style="font-size: 12px; font-weight: 500; color: #5E6875;">파드 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2</span></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">확인 15:00:26</span>
+            </div>
+          </div>
+
+          <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 999px; background: #1F8A4C; flex-shrink: 0;"></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600;">monimo-watchdog</span>
+              <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">READY</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; color: #3E4753; background: #EEF1F5; border-radius: 999px; padding: 2px 8px;">외부 웹훅 도달</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 500; color: #5E6875;">파드 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">1</span></span>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">확인 15:00:30</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ④ 하단: 카나리 이벤트 · 파수꾼 자신 -->
+      <div style="flex: 1; min-height: 0; display: flex; flex-direction: row; gap: 16px;">
+
+        <section style="flex: 1.6; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">최근 카나리 이벤트</h2>
+            <span style="font-size: 12px; font-weight: 500; color: #5E6875;">최근 1시간 · 6건</span>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+            <thead>
+              <tr style="background: #EEF1F5;">
+                <th style="text-align: left; font-size: 12px; font-weight: 600; color: #5E6875; padding: 9px 10px; width: 84px; border-radius: 6px 0 0 6px;">시각</th>
+                <th style="text-align: left; font-size: 12px; font-weight: 600; color: #5E6875; padding: 9px 10px; width: 100px;">종류</th>
+                <th style="text-align: right; font-size: 12px; font-weight: 600; color: #5E6875; padding: 9px 10px; width: 66px;">age_sec</th>
+                <th style="text-align: right; font-size: 12px; font-weight: 600; color: #5E6875; padding: 9px 10px; width: 88px;">threshold_sec</th>
+                <th style="text-align: left; font-size: 12px; font-weight: 600; color: #5E6875; padding: 9px 10px; border-radius: 0 6px 6px 0;">조치</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="height: 40px;">
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #3E4753;">15:00:30</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6;"><span style="font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">FRESH</span></td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px;">12</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">60</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-size: 13px; color: #5E6875;">—</td>
+              </tr>
+              <tr style="height: 40px;">
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #3E4753;">14:59:00</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6;"><span style="font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">FRESH</span></td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px;">9</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">60</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-size: 13px; color: #5E6875;">—</td>
+              </tr>
+              <tr style="height: 40px;">
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #3E4753;">14:57:30</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6;"><span style="font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">FRESH</span></td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px;">14</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">60</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-size: 13px; color: #5E6875;">—</td>
+              </tr>
+              <tr style="height: 40px; background: #FDF7EC;">
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #3E4753;">14:54:30</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6;"><span style="font-size: 12px; font-weight: 600; color: #7A4806; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">STALE</span></td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #B2680A;">74</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">60</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6;"><div style="display: flex; flex-direction: column; gap: 1px; line-height: 1.3;"><span style="font-size: 13px; color: #3E4753;">Slack 직접 발송 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px;">14:54:47</span></span><span style="font-size: 12px; font-weight: 500; color: #5E6875;">탐지 후 17초</span></div></td>
+              </tr>
+              <tr style="height: 40px; background: #FDF7EC;">
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #3E4753;">14:53:00</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6;"><span style="font-size: 12px; font-weight: 600; color: #7A4806; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">DMS_MISSED</span></td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">—</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">60</td>
+                <td style="padding: 0 10px; border-bottom: 1px solid #D9DEE6; font-size: 13px; color: #3E4753;">Healthchecks.io 핑 미수신 1회</td>
+              </tr>
+              <tr style="height: 40px;">
+                <td style="padding: 0 10px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #3E4753;">14:51:30</td>
+                <td style="padding: 0 10px;"><span style="font-size: 12px; font-weight: 600; color: #13673A; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">FRESH</span></td>
+                <td style="padding: 0 10px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px;">11</td>
+                <td style="padding: 0 10px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #5E6875;">60</td>
+                <td style="padding: 0 10px; font-size: 13px; color: #5E6875;">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section style="flex: 1; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">파수꾼 자신</h2>
+            <span style="font-size: 12px; font-weight: 600; color: #7A4806; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">스택 외부</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 600; color: #5E6875;">실행 위치</span>
+              <span style="text-align: right; font-size: 13px; color: #151A22;">AWS Lambda — 감시 대상 클러스터 바깥에서 돈다</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 600; color: #5E6875;">주기</span>
+              <span style="text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">30초</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #EEF1F5;">
+              <span style="font-size: 12px; font-weight: 600; color: #5E6875;">알림 경로</span>
+              <span style="text-align: right; font-size: 13px; color: #151A22;">Slack 직접 발송 — 우리 알림 서비스를 거치지 않는다</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+              <span style="font-size: 12px; font-weight: 600; color: #5E6875;">Dead Man's Switch</span>
+              <span style="text-align: right; font-size: 13px; color: #151A22;">Healthchecks.io — 파수꾼이 죽으면 외부가 알린다</span>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid #D9DEE6; border-radius: 8px; background: #EEF1F5;">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5E6875" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v3.6M8 5.2v.4"></path></svg>
+            <span style="font-size: 12px; font-weight: 500; line-height: 1.5; color: #3E4753;">Dead Man's Switch 업체 선택은 구현 시 재검토 대상. 자체 호스팅으로 바꾸면 "외부가 우리를 본다"는 성질이 사라진다.</span>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props='{"accent":{"editor":"color","default":"#3452D6"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#3452D6' };
+  }
+}
+</script>
+</body>
+</html>

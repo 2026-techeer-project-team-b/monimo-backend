@@ -1,0 +1,181 @@
+{
+ "v": 3,
+ "createdOnFiles": {
+  "v": 1,
+  "at": "2026-09-21T02:39:27Z"
+ },
+ "title": "모니모니터링 웹 디자인 v2",
+ "launch": {
+  "view": "canvas"
+ },
+ "pages": [],
+ "boards": {
+  "Login.dc.html": {
+   "x": 0,
+   "y": 300,
+   "w": 1440,
+   "h": 960,
+   "title": "S00 로그인"
+  },
+  "ServerMap.dc.html": {
+   "x": 1520,
+   "y": 300,
+   "w": 1440,
+   "h": 960,
+   "title": "S01 서버맵"
+  },
+  "TraceDetail.dc.html": {
+   "x": 3040,
+   "y": 300,
+   "w": 1440,
+   "h": 1160,
+   "title": "S03 트레이스 상세(콜스택)"
+  },
+  "Transactions.dc.html": {
+   "x": 0,
+   "y": 1760,
+   "w": 1440,
+   "h": 1100,
+   "title": "S02 트랜잭션 (드래그 선택)"
+  },
+  "UrlStats.dc.html": {
+   "x": 1520,
+   "y": 1760,
+   "w": 1440,
+   "h": 1100,
+   "title": "S02b URL 통계 탭"
+  },
+  "Errors.dc.html": {
+   "x": 3040,
+   "y": 1760,
+   "w": 1440,
+   "h": 1100,
+   "title": "S06 에러 분석"
+  },
+  "Logs.dc.html": {
+   "x": 4560,
+   "y": 1760,
+   "w": 1440,
+   "h": 960,
+   "title": "S07 로그 검색"
+  },
+  "Inspector.dc.html": {
+   "x": 0,
+   "y": 3220,
+   "w": 1440,
+   "h": 1184,
+   "title": "S04 인스펙터"
+  },
+  "InspectorDumpModal.dc.html": {
+   "x": 1520,
+   "y": 3220,
+   "w": 1440,
+   "h": 1184,
+   "title": "S04b 스레드 덤프 요청 모달"
+  },
+  "ThreadDump.dc.html": {
+   "x": 3040,
+   "y": 3220,
+   "w": 1440,
+   "h": 1100,
+   "title": "S05 스레드 덤프"
+  },
+  "Alerts.dc.html": {
+   "x": 0,
+   "y": 4680,
+   "w": 1440,
+   "h": 1040,
+   "title": "S08 경보 이벤트 + 상세 드로어"
+  },
+  "AlertRules.dc.html": {
+   "x": 1520,
+   "y": 4680,
+   "w": 1440,
+   "h": 1040,
+   "title": "S08b 경보 규칙 + 편집 모달"
+  },
+  "AlertChannels.dc.html": {
+   "x": 3040,
+   "y": 4680,
+   "w": 1440,
+   "h": 1040,
+   "title": "S08c 알림 채널 + 편집 모달"
+  },
+  "Settings.dc.html": {
+   "x": 0,
+   "y": 6140,
+   "w": 1440,
+   "h": 1100,
+   "title": "S09 설정 (서비스·샘플링률·계정)"
+  },
+  "Watchdog.dc.html": {
+   "x": 1520,
+   "y": 6140,
+   "w": 1440,
+   "h": 1100,
+   "title": "S10 플랫폼 상태 (파수꾼)"
+  }
+ },
+ "order": [
+  "Login.dc.html",
+  "ServerMap.dc.html",
+  "TraceDetail.dc.html",
+  "Transactions.dc.html",
+  "UrlStats.dc.html",
+  "Errors.dc.html",
+  "Logs.dc.html",
+  "Inspector.dc.html",
+  "InspectorDumpModal.dc.html",
+  "ThreadDump.dc.html",
+  "Alerts.dc.html",
+  "AlertRules.dc.html",
+  "AlertChannels.dc.html",
+  "Settings.dc.html",
+  "Watchdog.dc.html"
+ ],
+ "notes": {
+  "row0": {
+   "x": 0,
+   "y": 50,
+   "text": "① 로그인 · 서버맵 · 트레이스 콜스택 — 핵심기능 1 (Agent·트레이스 추적)",
+   "kind": "title1",
+   "maxW": 4480
+  },
+  "row1": {
+   "x": 0,
+   "y": 1510,
+   "text": "④ 트랜잭션 스캐터·히트맵 — 핵심기능 4 / 에러 분석 · 로그 검색",
+   "kind": "title1",
+   "maxW": 6000
+  },
+  "row2": {
+   "x": 0,
+   "y": 2970,
+   "text": "③ 인스펙터 · 스레드 덤프 — 핵심기능 3 (시스템 메트릭)",
+   "kind": "title1",
+   "maxW": 4480
+  },
+  "row3": {
+   "x": 0,
+   "y": 4430,
+   "text": "② 경보 — 핵심기능 2 (알람): 이벤트 · 규칙 · 채널",
+   "kind": "title1",
+   "maxW": 4480
+  },
+  "row4": {
+   "x": 0,
+   "y": 5890,
+   "text": "⑤ 설정 — 핵심기능 5 (config UI) / + 파수꾼 플랫폼 상태",
+   "kind": "title1",
+   "maxW": 2960
+  },
+  "brief": {
+   "x": 4640,
+   "y": 50,
+   "w": 880,
+   "text": "모니모니터링 웹 디자인 v2 (2026-09-21)\n- 입력: 모니모니터링 스킬 · Notion ERD(PG 9+CH 11) · 기능명세 FN-1~61 · API 명세 v3 REST 50행\n- 화면 13개 + 상태 변형 2개. 핵심기능 5 + 파수꾼 전부 포함\n- API 50행 → 화면·UI 요소·트리거 매핑표는 별도 문서(api-map.md)\n- 내부 문 5건(#2 #4 #40 #49 #50)은 화면이 직접 호출하지 않고 결과만 노출\n- 룩: Ops console · 쿨 뉴트럴 라이트 · IBM Plex Sans KR + Plex Mono · 악센트 인디고 1개 + 상태색 3",
+   "color": "blue"
+  }
+ },
+ "designSystems": []
+}

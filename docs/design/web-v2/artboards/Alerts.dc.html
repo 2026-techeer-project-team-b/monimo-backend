@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>경보 이벤트</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#151A22;background:#F3F5F8}
+a{color:#3452D6;text-decoration:none}a:hover{color:#22389A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1040px; box-sizing: border-box; display: flex; position: relative; overflow: hidden; background: #F3F5F8; font-size: 13px; line-height: 1.45;">
+
+  <!-- ===== 사이드바 ===== -->
+  <nav aria-label="주 메뉴" style="width: 224px; flex-shrink: 0; background: #151A22; color: #C9D1DC; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 12px 16px;">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 12px 20px;">
+      <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 16px; font-weight: 600; color: #FFFFFF; letter-spacing: .04em;">MONIMO</div>
+      <div style="font-size: 11px; color: #8B96A5;">Pinpoint형 APM · 자기 감시</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <a href="ServerMap.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"></circle><circle cx="12" cy="4" r="2"></circle><circle cx="8" cy="12" r="2"></circle><path d="M5.5 5.5 7 10M10.5 5.5 9 10M6 4h4"></path></svg>
+        <span>서버맵</span>
+      </a>
+      <a href="Transactions.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M2 13V3"></path><circle cx="5" cy="9" r="1"></circle><circle cx="8" cy="6" r="1"></circle><circle cx="11" cy="10" r="1"></circle><circle cx="12" cy="5" r="1"></circle></svg>
+        <span>트랜잭션</span>
+      </a>
+      <a href="Inspector.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"></rect><path d="M5 10 7 7l2 2 2-4"></path></svg>
+        <span>인스펙터</span>
+      </a>
+      <a href="Errors.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 1.8 13h12.4L8 2Z"></path><path d="M8 6.5v3M8 11.5v.5"></path></svg>
+        <span>에러</span>
+      </a>
+      <a href="Logs.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M3 8h10M3 12h6"></path></svg>
+        <span>로그</span>
+      </a>
+      <a href="Alerts.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 600; box-shadow: inset 3px 0 0 #7B8FF0;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1H3l1-1ZM6.5 13.5a1.5 1.5 0 0 0 3 0"></path></svg>
+        <span>경보</span>
+        <span style="margin-left: auto; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #FFFFFF; background: #C8362F; border-radius: 999px; padding: 1px 7px;">3</span>
+      </a>
+      <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>
+        <span>설정</span>
+      </a>
+      <a href="Watchdog.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5 13 3.5v4c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5v-4L8 1.5Z"></path><path d="M5.5 8l1.8 1.8L10.5 6"></path></svg>
+        <span>플랫폼 상태</span>
+      </a>
+    </div>
+    <a href="Watchdog.dc.html" style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; text-decoration: none; color: inherit;">
+      <div style="font-size: 11px; font-weight: 600; color: #8B96A5; letter-spacing: .02em;">파수꾼 · 카나리</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 8px; height: 8px; border-radius: 999px; background: #34C46A; flex-shrink: 0;"></span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #FFFFFF;">12초 전</span>
+        <span style="font-size: 12px; color: #C9D1DC;">정상 (기준 60초)</span>
+      </div>
+    </a>
+  </nav>
+
+  <!-- ===== 우측 영역 ===== -->
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+    <!-- 상단바 -->
+    <header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #D9DEE6; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-sizing: border-box;">
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600; line-height: 1.2;">경보</h1>
+        <div style="font-size: 12px; color: #5E6875;">발화 중인 경보와 해소 이력 · 알림이 실제로 닿았는지까지</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label for="svc" style="font-size: 12px; color: #5E6875;">서비스</label>
+        <select id="svc" style="height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22; min-width: 160px;">
+          <option selected="selected">전체</option><option>shop-order</option><option>shop-gateway</option><option>shop-payment</option><option>shop-inventory</option><option>shop-user</option>
+        </select>
+        <div role="group" aria-label="시간 범위" style="display: flex; border: 1px solid #B8C0CC; border-radius: 6px; overflow: hidden; height: 36px;">
+          <button style="height: 36px; padding: 0 12px; border: 0; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">5m</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">15m</button>
+          <button aria-pressed="true" style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #E4E9FB; font: inherit; font-size: 13px; font-weight: 600; color: #22389A; cursor: pointer;">1h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">6h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">24h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">사용자 지정</button>
+        </div>
+        <button style="height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.5-3.6"></path><path d="M13 2v3h-3"></path></svg>
+          <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px;">30s</span>
+        </button>
+        <button aria-label="사용자 메뉴" style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 6px; border: 1px solid #D9DEE6; border-radius: 999px; background: #FFFFFF; font: inherit; cursor: pointer;">
+          <span style="width: 26px; height: 26px; border-radius: 999px; background: #E4E9FB; color: #22389A; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;">김</span>
+          <span style="font-size: 13px; color: #151A22;">김승조</span>
+          <span style="font-size: 11px; font-weight: 600; color: #22389A; background: #E4E9FB; border-radius: 999px; padding: 1px 7px;">ADMIN</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 본문 -->
+    <main style="flex: 1; min-height: 0; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; border-bottom:1px solid #D9DEE6; flex-shrink:0;">
+        <div role="group" aria-label="경보 하위 화면" style="display:flex; gap:24px;">
+          <a href="Alerts.dc.html" aria-current="page" style="display:flex; align-items:center; height:40px; font-size:13px; font-weight:600; color:#22389A; box-shadow:inset 0 -2px 0 {{accent}};">경보 이벤트</a>
+          <a href="AlertRules.dc.html" style="display:flex; align-items:center; height:40px; font-size:13px; font-weight:500; color:#5E6875;">규칙</a>
+          <a href="AlertChannels.dc.html" style="display:flex; align-items:center; height:40px; font-size:13px; font-weight:500; color:#5E6875;">채널</a>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; padding-bottom:9px;"><span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">자동 새로고침 30초 · 마지막 갱신</span><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">14:59:52</span></div>
+      </div>
+
+      <!-- 요약 카드 3개 -->
+      <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; flex-shrink:0;">
+        <div style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); padding:16px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; box-sizing:border-box;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">발화 중</div>
+            <div style="display:flex; align-items:baseline; gap:6px;">
+              <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:28px; font-weight:600; color:#C8362F;">3</span>
+              <span style="font-size:13px; color:#3E4753;">건</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F; margin-left:4px;">FIRING</span>
+            </div>
+            <div style="font-size:12px; color:#5E6875;">가장 오래된 발화 19분 전 · CRITICAL 2 · WARNING 1</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+            <svg width="150" height="42" viewBox="0 0 150 42" role="img" aria-label="최근 24시간 추이"><line x1="0" y1="36" x2="150" y2="36" stroke="#E6EAF0" stroke-width="1"></line><line x1="0" y1="20" x2="150" y2="20" stroke="#E6EAF0" stroke-width="1" stroke-dasharray="2 3"></line><polyline points="0,34 19,32 38,27 56,29 75,21 94,23 113,14 131,9 150,7" fill="none" stroke="#C8362F" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="150" cy="7" r="2.5" fill="#C8362F"></circle></svg>
+            <div style="display:flex; justify-content:space-between; width:150px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;"><span>어제 14:00</span><span>지금</span></div>
+          </div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); padding:16px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; box-sizing:border-box;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">최근 24h 해소</div>
+            <div style="display:flex; align-items:baseline; gap:6px;">
+              <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:28px; font-weight:600; color:#1F8A4C;">12</span>
+              <span style="font-size:13px; color:#3E4753;">건</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C; margin-left:4px;">RESOLVED</span>
+            </div>
+            <div style="font-size:12px; color:#5E6875;">평균 해소 시간 13분 · 최장 41분</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+            <svg width="150" height="42" viewBox="0 0 150 42" role="img" aria-label="최근 24시간 추이"><line x1="0" y1="36" x2="150" y2="36" stroke="#E6EAF0" stroke-width="1"></line><line x1="0" y1="20" x2="150" y2="20" stroke="#E6EAF0" stroke-width="1" stroke-dasharray="2 3"></line><polyline points="0,12 19,16 38,13 56,22 75,17 94,26 113,21 131,29 150,27" fill="none" stroke="#1F8A4C" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="150" cy="27" r="2.5" fill="#1F8A4C"></circle></svg>
+            <div style="display:flex; justify-content:space-between; width:150px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;"><span>어제 14:00</span><span>지금</span></div>
+          </div>
+        </div>
+        <div style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); padding:16px 20px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; box-sizing:border-box;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">p95 알림 지연</div>
+            <div style="display:flex; align-items:baseline; gap:6px;">
+              <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:28px; font-weight:600; color:#151A22;">41</span>
+              <span style="font-size:13px; color:#3E4753;">초</span>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C; margin-left:4px;">목표 내</span>
+            </div>
+            <div style="font-size:12px; color:#5E6875;">발화→발송, 목표 60초</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+            <svg width="150" height="42" viewBox="0 0 150 42" role="img" aria-label="최근 24시간 추이"><line x1="0" y1="36" x2="150" y2="36" stroke="#E6EAF0" stroke-width="1"></line><line x1="0" y1="20" x2="150" y2="20" stroke="#E6EAF0" stroke-width="1" stroke-dasharray="2 3"></line><polyline points="0,20 19,17 38,23 56,19 75,25 94,15 113,19 131,13 150,17" fill="none" stroke="{{accent}}" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></polyline><circle cx="150" cy="17" r="2.5" fill="{{accent}}"></circle></svg>
+            <div style="display:flex; justify-content:space-between; width:150px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;"><span>어제 14:00</span><span>지금</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 필터 바 -->
+      <div style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); padding:12px 16px; display:flex; align-items:flex-end; gap:20px; flex-shrink:0; box-sizing:border-box;">
+        <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+          <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">state</span>
+          <div role="group" aria-label="상태 필터" style="display:flex; border:1px solid #B8C0CC; border-radius:6px; overflow:hidden; height:36px;">
+            <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer;">FIRING</button>
+            <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; border-left:1px solid #D9DEE6;">RESOLVED</button>
+            <button aria-pressed="true" style="height:36px; padding:0 12px; border:0; background:#E4E9FB; font:inherit; font-size:13px; font-weight:600; color:#22389A; cursor:pointer; border-left:1px solid #D9DEE6;">전체</button>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+          <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">severity</span>
+          <div role="group" aria-label="심각도 필터" style="display:flex; gap:8px; height:36px; align-items:center;">
+            <button style="height:30px; padding:0 10px; border:1px solid #D9DEE6; border-radius:999px; background:#FFFFFF; font:inherit; font-size:12px; font-weight:600; color:#3E4753; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><span style="width:6px; height:6px; border-radius:999px; background:#C8362F;"></span>CRITICAL</button>
+            <button style="height:30px; padding:0 10px; border:1px solid #D9DEE6; border-radius:999px; background:#FFFFFF; font:inherit; font-size:12px; font-weight:600; color:#3E4753; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><span style="width:6px; height:6px; border-radius:999px; background:#B2680A;"></span>WARNING</button>
+            <button style="height:30px; padding:0 10px; border:1px solid #D9DEE6; border-radius:999px; background:#FFFFFF; font:inherit; font-size:12px; font-weight:600; color:#3E4753; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><span style="width:6px; height:6px; border-radius:999px; background:#6B7684;"></span>INFO</button>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="f-svc" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">service_name</label>
+          <select id="f-svc" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:160px;">
+            <option selected="selected">전체</option><option>shop-gateway</option><option>shop-order</option><option>shop-payment</option><option>shop-inventory</option><option>shop-user</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="f-from" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">from</label>
+          <input id="f-from" type="text" value="2026-09-21 09:00" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:132px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px;">
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="f-to" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">to</label>
+          <input id="f-to" type="text" value="2026-09-21 15:00" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:132px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px;">
+        </div>
+        <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer; margin-left:auto; flex-shrink:0;">필터 초기화</button>
+      </div>
+
+      <!-- 이벤트 표 -->
+      <section style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); flex:1; min-height:0; display:flex; flex-direction:column; box-sizing:border-box; overflow:hidden;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 16px 12px;">
+          <div style="display:flex; align-items:baseline; gap:10px;">
+            <h2 style="margin:0; font-size:15px; font-weight:600;">경보 이벤트</h2>
+            <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#5E6875;">GET /alert-events</span>
+          </div>
+          <span style="font-size:12px; color:#5E6875;">8건 표시 · 행을 누르면 상세 드로어가 열린다</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup>
+            <col style="width:100px;"><col style="width:96px;"><col style="width:128px;"><col style="width:112px;"><col style="width:168px;"><col style="width:254px;"><col style="width:180px;"><col style="width:128px;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">state</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">severity</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">service_name</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; text-align:right;">observed_value</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">fired_at</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">rule_name</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">agent_key</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6;">resolved_at</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background:#E4E9FB;">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;"><span style="width:6px; height:6px; border-radius:999px; background:#C8362F;"></span>FIRING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB;">shop-payment</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#C8362F;">4.2 %</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 14:48:30</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-payment 5xx 비율 초과</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; background:#E4E9FB; font-size:12px;"><span style="color:#C8362F; font-weight:500;">진행 중 · 12분</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;"><span style="width:6px; height:6px; border-radius:999px; background:#C8362F;"></span>FIRING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-order</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#C8362F;">1,240 ms</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 14:44:10</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-order p95 지연 초과</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="color:#C8362F; font-weight:500;">진행 중 · 16분</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;"><span style="width:6px; height:6px; border-radius:999px; background:#C8362F;"></span>FIRING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FBEFD9; color:#B2680A;">WARNING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-inventory</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#C8362F;">91.3 %</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 14:41:44</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-inventory 힙 사용률 경고</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-inventory-6b2c1-h7m4p</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="color:#C8362F; font-weight:500;">진행 중 · 19분</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;"><span style="width:6px; height:6px; border-radius:999px; background:#1F8A4C;"></span>RESOLVED</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-gateway</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#151A22;">92 초</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 13:41:02</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-gateway 에이전트 끊김</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-gateway-5a1e8-q4w2r</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 13:49:55</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;"><span style="width:6px; height:6px; border-radius:999px; background:#1F8A4C;"></span>RESOLVED</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FBEFD9; color:#B2680A;">WARNING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-user</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#151A22;">88.6 %</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 13:22:18</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-user CPU 사용률 경고</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-user-3c7b9-m1n5v</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 13:35:40</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;"><span style="width:6px; height:6px; border-radius:999px; background:#1F8A4C;"></span>RESOLVED</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FBEFD9; color:#B2680A;">WARNING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-order</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#151A22;">1,310 ms</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 12:54:06</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-order GC 시간 초과</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-order-7d9f4-x2k8q</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 13:02:31</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;"><span style="width:6px; height:6px; border-radius:999px; background:#1F8A4C;"></span>RESOLVED</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753;">INFO</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-user</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#151A22;">6.8 %</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 11:47:52</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-user 4xx 비율 증가</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 12:05:19</span></td>
+            </tr>
+            <tr style="">
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;"><span style="width:6px; height:6px; border-radius:999px; background:#1F8A4C;"></span>RESOLVED</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle;">shop-payment</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; font-weight:500; text-align:right; color:#151A22;">2.6 %</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 09:12:40</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><a href="Alerts.dc.html" style="color:#151A22; font-weight:500;">shop-payment 5xx 비율 초과</a></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; font-size:12px;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 09:38:04</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:auto; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid #D9DEE6; background:#FFFFFF;">
+          <span style="font-size:12px; color:#5E6875;">agent_key가 <span style="font-family:'IBM Plex Mono', Menlo, monospace;">—</span> 인 행은 서비스 단위 규칙(5xx 비율·p95 지연)이라 파드가 붙지 않는다.</span>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">cursor evt_01J8F2…QM3</span>
+            <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer;">이전</button>
+            <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer;">다음</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== 우측 드로어: 경보 이벤트 상세 (GET /alert-events/{alertEventUuid}) ===== -->
+  <aside aria-label="경보 이벤트 상세" style="position:absolute; top:56px; right:0; bottom:0; width:480px; box-sizing:border-box; background:#FFFFFF; border-left:1px solid #D9DEE6; box-shadow:0 12px 32px rgba(20,26,34,.18); display:flex; flex-direction:column;">
+    <div style="padding:18px 20px 14px; border-bottom:1px solid #D9DEE6; display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <h2 style="margin:0; font-size:15px; font-weight:600; line-height:1.3;">shop-payment 5xx 비율 초과</h2>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;"><span style="width:6px; height:6px; border-radius:999px; background:#C8362F;"></span>FIRING</span>
+            <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span>
+            <span style="font-size:12px; color:#5E6875;">12분째 진행 중</span>
+          </div>
+          <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">alert_rule_uuid c71d…8b04</span>
+        </div>
+        <button aria-label="드로어 닫기" style="width:32px; height:32px; flex-shrink:0; border:1px solid #D9DEE6; border-radius:6px; background:#FFFFFF; color:#3E4753; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <div style="flex:1; min-height:0; padding:16px 20px 20px; display:flex; flex-direction:column; gap:18px; box-sizing:border-box;">
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        <colgroup><col style="width:132px;"><col style="width:308px;"></colgroup>
+        <tbody>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">alert_event_uuid</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">7c41…b8d3</span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">service_name</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;">shop-payment</td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">agent_key</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="color:#5E6875;">— <span style="font-size:12px;">(서비스 단위 규칙)</span></span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">metric_kind</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">5XX_RATE</span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">조건</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">operator GT · threshold 1.0 % · window_sec 300</span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">observed_value</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:14px; font-weight:600; color:#C8362F;">4.2 %</span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">fingerprint</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">9af0…21c7</span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">fired_at</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 14:48:30</span></td>
+          </tr>
+          <tr>
+            <th scope="row" style="height:40px; padding:0 8px 0 0; text-align:left; font-size:12px; font-weight:500; color:#5E6875; border-bottom:1px solid #EEF1F5; vertical-align:middle; white-space:nowrap;">resolved_at</th>
+            <td style="height:40px; padding:0; font-size:13px; color:#151A22; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="color:#5E6875;">—</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display:flex; align-items:center; gap:16px;">
+        <a href="AlertRules.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M3 8h10M3 12h6"></path></svg>
+          <span>규칙 보기</span>
+        </a>
+        <span style="color:#D9DEE6;">·</span>
+        <a href="ServerMap.dc.html" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"></circle><circle cx="12" cy="4" r="2"></circle><circle cx="8" cy="12" r="2"></circle><path d="M5.5 5.5 7 10M10.5 5.5 9 10M6 4h4"></path></svg>
+          <span>서버맵에서 보기</span>
+        </a>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between;">
+          <h3 style="margin:0; font-size:15px; font-weight:600;">알림 발송 이력</h3>
+          <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">GET /alert-events/{uuid}/notifications</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup><col style="width:150px;"><col style="width:92px;"><col style="width:80px;"><col style="width:44px;"><col style="width:74px;"></colgroup>
+          <thead>
+            <tr>
+              <th scope="col" style="height:32px; padding:0 8px 0 0; background:#EEF1F5; font-size:11px; font-weight:600; color:#5E6875; text-align:left; border-top:1px solid #D9DEE6; border-bottom:1px solid #D9DEE6;">channel_name · response</th>
+              <th scope="col" style="height:32px; padding:0 8px 0 0; background:#EEF1F5; font-size:11px; font-weight:600; color:#5E6875; text-align:left; border-top:1px solid #D9DEE6; border-bottom:1px solid #D9DEE6;">type</th>
+              <th scope="col" style="height:32px; padding:0 8px 0 0; background:#EEF1F5; font-size:11px; font-weight:600; color:#5E6875; text-align:left; border-top:1px solid #D9DEE6; border-bottom:1px solid #D9DEE6;">result</th>
+              <th scope="col" style="height:32px; padding:0 8px 0 0; background:#EEF1F5; font-size:11px; font-weight:600; color:#5E6875; text-align:right; border-top:1px solid #D9DEE6; border-bottom:1px solid #D9DEE6;">재시도</th>
+              <th scope="col" style="height:32px; padding:0; background:#EEF1F5; font-size:11px; font-weight:600; color:#5E6875; text-align:right; border-top:1px solid #D9DEE6; border-bottom:1px solid #D9DEE6;">sent_at</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size:12px; font-weight:500; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">#ops-alerts</span>
+                  <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ok</span>
+                </div>
+              </td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">SLACK</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;">SUCCESS</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">0</span></td>
+              <td style="height:52px; padding:0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#3E4753;">14:48:31</span></td>
+            </tr>
+            <tr>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size:12px; font-weight:500; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">oncall@monimo.io</span>
+                  <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">250 2.0.0 OK</span>
+                </div>
+              </td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">EMAIL</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;">SUCCESS</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">0</span></td>
+              <td style="height:52px; padding:0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#3E4753;">14:48:32</span></td>
+            </tr>
+            <tr>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size:12px; font-weight:500; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">PagerDuty prod</span>
+                  <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#C8362F; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">429 rate_limited</span>
+                </div>
+              </td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">PAGERDUTY</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">FAIL</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2</span></td>
+              <td style="height:52px; padding:0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#3E4753;">14:48:36</span></td>
+            </tr>
+            <tr>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;">
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span style="font-size:12px; font-weight:500; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Webhook n8n</span>
+                  <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">200 accepted</span>
+                </div>
+              </td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">WEBHOOK</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#DDF3E6; color:#1F8A4C;">SUCCESS</span></td>
+              <td style="height:52px; padding:0 8px 0 0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">1</span></td>
+              <td style="height:52px; padding:0; border-bottom:1px solid #EEF1F5; vertical-align:middle; text-align:right;"><span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#3E4753;">14:48:41</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:#EEF1F5; border-radius:6px;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5E6875" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 5.2v.6"></path></svg>
+          <span style="font-size:12px; color:#3E4753;">observed_value는 탐지가 <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px;">GET /internal/service-health</span>(#2)로 계산한 값이다.</span>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props='{"accent":{"editor":"color","default":"#3452D6"},"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#3452D6' };
+  }
+}
+</script>
+</body>
+</html>

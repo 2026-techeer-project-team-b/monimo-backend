@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>로그인</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#151A22;background:#F3F5F8}
+a{color:#3452D6;text-decoration:none}a:hover{color:#22389A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 960px; box-sizing: border-box; display: flex; position: relative; overflow: hidden; background: #F3F5F8; font-size: 13px; line-height: 1.45;">
+
+  <!-- ===== 좌측 다크 패널 ===== -->
+  <section aria-label="서비스 소개" style="width: 720px; flex-shrink: 0; box-sizing: border-box; background: #151A22; color: #C9D1DC; padding: 72px 56px; display: flex; flex-direction: column; justify-content: space-between; gap: 0;">
+
+    <div style="display: flex; flex-direction: column; gap: 18px;">
+      <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 40px; font-weight: 600; color: #FFFFFF; letter-spacing: .04em; line-height: 1;">MONIMO</div>
+      <p style="margin: 0; max-width: 560px; font-size: 15px; line-height: 1.7; color: #C9D1DC;">쿠버네티스 위 MSA를 비침습 수집하고, 그 감시 체계까지 스스로 감시하는 Pinpoint형 APM</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div style="font-size: 11px; font-weight: 600; color: #8B96A5; letter-spacing: .02em;">수집 파이프라인</div>
+      <svg width="604" height="104" viewBox="0 0 604 104" fill="none" role="img" aria-label="에이전트에서 수집기, Kafka, 적재 처리기, ClickHouse를 거쳐 API 서버로 흐르는 수집 파이프라인">
+        <defs>
+          <marker id="loginArrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <path d="M0 0.8 L6 3.5 L0 6.2 Z" fill="#6E7A8A"></path>
+          </marker>
+        </defs>
+
+        <rect x="0.5" y="24.5" width="84" height="44" rx="7" fill="#1E2531" stroke="#39424F"></rect>
+        <text x="42" y="51" text-anchor="middle" font-size="12" font-weight="500" fill="#FFFFFF">에이전트</text>
+        <text x="42" y="84" text-anchor="middle" font-size="10" fill="#6E7A8A" font-family="'IBM Plex Mono', Menlo, monospace">OTel Java</text>
+        <path d="M88 46.5 H100" stroke="#6E7A8A" stroke-width="1.4" marker-end="url(#loginArrow)"></path>
+
+        <rect x="104.5" y="24.5" width="84" height="44" rx="7" fill="#1E2531" stroke="#39424F"></rect>
+        <text x="146" y="51" text-anchor="middle" font-size="12" font-weight="500" fill="#FFFFFF">수집기</text>
+        <text x="146" y="84" text-anchor="middle" font-size="10" fill="#6E7A8A" font-family="'IBM Plex Mono', Menlo, monospace">gRPC 4317</text>
+        <path d="M192 46.5 H204" stroke="#6E7A8A" stroke-width="1.4" marker-end="url(#loginArrow)"></path>
+
+        <rect x="208.5" y="24.5" width="84" height="44" rx="7" fill="#1E2531" stroke="#39424F"></rect>
+        <text x="250" y="51" text-anchor="middle" font-size="12" font-weight="500" fill="#FFFFFF">Kafka</text>
+        <text x="250" y="84" text-anchor="middle" font-size="10" fill="#6E7A8A" font-family="'IBM Plex Mono', Menlo, monospace">raw</text>
+        <path d="M296 46.5 H308" stroke="#6E7A8A" stroke-width="1.4" marker-end="url(#loginArrow)"></path>
+
+        <rect x="312.5" y="24.5" width="84" height="44" rx="7" fill="#1E2531" stroke="#39424F"></rect>
+        <text x="354" y="51" text-anchor="middle" font-size="12" font-weight="500" fill="#FFFFFF">적재 처리기</text>
+        <text x="354" y="84" text-anchor="middle" font-size="10" fill="#6E7A8A" font-family="'IBM Plex Mono', Menlo, monospace">batch 2k</text>
+        <path d="M400 46.5 H412" stroke="#6E7A8A" stroke-width="1.4" marker-end="url(#loginArrow)"></path>
+
+        <rect x="416.5" y="24.5" width="84" height="44" rx="7" fill="#1E2531" stroke="#39424F"></rect>
+        <text x="458" y="51" text-anchor="middle" font-size="12" font-weight="500" fill="#FFFFFF">ClickHouse</text>
+        <text x="458" y="84" text-anchor="middle" font-size="10" fill="#6E7A8A" font-family="'IBM Plex Mono', Menlo, monospace">spans</text>
+        <path d="M504 46.5 H516" stroke="#6E7A8A" stroke-width="1.4" marker-end="url(#loginArrow)"></path>
+
+        <rect x="520.5" y="24.5" width="84" height="44" rx="7" fill="#22314F" stroke="#3E5490"></rect>
+        <text x="562" y="51" text-anchor="middle" font-size="12" font-weight="600" fill="#FFFFFF">API 서버</text>
+        <text x="562" y="84" text-anchor="middle" font-size="10" fill="#8FA3D8" font-family="'IBM Plex Mono', Menlo, monospace">/api/v1</text>
+
+      </svg>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-size: 11px; font-weight: 600; color: #8B96A5; letter-spacing: .02em;">감시 대상 서비스 5</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #C9D1DC; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 5px 12px;">shop-gateway</span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #C9D1DC; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 5px 12px;">shop-order</span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #C9D1DC; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 5px 12px;">shop-payment</span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #C9D1DC; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 5px 12px;">shop-inventory</span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #C9D1DC; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 5px 12px;">shop-user</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; align-self: flex-start; padding: 10px 14px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px;">
+      <span style="width: 8px; height: 8px; border-radius: 999px; background: #34C46A; flex-shrink: 0;"></span>
+      <span style="font-size: 12px; color: #C9D1DC;">파수꾼 카나리</span>
+      <span style="color: #4A5461;">·</span>
+      <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #FFFFFF;">12초 전</span>
+      <span style="color: #4A5461;">·</span>
+      <span style="font-size: 12px; color: #C9D1DC;">정상</span>
+    </div>
+  </section>
+
+  <!-- ===== 우측 로그인 영역 ===== -->
+  <div style="flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 40px; box-sizing: border-box;">
+    <div style="width: 420px; display: flex; flex-direction: column; gap: 12px;">
+
+      <!-- 로그인 카드 -->
+      <div style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06); padding: 28px; display: flex; flex-direction: column; gap: 18px;">
+
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 600; line-height: 1.2;">로그인</h1>
+          <p style="margin: 0; font-size: 12px; font-weight: 500; color: #5E6875;">팀 계정으로 로그인합니다. 역할은 ADMIN / VIEWER</p>
+        </div>
+
+        <form style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="loginEmail" style="font-size: 12px; font-weight: 600; color: #3E4753;">이메일</label>
+            <input id="loginEmail" type="email" value="seungjo@monimo.io" style="box-sizing: border-box; width: 100%; height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22;">
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="loginPassword" style="font-size: 12px; font-weight: 600; color: #3E4753;">비밀번호</label>
+            <input id="loginPassword" type="password" value="monimo2026" style="box-sizing: border-box; width: 100%; height: 36px; border: 1px solid #C8362F; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22;">
+          </div>
+
+          <!-- 401 오류 배너 -->
+          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid #F0C0BC; border-radius: 8px; background: #FADDDB; color: #9C2A24;">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#C8362F" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"></path></svg>
+            <span style="font-size: 12px; font-weight: 500; line-height: 1.5;">이메일 또는 비밀번호가 올바르지 않습니다 <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px;">(401 UNAUTHENTICATED)</span></span>
+          </div>
+
+          <a href="ServerMap.dc.html" style="box-sizing: border-box; width: 100%; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: {{accent}}; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;">로그인</a>
+        </form>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid #EEF1F5;">
+          <span style="font-size: 12px; font-weight: 500; color: #5E6875;">비밀번호를 잊으셨나요?</span>
+          <span style="font-size: 12px; font-weight: 600; color: #3E4753;">관리자에게 문의</span>
+        </div>
+      </div>
+
+      <!-- 카드 아래 캡션 -->
+      <p style="margin: 0; padding: 0 2px; font-size: 12px; font-weight: 500; line-height: 1.6; color: #5E6875;">세션이 만료되면 자동으로 재발급합니다(<span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">POST /auth/refresh</span>). 재발급도 실패하면 이 화면으로 돌아옵니다.</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props='{"accent":{"editor":"color","default":"#3452D6"},"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#3452D6' };
+  }
+}
+</script>
+</body>
+</html>

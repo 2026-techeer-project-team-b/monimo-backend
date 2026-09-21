@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+    a { color: #B5462B; } a:hover { color: #8E3620; }
+  </style>
+</helmet>
+
+<div style="width: 1280px; min-height: 900px; box-sizing: border-box; background: #FAF8F4; color: #1A1815; padding: 48px 52px; display: flex; flex-direction: column; gap: 26px">
+
+  <div style="display: flex; flex-direction: column; gap: 8px; border-bottom: 2px solid #1A1815; padding-bottom: 18px">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.14em; color: #8C877E">MONIMONITORING · 설계 범위</div>
+    <h1 style="margin: 0; font-size: 38px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15">데이터 흐름</h1>
+    <p style="margin: 4px 0 0; font-size: 15px; line-height: 1.6; color: #4A4640; max-width: 860px">회색은 우리가 만들지 않는 것, 청록은 우리가 만드는 본체, 주황은 스택 바깥의 파수꾼이다.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: #1F5F5B; font-weight: 500">01 · 수집</div>
+      <div style="flex-grow: 1; height: 1px; background: #DCD6CB"></div>
+    </div>
+    <div style="display: flex; align-items: stretch; gap: 8px">
+      <div style="width: 158px; background: #F2EFE9; border: 1px solid #DCD6CB; padding: 14px 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #4A4640">쇼핑몰</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #7A756C">주문 · 결제 · 게이트웨이 · 재고</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#B0AAA0" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 158px; background: #F2EFE9; border: 1px dashed #B0AAA0; padding: 14px 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #4A4640">OTel Agent</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #7A756C">기성품. 코드 수정 없이 부착</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 158px; background: #E8F0EF; border: 1px solid #1F5F5B; padding: 14px 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #16403D">Collector</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #2C4B48">수신 · 검증 · 정규화. mTLS 인증</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 158px; background: #DCE9E7; border: 1px solid #1F5F5B; padding: 14px 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #16403D">Kafka · raw</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #2C4B48">수집 속도와 저장 속도를 끊어주는 줄</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 158px; background: #E8F0EF; border: 1px solid #1F5F5B; padding: 14px 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #16403D">Processor</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #2C4B48">1분 집계 + 수천 건씩 묶어 적재</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 158px; background: #16403D; border: 1px solid #16403D; padding: 14px 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #EAF2F1">ClickHouse</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #A9C6C3">신호 3종 저장</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding-left: 340px">
+      <svg width="14" height="26" viewBox="0 0 14 26" fill="none" stroke="#B0AAA0" stroke-width="1.6"><path d="M7 0v20"/><path d="M2.5 15 7 20l4.5-5"/></svg>
+      <div style="font-size: 12.5px; color: #7A756C">적재 실패분</div>
+      <svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#B0AAA0" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg>
+      <div style="background: #F2EFE9; border: 1px solid #DCD6CB; padding: 8px 14px; font-size: 13.5px; font-weight: 600; color: #4A4640">S3 — 보관 후 재처리</div>
+      <div style="font-size: 12.5px; color: #8C877E">"유실 0건"을 지키는 자리</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: #1F5F5B; font-weight: 500">02 · 집계</div>
+      <div style="flex-grow: 1; height: 1px; background: #DCD6CB"></div>
+    </div>
+    <div style="display: flex; align-items: stretch; gap: 8px">
+      <div style="width: 218px; background: #DCE9E7; border: 1px solid #1F5F5B; padding: 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #16403D">Kafka · validated</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #2C4B48">저장이 확정된 것만 발행</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 218px; background: #E8F0EF; border: 1px solid #1F5F5B; padding: 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #16403D">Rollup Worker</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #2C4B48">대시보드가 쓸 집계를 미리 만든다</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 218px; background: #16403D; border: 1px solid #16403D; padding: 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #EAF2F1">ClickHouse 집계 테이블</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #A9C6C3">롤업은 신호의 파생물이라 원본과 같은 곳에 둔다</div>
+      </div>
+      <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding-left: 16px">
+        <div style="font-size: 13px; line-height: 1.6; color: #4A4640; border-left: 3px solid #DCD6CB; padding-left: 14px">갈라두면 조회할 때 원본과 롤업을 합쳐야 한다.</div>
+        <div style="display: flex; align-items: center; gap: 8px; padding-left: 17px">
+          <div style="background: #F2EFE9; border: 1px solid #DCD6CB; padding: 7px 12px; font-size: 13px; font-weight: 600; color: #4A4640">PostgreSQL</div>
+          <div style="font-size: 12.5px; line-height: 1.5; color: #7A756C">경보 규칙 · 알림 이력 · 사용자 설정<br>수정이 잦은 관계형 데이터만</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: #1F5F5B; font-weight: 500">03 · 조회 · 경보(탐지 + 알림)</div>
+      <div style="flex-grow: 1; height: 1px; background: #DCD6CB"></div>
+    </div>
+    <div style="display: flex; align-items: stretch; gap: 8px">
+      <div style="width: 218px; background: #F2EFE9; border: 1px dashed #B0AAA0; padding: 14px; display: flex; align-items: center; justify-content: center">
+        <div style="font-size: 13.5px; text-align: center; line-height: 1.5; color: #7A756C">ClickHouse<br>+ PostgreSQL</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="width: 218px; background: #E8F0EF; border: 1px solid #1F5F5B; padding: 14px; display: flex; flex-direction: column; gap: 5px">
+        <div style="font-size: 15px; font-weight: 600; color: #16403D">Query API</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #2C4B48">저장소가 바뀌어도 화면은 몰라도 되게</div>
+      </div>
+      <div style="display: flex; align-items: center"><svg width="26" height="14" viewBox="0 0 26 14" fill="none" stroke="#1F5F5B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg></div>
+      <div style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1">
+        <div style="background: #E8F0EF; border: 1px solid #1F5F5B; padding: 11px 14px; display: flex; align-items: baseline; gap: 10px">
+          <div style="font-size: 15px; font-weight: 600; color: #16403D">Web UI</div>
+          <div style="font-size: 12.5px; color: #2C4B48">서버맵 · 산점도 · 콜트리 · 로그 검색</div>
+        </div>
+        <div style="background: #FBEDE8; border: 1px solid #E2B7A6; padding: 11px 14px; display: flex; align-items: center; gap: 10px">
+          <div style="font-size: 15px; font-weight: 600; color: #7A2E1B">탐지</div>
+          <div style="font-size: 12.5px; color: #6B3527">규칙 평가 → 발화·해소 판정</div>
+          <svg width="22" height="12" viewBox="0 0 26 14" fill="none" stroke="#B5462B" stroke-width="1.6"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg>
+          <div style="font-size: 15px; font-weight: 600; color: #7A2E1B">알림</div>
+          <div style="font-size: 12.5px; color: #6B3527">Slack · 이메일 · 웹훅</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; color: #B5462B; font-weight: 500">04 · 파수꾼 — 스택 바깥</div>
+      <div style="flex-grow: 1; height: 1px; background: #E2B7A6"></div>
+    </div>
+    <div style="background: #FBEDE8; border: 1px solid #E2B7A6; border-left: 5px solid #B5462B; padding: 20px 24px; display: flex; gap: 26px; align-items: flex-start">
+      <div style="width: 190px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 500; line-height: 1; color: #B5462B">C</div>
+        <div style="font-size: 16px; font-weight: 700; color: #7A2E1B">Watchdog</div>
+        <div style="font-size: 12.5px; line-height: 1.5; color: #A8705C">우리 스택에 하나도 의존하지 않는다</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; flex-grow: 1">
+        <div style="display: flex; gap: 12px; align-items: flex-start">
+          <div style="width: 128px; flex-shrink: 0; font-size: 13.5px; font-weight: 600; color: #7A2E1B">침묵 감시</div>
+          <div style="font-size: 13.5px; line-height: 1.6; color: #6B3527">Collector · Processor 가 주기적으로 핑을 보내고, 끊기면 외부 서비스가 Slack으로 알린다. <strong>Watchdog 자신도 거기 등록</strong>해 "감시자의 감시자" 문제를 종단한다.</div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start; border-top: 1px dashed #E2B7A6; padding-top: 12px">
+          <div style="width: 128px; flex-shrink: 0; font-size: 13.5px; font-weight: 600; color: #7A2E1B">카나리</div>
+          <div style="font-size: 13.5px; line-height: 1.6; color: #6B3527">가짜 주문 하나를 실제로 넣고 <strong>위 01→03 전 구간을 관통해</strong> 조회되는지 확인한다. 화면은 초록불인데 실제로는 적재가 멈춘 상황을 잡는 유일한 방법이다.</div>
+        </div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding-left: 4px">
+      <svg width="24" height="14" viewBox="0 0 26 14" fill="none" stroke="#B5462B" stroke-width="1.6" stroke-dasharray="4 3"><path d="M0 7h22"/><path d="M17 2.5 22 7l-5 4.5"/></svg>
+      <div style="font-size: 12.5px; color: #A8705C">점선 = 실제 데이터 경로가 아니라 <strong>확인</strong> 경로</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

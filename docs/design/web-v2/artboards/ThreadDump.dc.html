@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>스레드 덤프</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#151A22;background:#F3F5F8}
+a{color:#3452D6;text-decoration:none}a:hover{color:#22389A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1100px; box-sizing: border-box; display: flex; position: relative; overflow: hidden; background: #F3F5F8; font-size: 13px; line-height: 1.45;">
+
+  <!-- ===== 사이드바 ===== -->
+  <nav aria-label="주 메뉴" style="width: 224px; flex-shrink: 0; background: #151A22; color: #C9D1DC; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 12px 16px;">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 12px 20px;">
+      <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 16px; font-weight: 600; color: #FFFFFF; letter-spacing: .04em;">MONIMO</div>
+      <div style="font-size: 11px; color: #8B96A5;">Pinpoint형 APM · 자기 감시</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <a href="ServerMap.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"></circle><circle cx="12" cy="4" r="2"></circle><circle cx="8" cy="12" r="2"></circle><path d="M5.5 5.5 7 10M10.5 5.5 9 10M6 4h4"></path></svg>
+        <span>서버맵</span>
+      </a>
+      <a href="Transactions.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M2 13V3"></path><circle cx="5" cy="9" r="1"></circle><circle cx="8" cy="6" r="1"></circle><circle cx="11" cy="10" r="1"></circle><circle cx="12" cy="5" r="1"></circle></svg>
+        <span>트랜잭션</span>
+      </a>
+      <a href="Inspector.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 600; box-shadow: inset 3px 0 0 #7B8FF0;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"></rect><path d="M5 10 7 7l2 2 2-4"></path></svg>
+        <span>인스펙터</span>
+      </a>
+      <a href="Errors.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 1.8 13h12.4L8 2Z"></path><path d="M8 6.5v3M8 11.5v.5"></path></svg>
+        <span>에러</span>
+      </a>
+      <a href="Logs.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M3 8h10M3 12h6"></path></svg>
+        <span>로그</span>
+      </a>
+      <a href="Alerts.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1H3l1-1ZM6.5 13.5a1.5 1.5 0 0 0 3 0"></path></svg>
+        <span>경보</span>
+        <span style="margin-left: auto; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #FFFFFF; background: #C8362F; border-radius: 999px; padding: 1px 7px;">3</span>
+      </a>
+      <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>
+        <span>설정</span>
+      </a>
+      <a href="Watchdog.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5 13 3.5v4c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5v-4L8 1.5Z"></path><path d="M5.5 8l1.8 1.8L10.5 6"></path></svg>
+        <span>플랫폼 상태</span>
+      </a>
+    </div>
+    <a href="Watchdog.dc.html" style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; text-decoration: none; color: inherit;">
+      <div style="font-size: 11px; font-weight: 600; color: #8B96A5; letter-spacing: .02em;">파수꾼 · 카나리</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 8px; height: 8px; border-radius: 999px; background: #34C46A; flex-shrink: 0;"></span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #FFFFFF;">12초 전</span>
+        <span style="font-size: 12px; color: #C9D1DC;">정상 (기준 60초)</span>
+      </div>
+    </a>
+  </nav>
+
+  <!-- ===== 우측 영역 ===== -->
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+    <!-- 상단바 -->
+    <header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #D9DEE6; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-sizing: border-box;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <a href="Inspector.dc.html" style="display: flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px 0 8px; border: 1px solid #D9DEE6; border-radius: 6px; font-size: 13px; font-weight: 600;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 8h-9M7 3.5 2.5 8 7 12.5"></path></svg>
+          <span>인스펙터</span>
+        </a>
+        <div style="display: flex; flex-direction: column; gap: 1px;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 600; line-height: 1.2;">스레드 덤프</h1>
+          <div style="font-size: 12px; color: #5E6875;">TTL 3일 · 그 뒤 S3 cold 90일 (합계 93일)</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label for="svc" style="font-size: 12px; color: #5E6875;">서비스</label>
+        <select id="svc" style="height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22; min-width: 160px;">
+          <option selected="selected">전체</option><option>shop-order</option><option>shop-gateway</option><option>shop-payment</option><option>shop-inventory</option><option>shop-user</option>
+        </select>
+        <div role="group" aria-label="시간 범위" style="display: flex; border: 1px solid #B8C0CC; border-radius: 6px; overflow: hidden; height: 36px;">
+          <button style="height: 36px; padding: 0 12px; border: 0; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">5m</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">15m</button>
+          <button aria-pressed="true" style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #E4E9FB; font: inherit; font-size: 13px; font-weight: 600; color: #22389A; cursor: pointer;">1h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">6h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">24h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">사용자 지정</button>
+        </div>
+        <button style="height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.5-3.6"></path><path d="M13 2v3h-3"></path></svg>
+          <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px;">30s</span>
+        </button>
+        <button aria-label="사용자 메뉴" style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 6px; border: 1px solid #D9DEE6; border-radius: 999px; background: #FFFFFF; font: inherit; cursor: pointer;">
+          <span style="width: 26px; height: 26px; border-radius: 999px; background: #E4E9FB; color: #22389A; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;">김</span>
+          <span style="font-size: 13px; color: #151A22;">김승조</span>
+          <span style="font-size: 11px; font-weight: 600; color: #22389A; background: #E4E9FB; border-radius: 999px; padding: 1px 7px;">ADMIN</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 본문 -->
+    <main style="flex: 1; min-height: 0; padding: 24px; box-sizing: border-box; display: flex; flex-direction: row; gap: 16px;">
+
+      <!-- ===== 좌측: 덤프 목록 (GET /thread-dumps) ===== -->
+      <section aria-label="덤프 목록" style="width: 360px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; padding: 16px; box-sizing: border-box; box-shadow: 0 1px 2px rgba(20,26,34,.06);">
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">덤프 목록</h2>
+            <span style="font-size: 12px; color: #5E6875;">24건 중 7건</span>
+          </div>
+          <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">GET /thread-dumps</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid #D9DEE6;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="f-svc" style="width: 84px; flex-shrink: 0; font-size: 12px; color: #5E6875;">service_name</label>
+            <select id="f-svc" style="flex: 1; min-width: 0; height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22;">
+              <option selected="selected">전체</option><option>shop-order</option><option>shop-payment</option><option>shop-gateway</option><option>shop-inventory</option>
+            </select>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="f-agent" style="width: 84px; flex-shrink: 0; font-size: 12px; color: #5E6875;">agent_key</label>
+            <select id="f-agent" style="flex: 1; min-width: 0; height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">
+              <option selected="selected">전체</option><option>shop-order-7d9f4-x2k8q</option><option>shop-order-7d9f4-m4v7t</option><option>shop-order-6c81b-h5r3n</option>
+            </select>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="f-from" style="width: 84px; flex-shrink: 0; font-size: 12px; color: #5E6875;">from / to</label>
+            <input id="f-from" type="text" value="09-20 00:00" style="flex: 1; min-width: 0; height: 36px; box-sizing: border-box; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">
+            <input id="f-to" type="text" value="09-21 15:30" aria-label="to" style="flex: 1; min-width: 0; height: 36px; box-sizing: border-box; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">
+          </div>
+        </div>
+
+        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;">
+          <li>
+            <button aria-pressed="true" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #E4E9FB; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; font-weight: 600; color: #22389A;">2026-09-21 14:05:41</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-order-7d9f4-x2k8q</span>
+                <span style="font-size: 11px; color: #5E6875;">seungjo@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; font-weight: 600; color: #22389A;">142</span>
+            </button>
+          </li>
+          <li>
+            <button aria-pressed="false" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2026-09-21 13:58:07</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-order-7d9f4-m4v7t</span>
+                <span style="font-size: 11px; color: #5E6875;">seungjo@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; color: #151A22;">137</span>
+            </button>
+          </li>
+          <li>
+            <button aria-pressed="false" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2026-09-21 11:42:19</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-payment-5a3c8-b7n4k</span>
+                <span style="font-size: 11px; color: #5E6875;">jihoon@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; color: #151A22;">96</span>
+            </button>
+          </li>
+          <li>
+            <button aria-pressed="false" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2026-09-21 09:20:55</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-order-7d9f4-x2k8q</span>
+                <span style="font-size: 11px; color: #5E6875;">seungjo@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; color: #151A22;">128</span>
+            </button>
+          </li>
+          <li>
+            <button aria-pressed="false" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2026-09-20 22:14:03</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-gateway-2f61d-r8m5v</span>
+                <span style="font-size: 11px; color: #5E6875;">onduty@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; color: #151A22;">211</span>
+            </button>
+          </li>
+          <li>
+            <button aria-pressed="false" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2026-09-20 17:06:31</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-inventory-9b47e-k3t2p</span>
+                <span style="font-size: 11px; color: #5E6875;">jihoon@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; color: #151A22;">84</span>
+            </button>
+          </li>
+          <li>
+            <button aria-pressed="false" style="width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 10px; border: 0; border-radius: 6px; background: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">2026-09-20 10:33:12</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #3E4753;">shop-order-6c81b-h5r3n</span>
+                <span style="font-size: 11px; color: #5E6875;">seungjo@monimo.io</span>
+              </span>
+              <span style="flex-shrink: 0; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; color: #151A22;">119</span>
+            </button>
+          </li>
+        </ul>
+
+        <div style="margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px solid #D9DEE6;">
+          <span style="font-size: 12px; color: #5E6875;">TTL 3일 · 그 뒤 S3 cold 90일 (합계 93일)</span>
+          <button style="height: 30px; padding: 0 12px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 12px; font-weight: 600; color: #3E4753; cursor: pointer;">더 보기</button>
+        </div>
+      </section>
+
+      <!-- ===== 우측: 덤프 본문 뷰어 (GET /thread-dumps/{dumpUuid}) ===== -->
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+
+        <!-- 헤더 카드 -->
+        <section aria-label="덤프 상세" style="flex-shrink: 0; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; padding: 16px 18px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 2px rgba(20,26,34,.06);">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0;">
+              <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <span style="font-size: 11px; font-weight: 600; color: #5E6875; letter-spacing: .02em;">dump_uuid</span>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; font-weight: 600; color: #151A22;">7c41a8e2…9c2e</span>
+                <button aria-label="dump_uuid 복사" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid #D9DEE6; border-radius: 6px; background: #FFFFFF; color: #3E4753; cursor: pointer;">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1.5 1.5 0 0 0-1.5-1.5H4a1.5 1.5 0 0 0-1.5 1.5V9A1.5 1.5 0 0 0 4 10.5h2"></path></svg>
+                </button>
+                <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; color: #5E6875;">GET /thread-dumps/{dumpUuid}</span>
+              </div>
+              <div style="display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;">
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 11px; font-weight: 600; color: #5E6875; letter-spacing: .02em;">agent_key</span>
+                  <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">shop-order-7d9f4-x2k8q</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 11px; font-weight: 600; color: #5E6875; letter-spacing: .02em;">service_name</span>
+                  <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">shop-order</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 11px; font-weight: 600; color: #5E6875; letter-spacing: .02em;">requested_by</span>
+                  <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">seungjo@monimo.io</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 11px; font-weight: 600; color: #5E6875; letter-spacing: .02em;">requested_at</span>
+                  <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">2026-09-21 14:05:41</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 11px; font-weight: 600; color: #5E6875; letter-spacing: .02em;">thread_count</span>
+                  <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #151A22;">142</span>
+                </div>
+              </div>
+            </div>
+            <div style="flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
+              <a href="InspectorDumpModal.dc.html" style="height: 36px; box-sizing: border-box; display: flex; align-items: center; padding: 0 14px; border-radius: 6px; background: {{accent}}; color: #FFFFFF; font-size: 13px; font-weight: 600;">다시 요청</a>
+              <button style="height: 36px; padding: 0 14px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; color: #151A22; cursor: pointer;">전체 텍스트 복사</button>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid #D9DEE6;">
+            <span style="font-size: 12px; font-weight: 600; color: #1F8A4C; background: #DDF3E6; border-radius: 999px; padding: 3px 10px;">RUNNABLE 58</span>
+            <span style="font-size: 12px; font-weight: 600; color: #3E4753; background: #E9ECF0; border-radius: 999px; padding: 3px 10px;">WAITING 61</span>
+            <span style="font-size: 12px; font-weight: 600; color: #B2680A; background: #FBEFD9; border-radius: 999px; padding: 3px 10px;">TIMED_WAITING 19</span>
+            <span style="font-size: 12px; font-weight: 600; color: #C8362F; background: #FADDDB; border-radius: 999px; padding: 3px 10px;">BLOCKED 4</span>
+            <span style="margin-left: 8px; font-size: 12px; color: #5E6875;">BLOCKED 4건이 같은 락 하나를 기다리는 중이다</span>
+          </div>
+        </section>
+
+        <!-- 스레드 목록 -->
+        <section aria-label="스레드 목록" style="flex: 1; min-height: 0; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 2px rgba(20,26,34,.06);">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label for="t-q" style="font-size: 12px; color: #5E6875;">스레드 이름</label>
+            <input id="t-q" type="text" value="" placeholder="이름으로 검색" style="width: 240px; height: 36px; box-sizing: border-box; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22;">
+            <label for="t-state" style="font-size: 12px; color: #5E6875;">상태</label>
+            <select id="t-state" style="width: 170px; height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22;">
+              <option selected="selected">전체</option><option>RUNNABLE</option><option>WAITING</option><option>TIMED_WAITING</option><option>BLOCKED</option>
+            </select>
+            <span style="display: flex; align-items: center; gap: 8px; margin-left: 4px;">
+              <button role="switch" aria-checked="false" aria-label="BLOCKED만 보기" style="width: 40px; height: 22px; flex-shrink: 0; padding: 0 2px; display: flex; align-items: center; justify-content: flex-start; border: 0; border-radius: 999px; background: #B8C0CC; cursor: pointer;">
+                <span style="width: 18px; height: 18px; border-radius: 999px; background: #FFFFFF;"></span>
+              </button>
+              <span style="font-size: 13px; color: #3E4753;">BLOCKED만</span>
+            </span>
+            <span style="margin-left: auto; font-size: 12px; color: #5E6875;">142개 중 6개 표시</span>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+            <thead>
+              <tr style="background: #EEF1F5;">
+                <th style="width: 250px; text-align: left; padding: 0 12px; height: 36px; font-size: 12px; font-weight: 600; color: #5E6875; border-bottom: 1px solid #D9DEE6;">스레드 이름</th>
+                <th style="width: 120px; text-align: left; padding: 0 12px; height: 36px; font-size: 12px; font-weight: 600; color: #5E6875; border-bottom: 1px solid #D9DEE6;">상태</th>
+                <th style="text-align: left; padding: 0 12px; height: 36px; font-size: 12px; font-weight: 600; color: #5E6875; border-bottom: 1px solid #D9DEE6;">대기 중인 락</th>
+                <th style="width: 90px; text-align: right; padding: 0 12px; height: 36px; font-size: 12px; font-weight: 600; color: #5E6875; border-bottom: 1px solid #D9DEE6;">스택 깊이</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #D9DEE6;">
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">http-nio-8080-exec-12</td>
+                <td style="padding: 0 12px; height: 44px;"><span style="font-size: 12px; font-weight: 600; color: #1F8A4C; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">RUNNABLE</span></td>
+                <td style="padding: 0 12px; height: 44px; font-size: 13px; color: #5E6875;">락 보유 중 · 대기 없음</td>
+                <td style="padding: 0 12px; height: 44px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">34</td>
+              </tr>
+              <tr style="background: #E4E9FB; border-bottom: 1px solid #D9DEE6;">
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; font-weight: 600; color: #22389A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">http-nio-8080-exec-7</td>
+                <td style="padding: 0 12px; height: 44px;"><span style="font-size: 12px; font-weight: 600; color: #C8362F; background: #FADDDB; border-radius: 999px; padding: 2px 8px;">BLOCKED</span></td>
+                <td style="padding: 0 12px; height: 44px;">
+                  <span style="display: flex; flex-direction: column; gap: 1px;">
+                    <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22;">0x00007f3a8c41e2b0</span>
+                    <span style="font-size: 11px; color: #5E6875;">소유 http-nio-8080-exec-12</span>
+                  </span>
+                </td>
+                <td style="padding: 0 12px; height: 44px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #22389A;">41</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #D9DEE6;">
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">HikariPool-1 connection adder</td>
+                <td style="padding: 0 12px; height: 44px;"><span style="font-size: 12px; font-weight: 600; color: #B2680A; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">TIMED_WAITING</span></td>
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">0x00007f3a91b07d58</td>
+                <td style="padding: 0 12px; height: 44px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">12</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #D9DEE6;">
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">kafka-producer-network-thread</td>
+                <td style="padding: 0 12px; height: 44px;"><span style="font-size: 12px; font-weight: 600; color: #1F8A4C; background: #DDF3E6; border-radius: 999px; padding: 2px 8px;">RUNNABLE</span></td>
+                <td style="padding: 0 12px; height: 44px; font-size: 13px; color: #5E6875;">대기 없음</td>
+                <td style="padding: 0 12px; height: 44px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">9</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #D9DEE6;">
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">lettuce-eventExecutorLoop-1-3</td>
+                <td style="padding: 0 12px; height: 44px;"><span style="font-size: 12px; font-weight: 600; color: #3E4753; background: #E9ECF0; border-radius: 999px; padding: 2px 8px;">WAITING</span></td>
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">0x00007f3a8d22ca10</td>
+                <td style="padding: 0 12px; height: 44px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">7</td>
+              </tr>
+              <tr>
+                <td style="padding: 0 12px; height: 44px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #151A22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">scheduling-1</td>
+                <td style="padding: 0 12px; height: 44px;"><span style="font-size: 12px; font-weight: 600; color: #B2680A; background: #FBEFD9; border-radius: 999px; padding: 2px 8px;">TIMED_WAITING</span></td>
+                <td style="padding: 0 12px; height: 44px; font-size: 13px; color: #5E6875;">대기 없음</td>
+                <td style="padding: 0 12px; height: 44px; text-align: right; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; color: #151A22;">15</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- 스택 트레이스 -->
+        <section aria-label="스택 트레이스" style="height: 344px; flex-shrink: 0; background: #FFFFFF; border: 1px solid #D9DEE6; border-radius: 10px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 2px rgba(20,26,34,.06);">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">스택 트레이스</h2>
+              <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #3E4753;">http-nio-8080-exec-7</span>
+              <span style="font-size: 12px; font-weight: 600; color: #C8362F; background: #FADDDB; border-radius: 999px; padding: 2px 8px;">BLOCKED</span>
+            </div>
+            <span style="font-size: 12px; color: #5E6875;">노란 줄이 이 스레드가 멈춰 선 지점이다</span>
+          </div>
+          <div style="flex: 1; min-height: 0; background: #151A22; border-radius: 8px; padding: 12px 0; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">"http-nio-8080-exec-7" #142 daemon prio=5 tid=0x00007f3a9c0b1800 nid=0x2f41</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">   java.lang.Thread.State: BLOCKED (on object monitor)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at com.shop.order.OrderService.create(OrderService.java:87)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #FBEFD9; background: rgba(178,104,10,.32); white-space: pre; padding: 0 14px;">    - waiting to lock &lt;0x00007f3a8c41e2b0&gt; (a com.shop.order.StockLock)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    - locked &lt;0x00007f3a8c41f118&gt; (a com.shop.order.OrderContext)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at com.shop.order.OrderController.postOrder(OrderController.java:54)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at j.i.r.DirectMethodHandleAccessor.invoke(…:103)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at o.s.w.m.s.InvocableHandlerMethod.doInvoke(…:895)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at o.s.w.s.DispatcherServlet.doDispatch(…:1089)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at o.a.c.c.StandardWrapperValve.invoke(…:166)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at o.a.t.u.n.NioEndpoint$SocketProcessor.doRun(…:1740)</div>
+            <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; line-height: 20px; color: #E6EAF0; white-space: pre; padding: 0 14px;">    at java.base/j.l.Thread.run(…:1583)</div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props='{"accent":{"editor":"color","default":"#3452D6"},"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#3452D6' };
+  }
+}
+</script>
+</body>
+</html>

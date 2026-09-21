@@ -1,0 +1,30 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1000,
+      "h": 780
+    },
+    {
+      "file": "DataFlow.dc.html",
+      "x": 1120,
+      "y": 0,
+      "w": 1280,
+      "h": 920
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief-note",
+      "x": 0,
+      "y": -140,
+      "w": 420,
+      "text": "모니모니터링 설계 범위 문서용 구조도.\n왼쪽 = 3평면 개요 / 오른쪽 = 데이터 흐름 상세."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}

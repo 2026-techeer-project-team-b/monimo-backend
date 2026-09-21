@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>경보 규칙</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#151A22;background:#F3F5F8}
+a{color:#3452D6;text-decoration:none}a:hover{color:#22389A}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1040px; box-sizing: border-box; display: flex; position: relative; overflow: hidden; background: #F3F5F8; font-size: 13px; line-height: 1.45;">
+
+  <!-- ===== 사이드바 ===== -->
+  <nav aria-label="주 메뉴" style="width: 224px; flex-shrink: 0; background: #151A22; color: #C9D1DC; display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 12px 16px;">
+    <div style="display: flex; flex-direction: column; gap: 2px; padding: 0 12px 20px;">
+      <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 16px; font-weight: 600; color: #FFFFFF; letter-spacing: .04em;">MONIMO</div>
+      <div style="font-size: 11px; color: #8B96A5;">Pinpoint형 APM · 자기 감시</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <a href="ServerMap.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"></circle><circle cx="12" cy="4" r="2"></circle><circle cx="8" cy="12" r="2"></circle><path d="M5.5 5.5 7 10M10.5 5.5 9 10M6 4h4"></path></svg>
+        <span>서버맵</span>
+      </a>
+      <a href="Transactions.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h12M2 13V3"></path><circle cx="5" cy="9" r="1"></circle><circle cx="8" cy="6" r="1"></circle><circle cx="11" cy="10" r="1"></circle><circle cx="12" cy="5" r="1"></circle></svg>
+        <span>트랜잭션</span>
+      </a>
+      <a href="Inspector.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="2"></rect><path d="M5 10 7 7l2 2 2-4"></path></svg>
+        <span>인스펙터</span>
+      </a>
+      <a href="Errors.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2 1.8 13h12.4L8 2Z"></path><path d="M8 6.5v3M8 11.5v.5"></path></svg>
+        <span>에러</span>
+      </a>
+      <a href="Logs.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h10M3 8h10M3 12h6"></path></svg>
+        <span>로그</span>
+      </a>
+      <a href="Alerts.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; background: rgba(255,255,255,.10); color: #FFFFFF; font-weight: 600; box-shadow: inset 3px 0 0 #7B8FF0;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1H3l1-1ZM6.5 13.5a1.5 1.5 0 0 0 3 0"></path></svg>
+        <span>경보</span>
+        <span style="margin-left: auto; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #FFFFFF; background: #C8362F; border-radius: 999px; padding: 1px 7px;">3</span>
+      </a>
+      <a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg>
+        <span>설정</span>
+      </a>
+      <a href="Watchdog.dc.html" style="display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; border-radius: 6px; color: #C9D1DC;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5 13 3.5v4c0 3.2-2.1 5.6-5 6.5-2.9-.9-5-3.3-5-6.5v-4L8 1.5Z"></path><path d="M5.5 8l1.8 1.8L10.5 6"></path></svg>
+        <span>플랫폼 상태</span>
+      </a>
+    </div>
+    <a href="Watchdog.dc.html" style="margin-top: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; text-decoration: none; color: inherit;">
+      <div style="font-size: 11px; font-weight: 600; color: #8B96A5; letter-spacing: .02em;">파수꾼 · 카나리</div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="width: 8px; height: 8px; border-radius: 999px; background: #34C46A; flex-shrink: 0;"></span>
+        <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #FFFFFF;">12초 전</span>
+        <span style="font-size: 12px; color: #C9D1DC;">정상 (기준 60초)</span>
+      </div>
+    </a>
+  </nav>
+
+  <!-- ===== 우측 영역 ===== -->
+  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+
+    <!-- 상단바 -->
+    <header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #D9DEE6; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-sizing: border-box;">
+      <div style="display: flex; flex-direction: column; gap: 1px;">
+        <h1 style="margin: 0; font-size: 20px; font-weight: 600; line-height: 1.2;">경보</h1>
+        <div style="font-size: 12px; color: #5E6875;">무엇을 얼마나 넘으면 울릴지 · 재배포 없이 바꾼다</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label for="svc" style="font-size: 12px; color: #5E6875;">서비스</label>
+        <select id="svc" style="height: 36px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; padding: 0 10px; font: inherit; font-size: 13px; color: #151A22; min-width: 160px;">
+          <option selected="selected">전체</option><option>shop-order</option><option>shop-gateway</option><option>shop-payment</option><option>shop-inventory</option><option>shop-user</option>
+        </select>
+        <div role="group" aria-label="시간 범위" style="display: flex; border: 1px solid #B8C0CC; border-radius: 6px; overflow: hidden; height: 36px;">
+          <button style="height: 36px; padding: 0 12px; border: 0; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">5m</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">15m</button>
+          <button aria-pressed="true" style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #E4E9FB; font: inherit; font-size: 13px; font-weight: 600; color: #22389A; cursor: pointer;">1h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">6h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">24h</button>
+          <button style="height: 36px; padding: 0 12px; border: 0; border-left: 1px solid #D9DEE6; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">사용자 지정</button>
+        </div>
+        <button style="height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid #B8C0CC; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 13px; color: #3E4753; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8a5 5 0 1 1-1.5-3.6"></path><path d="M13 2v3h-3"></path></svg>
+          <span style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px;">30s</span>
+        </button>
+        <button aria-label="사용자 메뉴" style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 6px; border: 1px solid #D9DEE6; border-radius: 999px; background: #FFFFFF; font: inherit; cursor: pointer;">
+          <span style="width: 26px; height: 26px; border-radius: 999px; background: #E4E9FB; color: #22389A; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;">김</span>
+          <span style="font-size: 13px; color: #151A22;">김승조</span>
+          <span style="font-size: 11px; font-weight: 600; color: #22389A; background: #E4E9FB; border-radius: 999px; padding: 1px 7px;">ADMIN</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 본문 -->
+    <main style="flex: 1; min-height: 0; padding: 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; border-bottom:1px solid #D9DEE6; flex-shrink:0;">
+        <div role="group" aria-label="경보 하위 화면" style="display:flex; gap:24px;">
+          <a href="Alerts.dc.html" style="display:flex; align-items:center; height:40px; font-size:13px; font-weight:500; color:#5E6875;">경보 이벤트</a>
+          <a href="AlertRules.dc.html" aria-current="page" style="display:flex; align-items:center; height:40px; font-size:13px; font-weight:600; color:#22389A; box-shadow:inset 0 -2px 0 {{accent}};">규칙</a>
+          <a href="AlertChannels.dc.html" style="display:flex; align-items:center; height:40px; font-size:13px; font-weight:500; color:#5E6875;">채널</a>
+        </div>
+        <button style="height:36px; padding:0 14px; border:0; border-radius:6px; background:{{accent}}; font:inherit; font-size:13px; font-weight:600; color:#FFFFFF; cursor:pointer; margin-bottom:8px; display:flex; align-items:center; gap:6px;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg><span>규칙 만들기</span></button>
+      </div>
+
+      <!-- 필터 바 -->
+      <div style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); padding:12px 16px; display:flex; align-items:flex-end; gap:20px; flex-shrink:0; box-sizing:border-box;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="r-svc" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">service_name</label>
+          <select id="r-svc" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:180px;">
+            <option selected="selected">전체</option><option>shop-gateway</option><option>shop-order</option><option>shop-payment</option><option>shop-inventory</option><option>shop-user</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">enabled</span>
+          <div role="group" aria-label="사용 여부 필터" style="display:flex; border:1px solid #B8C0CC; border-radius:6px; overflow:hidden; height:36px;">
+            <button aria-pressed="true" style="height:36px; padding:0 12px; border:0; background:#E4E9FB; font:inherit; font-size:13px; font-weight:600; color:#22389A; cursor:pointer;">전체</button>
+            <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; border-left:1px solid #D9DEE6;">켜짐</button>
+            <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; border-left:1px solid #D9DEE6;">꺼짐</button>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+          <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">severity</span>
+          <div role="group" aria-label="심각도 필터" style="display:flex; gap:8px; height:36px; align-items:center;">
+            <button style="height:30px; padding:0 10px; border:1px solid #D9DEE6; border-radius:999px; background:#FFFFFF; font:inherit; font-size:12px; font-weight:600; color:#3E4753; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><span style="width:6px; height:6px; border-radius:999px; background:#C8362F;"></span>CRITICAL</button>
+            <button style="height:30px; padding:0 10px; border:1px solid #D9DEE6; border-radius:999px; background:#FFFFFF; font:inherit; font-size:12px; font-weight:600; color:#3E4753; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><span style="width:6px; height:6px; border-radius:999px; background:#B2680A;"></span>WARNING</button>
+            <button style="height:30px; padding:0 10px; border:1px solid #D9DEE6; border-radius:999px; background:#FFFFFF; font:inherit; font-size:12px; font-weight:600; color:#3E4753; cursor:pointer; display:inline-flex; align-items:center; gap:6px;"><span style="width:6px; height:6px; border-radius:999px; background:#6B7684;"></span>INFO</button>
+          </div>
+        </div>
+        <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer; margin-left:auto;">필터 초기화</button>
+      </div>
+
+      <!-- 규칙 표 -->
+      <section style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 1px 2px rgba(20,26,34,.06); flex:1; min-height:0; display:flex; flex-direction:column; box-sizing:border-box; overflow:hidden;">
+        <div style="display:flex; align-items:center; gap:10px; padding:16px 16px 12px;">
+          <h2 style="margin:0; font-size:15px; font-weight:600; flex-shrink:0;">경보 규칙</h2>
+          <div style="display:flex; align-items:center; gap:7px; padding:4px 10px; background:#EEF1F5; border-radius:999px; flex-shrink:0;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#5E6875" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3.2" y="7" width="9.6" height="6.5" rx="1.4"></rect><path d="M5.6 7V5.2a2.4 2.4 0 0 1 4.8 0V7"></path></svg>
+            <span style="font-size:12px; font-weight:500; color:#3E4753; white-space:nowrap;">VIEWER는 읽기만 · 변경은 ADMIN</span>
+          </div>
+          <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#5E6875; flex-shrink:0;">GET /alert-rules</span>
+        </div>
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup>
+            <col style="width:68px;"><col style="width:110px;"><col style="width:108px;"><col style="width:128px;"><col style="width:358px;"><col style="width:110px;"><col style="width:84px;"><col style="width:200px;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">enabled</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">service_name</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">metric_kind</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">조건</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">name</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">severity</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px; text-align:right;">채널</th>
+              <th scope="col" style="height:40px; background:#EEF1F5; font-size:12px; font-weight:600; color:#5E6875; text-align:left; padding:0 12px; border-bottom:1px solid #D9DEE6; border-top:1px solid #D9DEE6; padding:0 8px;">updated_at</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB;"><button role="switch" aria-checked="true" aria-label="shop-payment 5xx 비율 초과 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-payment</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">5XX_RATE</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">> 1.0 % / 5m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB; color:#151A22; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-payment 5xx 비율 초과</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">3개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; background:#E4E9FB; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 13:40:12</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="true" aria-label="shop-order p95 지연 초과 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-order</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">P95_LATENCY</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">> 1,200 ms / 5m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#151A22; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-order p95 지연 초과</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-21 11:02:55</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="true" aria-label="shop-inventory 힙 사용률 경고 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-inventory</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">HEAP</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">>= 90.0 % / 10m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#151A22; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-inventory 힙 사용률 경고</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FBEFD9; color:#B2680A;">WARNING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-20 17:26:41</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="true" aria-label="shop-user CPU 사용률 경고 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-user</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">CPU</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">>= 85.0 % / 10m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#151A22; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-user CPU 사용률 경고</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FBEFD9; color:#B2680A;">WARNING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">1개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-19 09:51:07</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="false" aria-label="shop-order GC 시간 초과 꺼짐" style="width:40px; height:22px; border:0; border-radius:999px; background:#B8C0CC; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-start; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-left:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-order</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">GC_TIME</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">> 1,000 ms / 5m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#5E6875; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-order GC 시간 초과</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FBEFD9; color:#B2680A;">WARNING</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">1개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-18 14:33:20</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="false" aria-label="shop-user 4xx 비율 증가 꺼짐" style="width:40px; height:22px; border:0; border-radius:999px; background:#B8C0CC; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-start; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-left:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-user</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">4XX_RATE</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">> 5.0 % / 15m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#5E6875; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-user 4xx 비율 증가</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753;">INFO</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">1개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-17 10:12:48</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="true" aria-label="shop-gateway 에이전트 끊김 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-gateway</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">AGENT_DOWN</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">> 90 초 / 1m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#151A22; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-gateway 에이전트 끊김</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">4개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-16 16:05:33</td>
+            </tr>
+            <tr>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><button role="switch" aria-checked="true" aria-label="shop-gateway 5xx 비율 초과 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-gateway</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E4E9FB; color:#22389A;">5XX_RATE</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">> 2.0 % / 5m</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; color:#151A22; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">shop-gateway 5xx 비율 초과</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px;"><span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#FADDDB; color:#C8362F;">CRITICAL</span></td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; text-align:right; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">3개</td>
+              <td style="height:54px; padding:0 12px; border-bottom:1px solid #EEF1F5; font-size:13px; color:#151A22; vertical-align:middle; padding:0 8px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px; color:#3E4753;">2026-09-15 11:44:02</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:auto; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid #D9DEE6;">
+          <span style="font-size:12px; color:#5E6875;">꺼진 규칙은 탐지가 건너뛴다. 스위치는 <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px;">PATCH /alert-rules/{uuid}/enabled</span> 를 바로 호출한다.</span>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">cursor rule_01J7B9…4KD</span>
+            <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer;">이전</button>
+            <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer;">다음</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== 오버레이 + 규칙 수정 모달 ===== -->
+  <div style="position:absolute; left:0; top:0; right:0; bottom:0; background:rgba(21,26,34,.45);"></div>
+  <section aria-label="규칙 수정" style="position:absolute; left:660px; top:150px; width:640px; box-sizing:border-box; background:#FFFFFF; border:1px solid #D9DEE6; border-radius:10px; box-shadow:0 12px 32px rgba(20,26,34,.18); display:flex; flex-direction:column;">
+    <div style="padding:18px 20px 14px; border-bottom:1px solid #D9DEE6; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <h2 style="margin:0; font-size:15px; font-weight:600;">규칙 수정 — shop-payment 5xx 비율 초과</h2>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">alert_rule_uuid c71d…8b04</span>
+          <span style="color:#D9DEE6;">·</span>
+          <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">PUT /alert-rules/{uuid}</span>
+        </div>
+      </div>
+      <button aria-label="모달 닫기" style="width:32px; height:32px; flex-shrink:0; border:1px solid #D9DEE6; border-radius:6px; background:#FFFFFF; color:#3E4753; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>
+      </button>
+    </div>
+
+    <div style="padding:18px 20px; display:grid; grid-template-columns:300px 280px; gap:20px; box-sizing:border-box;">
+      <!-- 좌: 폼 -->
+      <div style="display:flex; flex-direction:column; gap:14px; min-width:0;">
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="m-app" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">application</label>
+          <select id="m-app" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:100%; box-sizing:border-box;">
+            <option>shop-gateway</option><option selected="selected">shop-payment</option><option>shop-order</option><option>shop-inventory</option><option>shop-user</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="m-name" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">name</label>
+          <input id="m-name" type="text" value="shop-payment 5xx 비율 초과" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:100%; box-sizing:border-box;">
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="m-kind" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">metric_kind</label>
+          <select id="m-kind" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:100%; box-sizing:border-box; font-family:'IBM Plex Mono', Menlo, monospace; font-size:12px;">
+            <option selected="selected">5XX_RATE</option><option>4XX_RATE</option><option>P95_LATENCY</option><option>CPU</option><option>HEAP</option><option>GC_TIME</option><option>AGENT_DOWN</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:168px 120px; gap:12px;">
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">operator</span>
+            <div role="group" aria-label="비교 연산자" style="display:flex; border:1px solid #B8C0CC; border-radius:6px; overflow:hidden; height:36px;">
+              <button aria-pressed="true" style="height:36px; padding:0 12px; border:0; background:#E4E9FB; font:inherit; font-size:13px; font-weight:600; color:#22389A; cursor:pointer; padding:0 10px;">GT</button>
+              <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; border-left:1px solid #D9DEE6; padding:0 10px;">GTE</button>
+              <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; border-left:1px solid #D9DEE6; padding:0 10px;">LT</button>
+              <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; border-left:1px solid #D9DEE6; padding:0 10px;">LTE</button>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label for="m-th" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">threshold</label>
+            <div style="display:flex; align-items:center; height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; box-sizing:border-box;">
+              <input id="m-th" type="text" value="1.0" style="flex:1; min-width:0; height:34px; border:0; background:transparent; padding:0 10px; font-family:'IBM Plex Mono', Menlo, monospace; font-size:13px; color:#151A22;">
+              <span style="padding:0 10px; font-size:12px; font-weight:600; color:#5E6875; border-left:1px solid #D9DEE6; height:34px; display:flex; align-items:center;">%</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label for="m-win" style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">window_sec</label>
+          <select id="m-win" style="height:36px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; padding:0 10px; font:inherit; font-size:13px; color:#151A22; width:100%; box-sizing:border-box;">
+            <option>60 (1분)</option><option selected="selected">300 (5분)</option><option>600 (10분)</option><option>900 (15분)</option>
+          </select>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">severity</span>
+          <div role="group" aria-label="심각도" style="display:flex; border:1px solid #B8C0CC; border-radius:6px; overflow:hidden; height:36px; width:100%; box-sizing:border-box;">
+            <button aria-pressed="true" style="height:36px; flex:1; border:0; background:#FADDDB; font:inherit; font-size:12px; font-weight:600; color:#C8362F; cursor:pointer;">CRITICAL</button>
+            <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; flex:1; border-left:1px solid #D9DEE6; font-size:12px;">WARNING</button>
+            <button style="height:36px; padding:0 12px; border:0; background:#FFFFFF; font:inherit; font-size:13px; color:#3E4753; cursor:pointer; flex:1; border-left:1px solid #D9DEE6; font-size:12px;">INFO</button>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; height:36px;">
+          <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">enabled</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; color:#3E4753;">켜짐</span>
+            <button role="switch" aria-checked="true" aria-label="enabled 켜짐" style="width:40px; height:22px; border:0; border-radius:999px; background:{{accent}}; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:flex-end; box-sizing:border-box;"><span style="width:18px; height:18px; border-radius:999px; background:#FFFFFF; margin-right:2px; box-shadow:0 1px 2px rgba(20,26,34,.3);"></span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우: 미리보기 + 채널 -->
+      <div style="display:flex; flex-direction:column; gap:14px; min-width:0;">
+        <div style="border:1px solid #D9DEE6; border-radius:8px; background:#EEF1F5; padding:12px; display:flex; flex-direction:column; gap:8px; box-sizing:border-box;">
+          <div style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">미리보기 · 알림 문구</div>
+          <div style="background:#FFFFFF; border:1px solid #D9DEE6; border-radius:6px; padding:10px; font-size:12px; line-height:1.55; color:#151A22;">
+            <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-weight:600; color:#C8362F;">[CRITICAL]</span> shop-payment 5xx 비율 초과 — 기준 1.0%, 실제 4.2% (5분)
+          </div>
+          <div style="font-size:11px; color:#5E6875;">채널 4곳 중 3곳으로 나간다.</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; min-width:0;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span style="font-size:11px; font-weight:600; color:#5E6875; letter-spacing:.02em;">채널 (다중선택)</span>
+            <span style="font-family:'IBM Plex Mono', Menlo, monospace; font-size:11px; color:#5E6875;">GET /alert-channels</span>
+          </div>
+            <div style="display:flex; align-items:center; gap:10px; height:38px; padding:0 10px; border:1px solid #D9DEE6; border-radius:6px; background:#F7F8FB; box-sizing:border-box;">
+              <input id="ch-1" type="checkbox" checked="checked" style="width:16px; height:16px; margin:0; accent-color:{{accent}};">
+              <label for="ch-1" style="flex:1; min-width:0; font-size:13px; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">#ops-alerts</label>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">SLACK</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; height:38px; padding:0 10px; border:1px solid #D9DEE6; border-radius:6px; background:#F7F8FB; box-sizing:border-box;">
+              <input id="ch-2" type="checkbox" checked="checked" style="width:16px; height:16px; margin:0; accent-color:{{accent}};">
+              <label for="ch-2" style="flex:1; min-width:0; font-size:13px; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">oncall@monimo.io</label>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">EMAIL</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; height:38px; padding:0 10px; border:1px solid #D9DEE6; border-radius:6px; background:#FFFFFF; box-sizing:border-box;">
+              <input id="ch-3" type="checkbox" style="width:16px; height:16px; margin:0; accent-color:{{accent}};">
+              <label for="ch-3" style="flex:1; min-width:0; font-size:13px; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">PagerDuty prod</label>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">PAGERDUTY</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; height:38px; padding:0 10px; border:1px solid #D9DEE6; border-radius:6px; background:#F7F8FB; box-sizing:border-box;">
+              <input id="ch-4" type="checkbox" checked="checked" style="width:16px; height:16px; margin:0; accent-color:{{accent}};">
+              <label for="ch-4" style="flex:1; min-width:0; font-size:13px; color:#151A22; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Webhook n8n</label>
+              <span style="display:inline-flex; align-items:center; gap:5px; border-radius:999px; font-size:12px; font-weight:600; padding:2px 8px; white-space:nowrap; background:#E9ECF0; color:#3E4753; font-size:11px;">WEBHOOK</span>
+            </div>
+          <div style="font-size:11px; color:#5E6875; line-height:1.5;">저장 시 전체 교체 — <span style="font-family:'IBM Plex Mono', Menlo, monospace;">PUT /alert-rules/{uuid}/channels</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:14px 20px; border-top:1px solid #D9DEE6; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      <span style="font-size:12px; color:#5E6875;">재배포 없이 즉시 적용 · 탐지가 10~30초 주기로 다시 읽음</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button style="height:36px; padding:0 14px; border:1px solid #B8C0CC; border-radius:6px; background:#FFFFFF; font:inherit; font-size:13px; font-weight:500; color:#3E4753; cursor:pointer;">취소</button>
+        <button style="height:36px; padding:0 14px; border:0; border-radius:6px; background:{{accent}}; font:inherit; font-size:13px; font-weight:600; color:#FFFFFF; cursor:pointer;">저장</button>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script="" data-props='{"accent":{"editor":"color","default":"#3452D6"},"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#3452D6' };
+  }
+}
+</script>
+</body>
+</html>
