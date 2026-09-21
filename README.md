@@ -29,7 +29,19 @@
 docker build -f collector/Dockerfile -t monimo/collector .
 ```
 
-Kafka · ClickHouse · PostgreSQL 로컬 실행(`docker-compose.dev.yml`)은 개발환경 5단계에서 추가한다.
+### 로컬 인프라 (Kafka · ClickHouse · PostgreSQL)
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --wait   # 켜기 (토픽까지 준비되면 끝남)
+./scripts/check-dev-infra.sh                            # 제대로 떴는지 확인
+docker compose -f docker-compose.dev.yml down           # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
+docker compose -f docker-compose.dev.yml down -v        # 데이터까지 전부 지우기
+```
+
+- Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
+- Kafka 메시지는 컨테이너 안에만 있어서 `down` 하면 지워진다.
+- ClickHouse 초기 DDL은 `db/clickhouse/*.sql` 에 둔다. **데이터가 비어 있을 때(처음 켤 때)만** 실행되므로, 바꾼 DDL을 다시 적용하려면 `down -v` 후 켠다.
+- 포트가 다른 프로젝트와 겹치면 `.env.example` 을 `.env` 로 복사해서 바꾼다.
 
 ## 모듈 규칙
 
@@ -41,9 +53,16 @@ Kafka · ClickHouse · PostgreSQL 로컬 실행(`docker-compose.dev.yml`)은 개
 
 실제 값은 레포에 올리지 않는다. `.env.example` 에 이름만 적는다.
 
-| 이름 | 설명 |
-|---|---|
-| (준비 중) | |
+로컬 인프라용 (`.env.example` 참고, 비워 두면 기본값):
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `KAFKA_PORT` | 19092 | Kafka 호스트 포트 |
+| `CLICKHOUSE_HTTP_PORT` | 18123 | ClickHouse HTTP 호스트 포트 |
+| `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
+| `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
+| `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
+| `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 
 ## 포트
 
@@ -56,6 +75,15 @@ HTTP 포트(상태 확인 `/actuator/health`). 임시값이며 개발환경 6단
 | ingester | 8082 |
 | detector | 8083 |
 | notifier | 8084 |
+
+로컬 인프라 (호스트 포트는 다른 프로젝트와 겹치지 않게 1로 시작):
+
+| 인프라 | 내 컴퓨터에서 (bootRun 한 앱) | 컨테이너끼리 |
+|---|---|---|
+| Kafka | `localhost:19092` | `kafka:29092` |
+| ClickHouse HTTP | `localhost:18123` | `clickhouse:8123` |
+| ClickHouse 네이티브 | `localhost:19000` | `clickhouse:9000` |
+| PostgreSQL | `localhost:15432` | `postgres:5432` |
 
 ## 관련 문서
 

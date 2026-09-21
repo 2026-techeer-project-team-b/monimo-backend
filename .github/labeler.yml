@@ -41,6 +41,10 @@ area/build:
       - '**/build.gradle.kts'
       - '**/Dockerfile'
       - '.dockerignore'
+      - 'docker-compose*.yml'
+      - 'db/**'
+      - 'scripts/**'
+      - '.env.example'
 
 area/test:
   - changed-files:
