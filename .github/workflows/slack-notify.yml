@@ -1,0 +1,71 @@
+# main에 PR이 머지되면 슬랙으로 알린다.
+# 웹훅 주소는 GitHub Secrets 의 SLACK_WEBHOOK_URL 에만 둔다(레포에 절대 쓰지 않는다). 없으면 건너뛴다.
+# PR 제목 등은 명령 안에 직접 끼워 넣지 않고 환경변수로 넘긴다(제목에 따옴표나 명령어가 있어도 안전).
+name: Slack Notify
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  notify:
+    name: Slack Notification
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: 슬랙으로 머지 알림 보내기
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TITLE: ${{ github.event.pull_request.title }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          ADDITIONS: ${{ github.event.pull_request.additions }}
+          DELETIONS: ${{ github.event.pull_request.deletions }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          REPO: ${{ github.event.repository.full_name }}
+          REPO_URL: ${{ github.event.repository.html_url }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "SLACK_WEBHOOK_URL 이 없어 슬랙 알림을 건너뜀"
+            exit 0
+          fi
+
+          case "${TITLE}" in
+            feat*)     EMOJI="✨" ;;
+            fix*)      EMOJI="🐛" ;;
+            docs*)     EMOJI="📝" ;;
+            chore*)    EMOJI="🔧" ;;
+            refactor*) EMOJI="♻️" ;;
+            test*)     EMOJI="🧪" ;;
+            ci*)       EMOJI="⚙️" ;;
+            *)         EMOJI="📦" ;;
+          esac
+          SHORT_SHA="${MERGE_SHA:0:7}"
+          COMMIT_URL="${REPO_URL}/commit/${MERGE_SHA}"
+
+          jq -n \
+            --arg emoji "$EMOJI" --arg title "$TITLE" --arg author "$AUTHOR" \
+            --arg pr_url "$PR_URL" --arg pr_num "$PR_NUM" \
+            --arg add "$ADDITIONS" --arg del "$DELETIONS" --arg sha "$SHORT_SHA" \
+            --arg commit_url "$COMMIT_URL" --arg repo "$REPO" '
+            {
+              blocks: [
+                { type: "section",
+                  text: { type: "mrkdwn",
+                          text: "\($emoji) *<\($pr_url)|#\($pr_num)>* merged to `main` · \($repo)\n*\($title)*" } },
+                { type: "context",
+                  elements: [ { type: "mrkdwn",
+                                text: "👤 *\($author)*  ·  📊 `+\($add)` `-\($del)`  ·  🏷️ `\($sha)`" } ] },
+                { type: "divider" },
+                { type: "context",
+                  elements: [ { type: "mrkdwn",
+                                text: "<\($pr_url)|View PR>  ·  <\($commit_url)|View Commit>" } ] }
+              ]
+            }' > payload.json
+
+          curl -sS --fail -X POST -H 'Content-Type: application/json' \
+            --data @payload.json "${SLACK_WEBHOOK_URL}"

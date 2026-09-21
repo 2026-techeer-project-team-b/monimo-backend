@@ -1,0 +1,42 @@
+# PR 변경 줄 수(추가+삭제)로 size/* 라벨을 붙인다.
+# pull_request_target 이지만 PR 코드를 내려받거나 실행하지 않으므로 안전하다.
+name: PR Size Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  size-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 변경 줄 수로 size 라벨 붙이기
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+
+            const total = pr.additions + pr.deletions;
+            const sizeLabel =
+              total < 10 ? 'size/XS' :
+              total < 50 ? 'size/S' :
+              total < 200 ? 'size/M' :
+              total < 500 ? 'size/L' : 'size/XL';
+
+            const sizeLabels = ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'];
+            const current = pr.labels.map(l => l.name).filter(l => sizeLabels.includes(l));
+
+            for (const label of current) {
+              if (label !== sizeLabel) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: pull_number, name: label });
+              }
+            }
+            if (!current.includes(sizeLabel)) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pull_number, labels: [sizeLabel] });
+            }
+            core.info(`PR #${pull_number}: ${total}줄 변경 -> ${sizeLabel}`);

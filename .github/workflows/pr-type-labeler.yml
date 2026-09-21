@@ -1,0 +1,56 @@
+# PR 제목 앞머리(feat:, fix: ...)를 보고 type/* 라벨을 붙인다.
+# pull_request_target 이지만 PR 코드를 내려받거나 실행하지 않으므로 안전하다.
+name: PR Type Labeler
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  type-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR 제목 앞머리로 type 라벨 붙이기
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+            const title = context.payload.pull_request.title;
+
+            const prefixMap = {
+              feat: 'type/feature',
+              fix: 'type/bug',
+              refactor: 'type/refactor',
+              docs: 'type/docs',
+              test: 'type/test',
+              chore: 'type/chore',
+              ci: 'type/ci',
+              style: 'type/style',
+              perf: 'type/perf',
+            };
+            const typeLabels = Object.values(prefixMap);
+
+            const match = title.match(/^(\w+)(\(.+\))?!?:/);
+            const prefix = match ? match[1].toLowerCase() : null;
+            const target = prefix ? prefixMap[prefix] : null;
+            if (!target) {
+              core.info(`제목에서 타입을 찾지 못함: "${title}"`);
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            const current = pr.labels.map(l => l.name).filter(l => typeLabels.includes(l));
+
+            for (const label of current) {
+              if (label !== target) {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number: pull_number, name: label });
+              }
+            }
+            if (!current.includes(target)) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pull_number, labels: [target] });
+            }
+            core.info(`PR #${pull_number}: "${prefix}" -> ${target}`);
