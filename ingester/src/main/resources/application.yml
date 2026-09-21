@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: ingester
+
+server:
+  port: 8082
