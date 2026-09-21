@@ -8,6 +8,6 @@ dependencies {
     api(libs.opentelemetry.proto)
 
     testImplementation(platform(libs.spring.boot.bom))
-    testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.bundles.kotest)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

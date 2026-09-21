@@ -5,6 +5,7 @@ java = "17"
 kotlin = "2.2.21"
 spring-boot = "3.5.16"
 opentelemetry-proto = "1.11.0-alpha"
+kotest = "6.2.5"
 
 [libraries]
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -13,7 +14,10 @@ spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin" }
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
-kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
+# 테스트는 Kotest (ADR #48). JUnit Platform 위에서 돈다.
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-extensions-spring = { module = "io.kotest:kotest-extensions-spring", version.ref = "kotest" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 # 임시 Kafka 메시지 형식: 수집기가 받은 OTLP를 protobuf 바이트 그대로 raw 토픽에 넣고, 적재 처리기가 이 라이브러리로 푼다.
 opentelemetry-proto = { module = "io.opentelemetry.proto:opentelemetry-proto", version.ref = "opentelemetry-proto" }
@@ -21,7 +25,9 @@ opentelemetry-proto = { module = "io.opentelemetry.proto:opentelemetry-proto", v
 [bundles]
 # 5개 서비스 모듈이 공통으로 쓰는 것
 service-base = ["spring-boot-starter-web", "spring-boot-starter-actuator", "jackson-module-kotlin", "kotlin-reflect"]
-service-test = ["spring-boot-starter-test", "kotlin-test-junit5"]
+service-test = ["spring-boot-starter-test", "kotest-runner-junit5", "kotest-assertions-core", "kotest-extensions-spring"]
+# 스프링이 없는 모듈(common)용
+kotest = ["kotest-runner-junit5", "kotest-assertions-core"]
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
