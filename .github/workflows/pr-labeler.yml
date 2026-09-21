@@ -1,0 +1,21 @@
+# PR에서 바뀐 파일 위치를 보고 area/* 라벨을 붙인다. 규칙은 .github/labeler.yml
+# pull_request_target 이지만 PR 코드를 내려받거나 실행하지 않으므로 안전하다.
+name: PR Labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 바뀐 파일 위치로 area 라벨 붙이기
+        uses: actions/labeler@v7
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          sync-labels: true
