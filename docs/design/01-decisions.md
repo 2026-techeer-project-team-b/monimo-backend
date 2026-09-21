@@ -411,3 +411,11 @@
 - **되돌림**: 문서 PR이 backend CI를 반복해서 돌려 방해가 되면 먼저 CI에 `docs/**` paths 제외를 건다. 그래도 문서 PR과 코드 PR의 머지 충돌이 주 2회 이상 나면 문서만 별도 레포로 뗀다
 - **파생**: 나머지 4개 레포 README "관련 문서"에 링크 추가
 
+## `#48` [확정] 테스트 프레임워크 = Kotest (기본 스타일 BehaviorSpec) — JUnit 5 기각
+
+2026-09-22 | 사용자 확정 | 개발환경 4단계에서 JUnit 5(`kotlin-test-junit5`)로 시작한 것을 기능 구현 전에 교체
+- **채택**: **Kotest 6.2.5** (`kotest-runner-junit5` · `kotest-assertions-core` · `kotest-extensions-spring`, 우리와 같은 Kotlin 2.2.21로 빌드된 버전). 기본 스타일 **BehaviorSpec**(Given / When / Then 중첩 블록). 스프링 테스트는 모듈마다 `io.kotest.provided.ProjectConfig` 에 `SpringExtension` 을 등록해 `@SpringBootTest` + 테스트 클래스 생성자 주입. JUnit Platform 위에서 돌아 Gradle `useJUnitPlatform()` · CI는 그대로
+- **기각**: ① **JUnit 5 + kotlin-test** — 사유: given-when-then을 메서드 이름·주석으로만 표현해 테스트 의도가 코드 구조에 드러나지 않는다. BehaviorSpec은 Given · When · Then 자체가 블록이라 실패 보고서에 `Given > When > Then` 경로가 그대로 찍힌다(전환 시 일부러 틀린 값을 넣어 확인). `shouldBe` 같은 선언형 매처는 `assertEquals(expected, actual)` 인자 순서 혼동이 없다 ② **JUnit 5 + `@Nested` · `@DisplayName`** — 사유: 같은 구조를 흉내 낼 수는 있지만 단계마다 내부 클래스와 어노테이션이 붙어 테스트 하나당 틀 코드가 커진다
+- **되돌림**: Kotest와 Spring 연동(컨텍스트 캐시 · 트랜잭션 롤백 · IntelliJ 실행) 문제로 **반나절 이상 막히는 일이 2회** 생기면 그 모듈만 JUnit 5로 되돌린다. 둘 다 JUnit Platform 위라 한 레포에서 섞어 돌릴 수 있다
+- **파생**: 팀원 IntelliJ에 Kotest 플러그인 설치 권장 · `spring-boot-starter-test` 에 딸려 오는 JUnit Jupiter는 제외하지 않았다(새 테스트에 JUnit `@Test` 를 쓰지 않는 것은 README 규칙으로) · **미반영**: Notion 「사용할 라이브러리 정리」
+

@@ -49,6 +49,26 @@ docker compose -f docker-compose.dev.yml down -v        # 데이터까지 전부
 - 라이브러리 버전은 `gradle/libs.versions.toml` 한 곳에서만 정한다.
 - `common` 에는 공유 모델만 둔다. Entity · Repository · Service 금지.
 
+## 테스트 규칙
+
+- 테스트는 **Kotest**, 기본 스타일은 **BehaviorSpec** (Given / When / Then). JUnit `@Test` 는 쓰지 않는다. (ADR #48)
+- 스프링 컨텍스트가 필요하면 `@SpringBootTest` 를 붙이고 필요한 빈은 테스트 클래스 생성자로 받는다. 연결은 각 모듈의 `src/test/kotlin/io/kotest/provided/ProjectConfig.kt` 가 한다.
+- IntelliJ에 Kotest 플러그인을 설치하면 Given · When · Then 옆에 실행 버튼이 생긴다.
+
+```kotlin
+@SpringBootTest
+class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
+    Given("수집기 애플리케이션") {
+        When("스프링 컨텍스트를 띄우면") {
+            val name = environment.getProperty("spring.application.name")
+            Then("애플리케이션 이름이 collector 로 잡힌다") {
+                name shouldBe "collector"
+            }
+        }
+    }
+})
+```
+
 ## 환경변수
 
 실제 값은 레포에 올리지 않는다. `.env.example` 에 이름만 적는다.

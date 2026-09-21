@@ -17,8 +17,8 @@ erd-note(2026-09-16): 경보 규칙 팀 공용 확정 · alert_rules/alert_chann
 
 ## recent decisions (max 5)
 
+- `#48` **테스트 = Kotest 6.2.5, 기본 BehaviorSpec**(JUnit 5 기각: given-when-then이 이름·주석에만 있고 구조에 안 드러남). 스프링은 모듈별 `io.kotest.provided.ProjectConfig` + SpringExtension, 생성자 주입. 되돌림=연동 문제로 반나절 이상 막힘 2회 시 그 모듈만 JUnit 5
 - `#47` **설계 문서 이관 = `monimo-backend/docs/design/`**(deploy 레포·로컬 유지·Notion 단독 원본 기각). 원본=레포, Notion=사본. `.omc/`·`.bak` 제외, 원 자리 `~/monimonitoring/design/00-index.md` 는 포인터
 - `#46` **레포 구성 = 폴리레포 5개**(backend 멀티모듈 6, web·shop·watchdog·deploy) · 퍼블릭+MIT · main 보호는 PR 필수만(리뷰 승인 필수 없음). 모노레포·서비스별 9개·docs 레포 기각. Q9 종결. 첫 커밋 파일 로컬 준비 `~/monimonitoring/repos/`
 - `#45` **파수꾼 언어 = Python**(Kotlin 기각 — 본체 30~40줄에 fat jar·콜드스타트 1~3초·Gradle 단계가 과함). Terraform이 zip 배포. 되돌림=담당자가 첫 주 내 관통 확인 실패 시 Kotlin
 - - `#44` **IaC = Terraform 단일**(SAM 기각) — VPC·EKS·RDS·ECR·Secrets·S3 + 파수꾼 Lambda까지 한 벌, state는 S3+잠금. GH Actions는 AWS OIDC. 파수꾼 언어는 미정. 되돌림=세팅이 착수 첫 주 초과 시 eksctl+SAM
-- `#43` **서버맵 = React Flow**(Cytoscape 기각) + dagre 자동배치. 노드 수십 개 상한이라 Cytoscape 강점 무의미, 노드 내 지표 표시가 실제 요구. 차트는 ECharts 추천안 유지(확정 미표기). 되돌림=노드 100개 초과 시
