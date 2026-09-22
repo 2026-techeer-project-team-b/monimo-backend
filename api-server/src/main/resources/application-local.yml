@@ -1,0 +1,24 @@
+# 로컬 프로필: 내 컴퓨터의 docker-compose.dev.yml 인프라에 붙는다.
+# 실행: ./gradlew :api-server:bootRun --args='--spring.profiles.active=local'
+# 포트·계정을 .env 로 바꿨다면 같은 이름의 환경변수로 덮어쓸 수 있다.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_PORT:15432}/monimo
+    username: ${POSTGRES_USER:monimo}
+    password: ${POSTGRES_PASSWORD:monimo}
+
+monimo:
+  clickhouse:
+    jdbc-url: jdbc:clickhouse://localhost:${CLICKHOUSE_HTTP_PORT:18123}/monimo
+    username: ${CLICKHOUSE_USER:monimo}
+    password: ${CLICKHOUSE_PASSWORD:monimo}
+
+management:
+  endpoint:
+    health:
+      show-details: always   # 로컬에서는 /actuator/health 에 DB별 연결 상태까지 보여 준다
+
+logging:
+  level:
+    org.hibernate.orm.jdbc.bind: trace   # 로컬에서는 SQL에 들어간 값까지 본다

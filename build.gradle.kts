@@ -1,8 +1,10 @@
+import org.jetbrains.kotlin.allopen.gradle.AllOpenExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.spring) apply false
+    alias(libs.plugins.kotlin.jpa) apply false
     alias(libs.plugins.spring.boot) apply false
 }
 
@@ -29,8 +31,21 @@ subprojects {
         tasks.withType<Jar>().matching { it.name == "jar" }.configureEach { enabled = false }
     }
 
+    plugins.withId("org.jetbrains.kotlin.plugin.jpa") {
+        // Entity를 open 으로 만들어 지연 로딩 프록시가 동작하게 한다 (ADR #42 가드레일 ④, data class 금지)
+        extensions.configure<AllOpenExtension> {
+            annotation("jakarta.persistence.Entity")
+            annotation("jakarta.persistence.MappedSuperclass")
+            annotation("jakarta.persistence.Embeddable")
+        }
+    }
+
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
+        // 서비스는 평소 마이그레이션을 안 돌리지만(ADR #49), 테스트에서는 db/postgres 를 그대로 적용해
+        // Entity와 표가 맞는지 검증한다. 스프링이 뜨기 전에 정해져야 해서 테스트 JVM 옵션으로 넘긴다.
+        systemProperty("spring.flyway.enabled", "true")
+        systemProperty("spring.flyway.locations", "filesystem:${rootDir}/db/postgres")
     }
 
     val modulePath = path
