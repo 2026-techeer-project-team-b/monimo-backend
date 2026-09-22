@@ -39,6 +39,7 @@ docker build -f collector/Dockerfile -t monimo/collector .
 docker compose up -d           # 켜기 (레포 루트에서)
 docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL 마이그레이션이 끝날 때까지 기다리기
 ./scripts/check-dev-infra.sh   # 제대로 떴는지 확인
+./scripts/seed-clickhouse.sh   # ClickHouse에 가짜 신호 데이터 넣기 (최근 1시간치, 다시 돌리면 비우고 새로 넣음)
 docker compose down            # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
 docker compose down -v         # 데이터까지 전부 지우기
 ```
@@ -46,7 +47,9 @@ docker compose down -v         # 데이터까지 전부 지우기
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
 - Kafka 메시지는 컨테이너 안에만 있어서 `down` 하면 지워진다.
 - **PostgreSQL 표는 `db/postgres/` 한 곳**에 파트별 폴더(`config/` · `alert/` · `ingest/`)로 추가하고, 켤 때 Flyway가 자동 적용한다. 서비스는 마이그레이션을 돌리지 않는다. 규칙은 [`db/postgres/README.md`](db/postgres/README.md) (ADR #49)
-- ClickHouse 초기 DDL은 `db/clickhouse/*.sql` 에 둔다. **데이터가 비어 있을 때(처음 켤 때)만** 실행되므로, 바꾼 DDL을 다시 적용하려면 `down -v` 후 켠다.
+- **ClickHouse 표는 `db/clickhouse/`** 에 있다. 원본 4표(`002`) → 집계 7표(`003`) → MV 7개(`004`) 순서이고, 정본은 노션 ERD「CH 영역」이다. **데이터가 비어 있을 때(처음 켤 때)만** 실행되므로, 바꾼 DDL을 다시 적용하려면 `down -v` 후 켠다.
+- 집계 7표는 사람이 넣지 않는다. 원본(`spans` · `metrics_raw`)에 줄이 들어오면 MV가 자동으로 채운다.
+- 가짜 데이터(`db/clickhouse/seed/`)는 쇼핑몰 서비스 4개(`shop-gateway` · `shop-order` · `shop-inventory` · `shop-payment`)의 최근 1시간이다. 결제 5xx 급증(5~15분 전) · 느린 결제 · 404 · 힙이 새는 파드 1대가 들어 있어 화면 · 경보를 바로 시험할 수 있다. 모양은 OTel Java Agent 2.x 형식에 맞췄고, 쇼핑몰이 붙으면 진짜 데이터와 비교해 고친다.
 - 포트가 다른 프로젝트와 겹치면 `.env.example` 을 `.env` 로 복사해서 바꾼다.
 
 ## 모듈 규칙

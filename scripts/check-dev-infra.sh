@@ -21,6 +21,9 @@ done
 db=$(C exec -T clickhouse bash -c 'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --query "EXISTS DATABASE monimo"')
 [ "$db" = "1" ] && ok "ClickHouse DB monimo" || fail "ClickHouse DB monimo 없음"
 
+ch_objects=$(C exec -T clickhouse bash -c 'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --query "SELECT countIf(engine != '"'MaterializedView'"'), countIf(engine = '"'MaterializedView'"') FROM system.tables WHERE database = '"'monimo'"'"')
+[ "$ch_objects" = "$(printf '11\t7')" ] && ok "ClickHouse 표 11개 · MV 7개" || fail "ClickHouse 표 · MV 개수가 다름 (표 MV: ${ch_objects})"
+
 C exec -T postgres sh -c 'pg_isready -q -U "$POSTGRES_USER" -d monimo' && ok "PostgreSQL DB monimo" || fail "PostgreSQL DB monimo 접속 실패"
 
 applied=$(C exec -T postgres sh -c 'psql -tA -U "$POSTGRES_USER" -d monimo -c "SELECT count(*) FILTER (WHERE success), count(*) FILTER (WHERE NOT success) FROM flyway_schema_history"' 2>/dev/null || echo "")

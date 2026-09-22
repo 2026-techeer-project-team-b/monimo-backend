@@ -73,10 +73,12 @@ services:
         hard: 262144
     volumes:
       # db/clickhouse/*.sql 은 데이터가 비어 있을 때(처음 켤 때)만 이름 순서대로 실행된다.
+      # 하위 폴더(seed/)는 실행되지 않는다. 가짜 데이터는 ./scripts/seed-clickhouse.sh 로만 넣는다.
       - ./db/clickhouse:/docker-entrypoint-initdb.d:ro
       - clickhouse-data:/var/lib/clickhouse
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'EXISTS DATABASE monimo' | grep -q 1"]
+      # 마지막 초기화 파일(004)의 마지막 MV까지 만들어졌을 때만 정상. DB만 보면 표를 만드는 도중에 정상으로 뜬다.
+      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'EXISTS TABLE monimo.mv_metrics_1h' | grep -q 1"]
       interval: 5s
       timeout: 10s
       retries: 30
