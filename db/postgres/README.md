@@ -37,9 +37,9 @@ V{년월일시분}__{동사}_{대상}.sql
 ## 로컬에서
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d --wait   # 켜면서 마이그레이션까지 끝낸다
+docker compose up -d --wait   # 켜면서 마이그레이션까지 끝낸다
 ./scripts/check-dev-infra.sh                            # 적용 결과 확인
-docker compose -f docker-compose.dev.yml run --rm postgres-migrate info   # 적용 이력 보기
+docker compose run --rm postgres-migrate info   # 적용 이력 보기
 ```
 
 ## 번호와 머지 순서가 다를 때

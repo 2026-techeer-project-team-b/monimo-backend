@@ -1,4 +1,4 @@
-# 로컬 프로필: 내 컴퓨터의 docker-compose.dev.yml 인프라에 붙는다.
+# 로컬 프로필: 내 컴퓨터의 compose.yaml 인프라에 붙는다.
 # 실행: ./gradlew :ingester:bootRun --args='--spring.profiles.active=local'
 # 포트·계정을 .env 로 바꿨다면 같은 이름의 환경변수로 덮어쓸 수 있다.
 
