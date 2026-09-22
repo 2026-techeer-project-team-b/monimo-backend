@@ -1,5 +1,5 @@
 # 로컬 인프라(compose.yaml)가 Intel 계열(amd64) 컴퓨터에서도 뜨는지 확인한다.
-# compose · DDL · 점검 스크립트가 바뀐 PR에서만 돈다.
+# compose · DDL · 가짜 데이터 · 점검 스크립트가 바뀐 PR에서만 돈다.
 name: dev-infra
 
 on:
@@ -9,6 +9,7 @@ on:
       - compose.yaml
       - db/**
       - scripts/check-dev-infra.sh
+      - scripts/seed-clickhouse.sh
       - .github/workflows/dev-infra.yml
   push:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - compose.yaml
       - db/**
       - scripts/check-dev-infra.sh
+      - scripts/seed-clickhouse.sh
       - .github/workflows/dev-infra.yml
   workflow_dispatch:
 
@@ -32,6 +34,8 @@ jobs:
         run: docker compose up -d --wait
       - name: 점검
         run: ./scripts/check-dev-infra.sh
+      - name: 가짜 데이터 넣기
+        run: ./scripts/seed-clickhouse.sh
       - name: 실패하면 로그 보기
         if: failure()
         run: docker compose logs --no-color --tail 100
