@@ -23,4 +23,9 @@ db=$(C exec -T clickhouse bash -c 'clickhouse-client --user "$CLICKHOUSE_USER" -
 
 C exec -T postgres sh -c 'pg_isready -q -U "$POSTGRES_USER" -d monimo' && ok "PostgreSQL DB monimo" || fail "PostgreSQL DB monimo 접속 실패"
 
+applied=$(C exec -T postgres sh -c 'psql -tA -U "$POSTGRES_USER" -d monimo -c "SELECT count(*) FILTER (WHERE success), count(*) FILTER (WHERE NOT success) FROM flyway_schema_history"' 2>/dev/null || echo "")
+ok_cnt=${applied%%|*}; fail_cnt=${applied##*|}
+[ -n "$applied" ] && [ "$fail_cnt" = "0" ] && [ "${ok_cnt:-0}" -ge 1 ] \
+  && ok "PostgreSQL 마이그레이션 ${ok_cnt}개 적용" || fail "PostgreSQL 마이그레이션 확인 실패 (성공 ${ok_cnt:-?} · 실패 ${fail_cnt:-?})"
+
 echo "모두 정상"

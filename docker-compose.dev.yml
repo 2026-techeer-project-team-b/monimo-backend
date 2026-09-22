@@ -97,6 +97,46 @@ services:
       timeout: 5s
       retries: 30
 
+  # PostgreSQL 마이그레이션 (한 번 실행하고 끝나는 컨테이너). 파일: db/postgres/**/V*.sql (ADR #49)
+  # 버전은 Spring Boot 3.5가 쓰는 Flyway와 같은 11.7.2
+  postgres-migrate:
+    image: flyway/flyway:11.7.2-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./db/postgres:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/monimo
+      FLYWAY_USER: ${POSTGRES_USER:-monimo}
+      FLYWAY_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      # 이름 규칙에 안 맞는 파일을 조용히 건너뛰지 않고 실패시킨다
+      FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
+      # 번호(만든 시각)와 머지 순서가 달라도 늦게 들어온 파일을 적용한다.
+      # 순서 의존 문제는 CI(dev-infra)가 빈 DB에 번호 순으로 전부 돌려서 잡는다
+      FLYWAY_OUT_OF_ORDER: "true"
+      FLYWAY_CONNECT_RETRIES: "10"
+    command: migrate
+    restart: "no"
+
+  # 준비 완료 표시등: 토픽 만들기 · 마이그레이션이 "끝나야" 켜진다.
+  # up --wait 은 이게 healthy 가 될 때까지 기다리므로, 끝나면 바로 앱을 띄워도 된다.
+  infra-ready:
+    image: postgres:17.11-alpine
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      postgres-migrate:
+        condition: service_completed_successfully
+      clickhouse:
+        condition: service_healthy
+    entrypoint: ["tail", "-f", "/dev/null"]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 2s
+      retries: 3
+
 volumes:
   clickhouse-data:
   postgres-data:
