@@ -1,7 +1,9 @@
 stage: 2
-next: Figma v4.3(figma-todo) → 20-scope 규모 숫자·T0(Q8). ERD·API 명세·팀 Notion 3페이지는 #40까지 일치
-open: 5
-updated: 2026-09-21
+next: 구현 착수 — Phase 진행 기준 = Notion 「API 명세」(사용자 확정 2026-09-23). 수집 파트(승조): 수집기 샘플링 + Kafka raw 발행 → 쇼핑몰 골격. 설계 잔여: Figma v4.3(figma-todo) → 20-scope 규모 숫자·T0(Q8)
+open: 6
+updated: 2026-09-23
+team(2026-09-23 확정): 승조 @SeungJo-02 = 수집 + 쇼핑몰 + 배포 · ukong @ukongee = 알림 · Nova @hyl1115 = 조회 · 재범 @jaebeom79 = 보안(인증 설정) + 파수꾼 · 화면 = 4명 공동. CODEOWNERS 5개 레포 파트별 반영. ⚠️ 세 멤버 레포 권한이 read 라 write 부여 필요
+devenv(2026-09-23): 계획 1~6단계 완료(`#13` 연결 약속: monimo-dev 네트워크 · collector:4317 · telemetrygen 점검 · shop otel/agent.properties) · 4단계 springdoc 추가(#12) · 7~9단계 남음. ktlint 미사용(사용자 확정, Q29 — ADR 사유 대기)
 notion(개인 스크럼 김승조): CI/CD 흐름 3dcd..8f13 · 깃허브 레포지토리 3dcd..24e6(레포 6개 중간안 → `#46`으로 5개 확정) · 레포별 파일 구성 3e1d..783b(`#46` 채택안) — 2026-09-15 · **사용할 라이브러리 정리 3ded..7453(2026-09-18 작성: 레포 5개별 라이브러리·대안·선택이유, 미확정은 후보+추천안+판단기준. docs 레포 제외한 5개 전제 / 2026-09-19 표 형식 전면 재포맷: 후보 칸에 한 줄 설명, 설명 칸은 장:·단: 각 2줄 이내 — 후보 행 184개 전부. §6은 5열 요약표라 대상 아님)**
 notion: 기능명세 3c7d..2d86(핵심기능5축, FN-1~60, #34~#38 반영 2026-09-14) / 설계범위 3d1d..1f90(#34~#38 반영, Q14 종결 표기) / 기술스택 선정서 3c7d..2d9a(**2026-09-15 전면 재작성**: 컴포넌트 21개 토글 — 하는 일·후보 비교표·되돌림, 상태 ✅/🟡/⬜, #40 기준. 옛 선정 DB·A~D 심화절은 사용자가 삭제. 2026-09-15 §6 CNCF 도구 추가 — MVP: OTel✅·Argo CD·Helm·cert-manager🟡, 인그레스⬜(Traefik vs ALB), 고도화 후보 KEDA>Kyverno>Linkerd — ADR 미기록. 로컬 사본 scratchpad/stack-page.md) / API명세 3c7d..5f46(**v3 REST 상세** 2026-09-14: §0 규약(헤더 포함) + 인라인 DB 'REST API' collection 801c..8fe5 **50행**(헬스체크 12행은 사용자가 삭제 → §0-1-1 공통 규약으로) + gRPC 3 절 + 호출 흐름. 최종 검증 APPROVE 2026-09-14. 정본 scratchpad/api-v3/{rows.json,body.md}) / ERD 3c7d..5588(최종본)
 web-v2(2026-09-21): Claude Design 아티팩트 https://claude.ai/artifact/AcoxmqwqUETAUytX2FhY2t (15 아트보드, 리뷰 반영 v3) · 사본 design/web-v2/ · API 50행→화면 매핑 api-map.md · 명세 보완 제안 #51~#53(플랫폼 카나리/서비스/이벤트 문) Notion 미반영 · Figma 페이지 「화면 디자인 2」536:30에 15화면 네이티브 재구축(컴포넌트 섹션 538:2, 프레임 540:*) · 「디자인 시스템」 페이지 0:1 완성(변수 79·텍스트 스타일 13·컴포넌트 64·아이콘 30, 원장 web-v2/figma-ds-state.json) · 기존 Figma 1:3 WF는 미수정
