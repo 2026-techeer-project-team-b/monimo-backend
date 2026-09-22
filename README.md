@@ -18,12 +18,16 @@
 
 ## 로컬 실행
 
-필요한 것: JDK 17 (없으면 Gradle이 자동으로 내려받는다), Docker
+필요한 것: JDK 17 (없으면 Gradle이 자동으로 내려받는다), **Docker (테스트에도 필요)**
 
 ```bash
-./gradlew build                      # 전체 빌드 + 테스트
-./gradlew :collector:bootRun         # 서비스 하나만 실행 (collector 자리에 모듈 이름)
+./gradlew build                      # 전체 빌드 + 테스트 (Docker가 켜져 있어야 한다)
 ./gradlew :collector:test            # 모듈 하나만 테스트
+
+# 서비스 하나 실행: 로컬 인프라를 먼저 켜고 local 프로필로
+docker compose -f docker-compose.dev.yml up -d --wait
+./gradlew :collector:bootRun --args='--spring.profiles.active=local'
+curl localhost:8081/actuator/health  # DB별 연결 상태까지 보인다
 
 # Docker 이미지 (레포 루트에서)
 docker build -f collector/Dockerfile -t monimo/collector .
@@ -50,14 +54,30 @@ docker compose -f docker-compose.dev.yml down -v        # 데이터까지 전부
 - 라이브러리 버전은 `gradle/libs.versions.toml` 한 곳에서만 정한다.
 - `common` 에는 공유 모델만 둔다. Entity · Repository · Service 금지.
 
+## 저장소 연결
+
+| 모듈 | PostgreSQL | Kafka | ClickHouse |
+|---|---|---|---|
+| collector | JPA (샘플링 설정 읽기) | 보내기 | |
+| ingester | JPA (에이전트 명단) | 받기 | client-v2 (적재) |
+| api-server | JPA | | JDBC (조회, `clickHouseJdbcTemplate`) |
+| detector | JPA | | |
+| notifier | JPA | | |
+
+- 접속 주소 · 계정은 `local` 프로필(`src/main/resources/application-local.yml`)에만 있다. 기본 `application.yml` 에는 환경과 무관한 설정만 둔다.
+- PostgreSQL: `open-in-view=false` · `ddl-auto=validate` · 실행 SQL 로깅 (ADR #42 가드레일). 표는 `db/postgres` 가 만들고 코드는 맞는지만 확인한다 (ADR #49).
+- Entity는 `data class` 로 만들지 않는다. JPA용 allOpen · noArg는 빌드에 이미 걸려 있다.
+
 ## 테스트 규칙
 
 - 테스트는 **Kotest**, 기본 스타일은 **BehaviorSpec** (Given / When / Then). JUnit `@Test` 는 쓰지 않는다. (ADR #48)
 - 스프링 컨텍스트가 필요하면 `@SpringBootTest` 를 붙이고 필요한 빈은 테스트 클래스 생성자로 받는다. 연결은 각 모듈의 `src/test/kotlin/io/kotest/provided/ProjectConfig.kt` 가 한다.
+- 스프링 테스트는 `@Import(TestInfraConfig::class)` 를 붙이면 **진짜 PostgreSQL · Kafka · ClickHouse 컨테이너**(Testcontainers)에 붙는다. 테스트용 PostgreSQL에는 `db/postgres` 마이그레이션이 그대로 적용되므로, Entity가 표와 다르면 테스트가 실패한다.
 - IntelliJ에 Kotest 플러그인을 설치하면 Given · When · Then 옆에 실행 버튼이 생긴다.
 
 ```kotlin
 @SpringBootTest
+@Import(TestInfraConfig::class)
 class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
     Given("수집기 애플리케이션") {
         When("스프링 컨텍스트를 띄우면") {

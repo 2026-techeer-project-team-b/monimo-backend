@@ -1,6 +1,22 @@
 spring:
   application:
     name: ingester
+  jpa:
+    open-in-view: false          # ADR #42 가드레일 ②
+    hibernate:
+      ddl-auto: validate         # 표는 db/postgres 마이그레이션이 만든다. 코드는 표를 바꾸지 않고 맞는지만 확인 (ADR #49)
+  flyway:
+    enabled: false               # 서비스는 마이그레이션을 돌리지 않는다 (ADR #49)
+  kafka:
+    consumer:
+      group-id: ingester
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
 
 server:
   port: 8082
+
+logging:
+  level:
+    org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
