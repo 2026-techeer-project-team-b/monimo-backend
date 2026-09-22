@@ -21,6 +21,8 @@
 필요한 것: JDK 17 (없으면 Gradle이 자동으로 내려받는다), **Docker (테스트에도 필요)**
 
 ```bash
+docker network create monimo-dev     # 처음 한 번만. backend · shop 의 compose 가 같이 쓰는 공용 네트워크 (없으면 compose 가 실패한다)
+
 ./gradlew build                      # 전체 빌드 + 테스트 (Docker가 켜져 있어야 한다)
 ./gradlew :collector:test            # 모듈 하나만 테스트
 
@@ -46,6 +48,11 @@ docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL 마이그레이�
 ./scripts/seed-clickhouse.sh   # ClickHouse에 가짜 신호 데이터 넣기 (최근 1시간치, 다시 돌리면 비우고 새로 넣음)
 docker compose down            # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
 docker compose down -v         # 데이터까지 전부 지우기
+
+# 수집기까지 컨테이너로 (쇼핑몰 에이전트가 collector:4317 로 보내는 것을 시험할 때)
+docker compose --profile collector up -d --wait --build
+./scripts/check-wiring.sh      # 가짜 발신기(telemetrygen)로 collector:4317 에 보내고 수집기가 받았는지 확인
+docker compose --profile collector down
 ```
 
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
@@ -55,6 +62,7 @@ docker compose down -v         # 데이터까지 전부 지우기
 - 집계 7표는 사람이 넣지 않는다. 원본(`spans` · `metrics_raw`)에 줄이 들어오면 MV가 자동으로 채운다.
 - 가짜 데이터(`db/clickhouse/seed/`)는 쇼핑몰 서비스 4개(`shop-gateway` · `shop-order` · `shop-inventory` · `shop-payment`)의 최근 1시간이다. 결제 5xx 급증(5~15분 전) · 느린 결제 · 404 · 힙이 새는 파드 1대가 들어 있어 화면 · 경보를 바로 시험할 수 있다. 모양은 OTel Java Agent 2.x 형식에 맞췄고, 쇼핑몰이 붙으면 진짜 데이터와 비교해 고친다.
 - 포트가 다른 프로젝트와 겹치면 `.env.example` 을 `.env` 로 복사해서 바꾼다.
+- **연결 약속 (개발환경 6단계)**: 모든 compose 는 공용 네트워크 `monimo-dev` 를 쓴다. 쇼핑몰 에이전트는 컨테이너끼리 `collector:4317`, 내 컴퓨터에서 실행한 앱은 `localhost:4317` 로 보낸다. 수집기를 IDE 로 직접 실행할 때는 `--profile collector` 를 켜지 않는다 (포트가 겹친다).
 
 ## 모듈 규칙
 
@@ -111,20 +119,30 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `CLICKHOUSE_HTTP_PORT` | 18123 | ClickHouse HTTP 호스트 포트 |
 | `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
+| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` | 4317 · 8081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 
 ## 포트
 
-HTTP 포트(상태 확인 `/actuator/health`). 임시값이며 개발환경 6단계(로컬 연결 약속)에서 확정한다.
+HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연결 약속)에서 확정.
 
 | 서비스 | 포트 |
 |---|---|
 | api-server | 8080 |
-| collector | 8081 (OTLP gRPC 4317은 구현 때 추가) |
+| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) |
 | ingester | 8082 |
 | detector | 8083 |
 | notifier | 8084 |
+
+어느 compose 가 무엇을 켜는지:
+
+| compose | 켜는 것 | 네트워크 |
+|---|---|---|
+| `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(표 · MV) · PostgreSQL(마이그레이션) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081`) | `monimo-dev` |
+| `monimo-shop/docker-compose.dev.yml` (예정) | 쇼핑몰 4개 + MySQL. OTel 에이전트는 `collector:4317` 로 보낸다 | `monimo-dev` (external) |
+| (없음) | ingester · api-server · detector · notifier 는 `bootRun` 또는 IDE 로 실행. 컨테이너 프로필은 구현 때 추가 | |
 
 로컬 인프라 (호스트 포트는 다른 프로젝트와 겹치지 않게 1로 시작):
 

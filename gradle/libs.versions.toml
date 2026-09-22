@@ -9,6 +9,8 @@ kotest = "6.2.5"
 clickhouse-java = "0.10.0"
 # Spring Boot 3.5 계열은 2.8.x (3.x는 Spring Boot 4 전용)
 springdoc = "2.8.17"
+# OTLP gRPC 수신 (grpc-java). opentelemetry-proto 에 들어 있는 gRPC 서비스 스텁을 그대로 쓴다
+grpc = "1.84.0"
 
 [libraries]
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -39,6 +41,10 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 # 임시 Kafka 메시지 형식: 수집기가 받은 OTLP를 protobuf 바이트 그대로 raw 토픽에 넣고, 적재 처리기가 이 라이브러리로 푼다.
 opentelemetry-proto = { module = "io.opentelemetry.proto:opentelemetry-proto", version.ref = "opentelemetry-proto" }
+# 수집기 OTLP gRPC 서버 (노션 「사용할 라이브러리 정리」 추천안: grpc-java + opentelemetry-proto)
+grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
 
 [bundles]
 # 5개 서비스 모듈이 공통으로 쓰는 것
@@ -47,6 +53,8 @@ service-test = ["spring-boot-starter-test", "kotest-runner-junit5", "kotest-asse
 # PostgreSQL 쓰는 모듈 공통 (5개 서비스 전부)
 postgres = ["spring-boot-starter-data-jpa", "postgresql"]
 postgres-test = ["spring-boot-testcontainers", "testcontainers-postgresql", "flyway-core", "flyway-postgresql"]
+# 수집기 OTLP gRPC 서버
+grpc-server = ["grpc-netty-shaded", "grpc-protobuf", "grpc-stub", "opentelemetry-proto"]
 # 스프링이 없는 모듈(common)용
 kotest = ["kotest-runner-junit5", "kotest-assertions-core"]
 

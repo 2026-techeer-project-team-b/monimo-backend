@@ -8,6 +8,8 @@ C() { docker compose "$@"; }
 ok() { echo "✓ $1"; }
 fail() { echo "✗ $1"; exit 1; }
 
+docker network inspect monimo-dev > /dev/null 2>&1 && ok "공용 네트워크 monimo-dev" || fail "공용 네트워크 monimo-dev 없음 (docker network create monimo-dev)"
+
 for s in kafka clickhouse postgres; do
   health=$(C ps --format '{{.Service}} {{.Health}}' | awk -v s="$s" '$1 == s { print $2 }')
   [ "$health" = "healthy" ] && ok "$s 정상" || fail "$s 상태: ${health:-꺼져 있음}"

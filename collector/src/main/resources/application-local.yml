@@ -1,14 +1,15 @@
 # 로컬 프로필: 내 컴퓨터의 compose.yaml 인프라에 붙는다.
 # 실행: ./gradlew :collector:bootRun --args='--spring.profiles.active=local'
 # 포트·계정을 .env 로 바꿨다면 같은 이름의 환경변수로 덮어쓸 수 있다.
+# compose 의 collector 프로필(컨테이너)은 같은 프로필에 POSTGRES_HOST=postgres · KAFKA_HOST=kafka 만 바꿔 넣는다.
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:15432}/monimo
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:15432}/monimo
     username: ${POSTGRES_USER:monimo}
     password: ${POSTGRES_PASSWORD:monimo}
   kafka:
-    bootstrap-servers: localhost:${KAFKA_PORT:19092}
+    bootstrap-servers: ${KAFKA_HOST:localhost}:${KAFKA_PORT:19092}
 
 management:
   endpoint:
