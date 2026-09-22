@@ -25,7 +25,7 @@
 ./gradlew :collector:test            # 모듈 하나만 테스트
 
 # 서비스 하나 실행: 로컬 인프라를 먼저 켜고 local 프로필로
-docker compose -f docker-compose.dev.yml up -d --wait
+docker compose up -d --wait
 ./gradlew :collector:bootRun --args='--spring.profiles.active=local'
 curl localhost:8081/actuator/health  # DB별 연결 상태까지 보인다
 
@@ -36,10 +36,11 @@ docker build -f collector/Dockerfile -t monimo/collector .
 ### 로컬 인프라 (Kafka · ClickHouse · PostgreSQL)
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d --wait   # 켜기 (토픽 · PostgreSQL 마이그레이션까지 끝나면 끝남)
-./scripts/check-dev-infra.sh                            # 제대로 떴는지 확인
-docker compose -f docker-compose.dev.yml down           # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
-docker compose -f docker-compose.dev.yml down -v        # 데이터까지 전부 지우기
+docker compose up -d           # 켜기 (레포 루트에서)
+docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL 마이그레이션이 끝날 때까지 기다리기
+./scripts/check-dev-infra.sh   # 제대로 떴는지 확인
+docker compose down            # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
+docker compose down -v         # 데이터까지 전부 지우기
 ```
 
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.

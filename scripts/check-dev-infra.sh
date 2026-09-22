@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# 로컬 인프라(docker-compose.dev.yml)가 제대로 떴는지 확인한다.
+# 로컬 인프라(compose.yaml)가 제대로 떴는지 확인한다.
 # 사용: ./scripts/check-dev-infra.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-C() { docker compose -f docker-compose.dev.yml "$@"; }
+C() { docker compose "$@"; }
 ok() { echo "✓ $1"; }
 fail() { echo "✗ $1"; exit 1; }
 
