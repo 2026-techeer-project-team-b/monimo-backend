@@ -11,6 +11,7 @@ dependencies {
     implementation(libs.bundles.service.base)
     implementation(libs.bundles.postgres)
     implementation(libs.clickhouse.jdbc)
+    implementation(libs.springdoc.openapi.starter.webmvc.ui)
 
     testImplementation(libs.bundles.service.test)
     testImplementation(libs.bundles.postgres.test)

@@ -14,6 +14,15 @@ monimo:
     username: ${CLICKHOUSE_USER:monimo}
     password: ${CLICKHOUSE_PASSWORD:monimo}
 
+# 로컬에서만 REST 명세 · Swagger UI 를 켠다: http://localhost:8080/swagger-ui.html
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+
 management:
   endpoint:
     health:

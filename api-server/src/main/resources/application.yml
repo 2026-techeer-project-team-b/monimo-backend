@@ -11,6 +11,14 @@ spring:
 server:
   port: 8080
 
+# REST 명세(/v3/api-docs)와 Swagger UI(/swagger-ui.html)는 기본으로 끈다. local 프로필에서만 켠다.
+# 이 접두는 API 명세 §0-1 주소 규칙에 없고 §0-2 인증 분류도 미정이라 운영에 노출하지 않는다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
