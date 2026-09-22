@@ -32,7 +32,7 @@ docker build -f collector/Dockerfile -t monimo/collector .
 ### 로컬 인프라 (Kafka · ClickHouse · PostgreSQL)
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d --wait   # 켜기 (토픽까지 준비되면 끝남)
+docker compose -f docker-compose.dev.yml up -d --wait   # 켜기 (토픽 · PostgreSQL 마이그레이션까지 끝나면 끝남)
 ./scripts/check-dev-infra.sh                            # 제대로 떴는지 확인
 docker compose -f docker-compose.dev.yml down           # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
 docker compose -f docker-compose.dev.yml down -v        # 데이터까지 전부 지우기
@@ -40,6 +40,7 @@ docker compose -f docker-compose.dev.yml down -v        # 데이터까지 전부
 
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
 - Kafka 메시지는 컨테이너 안에만 있어서 `down` 하면 지워진다.
+- **PostgreSQL 표는 `db/postgres/` 한 곳**에 파트별 폴더(`config/` · `alert/` · `ingest/`)로 추가하고, 켤 때 Flyway가 자동 적용한다. 서비스는 마이그레이션을 돌리지 않는다. 규칙은 [`db/postgres/README.md`](db/postgres/README.md) (ADR #49)
 - ClickHouse 초기 DDL은 `db/clickhouse/*.sql` 에 둔다. **데이터가 비어 있을 때(처음 켤 때)만** 실행되므로, 바꾼 DDL을 다시 적용하려면 `down -v` 후 켠다.
 - 포트가 다른 프로젝트와 겹치면 `.env.example` 을 `.env` 로 복사해서 바꾼다.
 

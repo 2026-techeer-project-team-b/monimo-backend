@@ -419,3 +419,11 @@
 - **되돌림**: Kotest와 Spring 연동(컨텍스트 캐시 · 트랜잭션 롤백 · IntelliJ 실행) 문제로 **반나절 이상 막히는 일이 2회** 생기면 그 모듈만 JUnit 5로 되돌린다. 둘 다 JUnit Platform 위라 한 레포에서 섞어 돌릴 수 있다
 - **파생**: 팀원 IntelliJ에 Kotest 플러그인 설치 권장 · `spring-boot-starter-test` 에 딸려 오는 JUnit Jupiter는 제외하지 않았다(새 테스트에 JUnit `@Test` 를 쓰지 않는 것은 README 규칙으로) · **미반영**: Notion 「사용할 라이브러리 정리」
 
+## `#49` [확정] PostgreSQL 마이그레이션 = `db/postgres/` 한 곳 + 전용 Flyway 실행 — 서비스별 Flyway · 스키마 분리 · JPA 자동 생성 기각
+
+2026-09-22 | 사용자 진행 승인 · 팀 회의(2026-09-22 23시)에서 확인 예정 | PG 표 9개를 파트 3개(인증 설정 · 알림 · 수집)가 나눠 만드는데, 표끼리 파트를 넘는 FK가 있어(예: `alert_events` → `agents` → `applications`) 실행 방식을 W1 전에 정해야 함. 개발환경 계획 5단계의 "PG Flyway는 주인 모듈 안" 메모를 이것으로 대체
+- **채택**: 마이그레이션 SQL은 **`monimo-backend/db/postgres/` 한 곳**, 파트별 하위 폴더 `config/`(users · applications · application_configs) · `alert/`(alert_rules · alert_channels · alert_rule_channels · alert_events · notification_history) · `ingest/`(agents). 실행은 서비스가 아니라 **전용 Flyway 컨테이너가 한 번**(`flyway/flyway:11.7.2-alpine`, Spring Boot 3.5가 쓰는 Flyway와 같은 버전). 파일 이름 `V{년월일시분}__{동사}_{대상}.sql`, 이름 규칙 위반은 실패 처리(`validateMigrationNaming`), 머지 순서와 번호가 달라도 적용(`outOfOrder`). 순서 의존 실수는 CI `dev-infra`가 빈 DB에 번호 순으로 전부 실행해 잡는다. `up --wait` 은 `infra-ready` 표시등으로 마이그레이션 완료까지 기다린다. 1b에는 `monimo-deploy/schema/postgres` + 쿠버네티스 Job으로 이동
+- **기각**: ① **서비스마다 Flyway** — 사유: 한 DB에 이력 표(`flyway_schema_history`)가 여럿 생기거나 한 표를 두고 경쟁하고, 파트를 넘는 FK 때문에 서비스 기동 순서에 따라 마이그레이션이 실패한다(탐지가 먼저 뜨면 `alert_events` 가 `agents` 를 못 찾음) ② **서비스별 스키마 분리** — 사유: ERD의 파트 간 FK(`alert_events.agent_id` 등)를 끊어야 해서 데이터 무결성을 DB가 아니라 코드로 지켜야 한다. 학생 4명 2개월 범위에서 과함 ③ **JPA `ddl-auto` 자동 생성** — 사유: 변경 이력이 남지 않고, 운영 DB에 그대로 쓸 수 없으며, 표 정의가 Entity 코드에 흩어져 ERD와 대조가 안 된다
+- **되돌림**: 파트별 배포 주기가 크게 갈려 마이그레이션이 한 PR 흐름에 묶이는 게 병목이 되면(마이그레이션 충돌로 PR이 막히는 일이 **주 2회 이상**) 파트별 이력 표(`flyway.table`)로 나눈다. FK 순서는 그때 파트 간 합의로 관리
+- **검증(2026-09-22, 로컬)**: 기준 파일 1개 적용 · 파트 폴더 안 파일 인식 · 파트를 넘는 FK 순서 적용 · 켜진 상태에서 파일 추가 후 재기동 시 `--wait` 이 적용 완료 뒤 반환 · 이름 규칙 위반 실패 · 작은 번호 늦게 추가 시 적용 · 빈 DB에서 없는 표 참조 시 실패 후 롤백
+
