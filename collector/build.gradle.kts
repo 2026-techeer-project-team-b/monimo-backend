@@ -11,6 +11,7 @@ dependencies {
     implementation(libs.bundles.service.base)
     implementation(libs.bundles.postgres)
     implementation(libs.spring.kafka)
+    implementation(libs.bundles.grpc.server)
 
     testImplementation(libs.bundles.service.test)
     testImplementation(libs.bundles.postgres.test)

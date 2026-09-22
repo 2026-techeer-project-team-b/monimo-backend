@@ -12,5 +12,6 @@ RUN groupadd --system app && useradd --system --gid app app
 WORKDIR /app
 COPY --from=build /workspace/collector/build/libs/*.jar app.jar
 USER app
-EXPOSE 8081
+# 8081 HTTP(상태 확인) · 4317 OTLP gRPC(에이전트 수신)
+EXPOSE 8081 4317
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

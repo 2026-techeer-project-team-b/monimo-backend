@@ -16,6 +16,20 @@ spring:
 server:
   port: 8081
 
+# OTLP gRPC 수신 포트. 쇼핑몰 에이전트는 컨테이너끼리 collector:4317, 내 컴퓨터에서는 localhost:4317 로 보낸다 (개발환경 6단계 연결 약속)
+monimo:
+  collector:
+    otlp:
+      grpc:
+        port: 4317
+
+# /actuator/metrics 로 받은 건수(monimo.collector.otlp.received)를 본다. 연결 점검 스크립트가 읽는다
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, metrics
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
