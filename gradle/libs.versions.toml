@@ -7,6 +7,8 @@ spring-boot = "3.5.16"
 opentelemetry-proto = "1.11.0-alpha"
 kotest = "6.2.5"
 clickhouse-java = "0.10.0"
+# Spring Boot 3.5 계열은 2.8.x (3.x는 Spring Boot 4 전용)
+springdoc = "2.8.17"
 
 [libraries]
 spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -33,6 +35,8 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-extensions-spring = { module = "io.kotest:kotest-extensions-spring", version.ref = "kotest" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+# API 서버 REST 명세 자동 생성 + Swagger UI (local 프로필에서만 켠다). 노션 API 명세서가 설계 정본, 이건 대조용
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 # 임시 Kafka 메시지 형식: 수집기가 받은 OTLP를 protobuf 바이트 그대로 raw 토픽에 넣고, 적재 처리기가 이 라이브러리로 푼다.
 opentelemetry-proto = { module = "io.opentelemetry.proto:opentelemetry-proto", version.ref = "opentelemetry-proto" }
 

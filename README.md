@@ -29,6 +29,10 @@ docker compose up -d --wait
 ./gradlew :collector:bootRun --args='--spring.profiles.active=local'
 curl localhost:8081/actuator/health  # DB별 연결 상태까지 보인다
 
+# API 서버를 local 프로필로 켜면 REST 명세 · Swagger UI 가 열린다 (다른 프로필에서는 404)
+./gradlew :api-server:bootRun --args='--spring.profiles.active=local'
+open http://localhost:8080/swagger-ui.html
+
 # Docker 이미지 (레포 루트에서)
 docker build -f collector/Dockerfile -t monimo/collector .
 ```
@@ -68,6 +72,7 @@ docker compose down -v         # 데이터까지 전부 지우기
 | detector | JPA | | |
 | notifier | JPA | | |
 
+- **REST 명세는 api-server 코드에서 자동 생성**(springdoc). 노션 「API 명세」가 설계 정본이고 Swagger 는 구현이 명세와 맞는지 대조하는 용도다. `local` 프로필에서만 켜지고 운영에는 노출하지 않는다 (`/v3/api-docs` · `/swagger-ui` 접두는 명세 §0-1 주소 규칙 밖).
 - 접속 주소 · 계정은 `local` 프로필(`src/main/resources/application-local.yml`)에만 있다. 기본 `application.yml` 에는 환경과 무관한 설정만 둔다.
 - PostgreSQL: `open-in-view=false` · `ddl-auto=validate` · 실행 SQL 로깅 (ADR #42 가드레일). 표는 `db/postgres` 가 만들고 코드는 맞는지만 확인한다 (ADR #49).
 - Entity는 `data class` 로 만들지 않는다. JPA용 allOpen · noArg는 빌드에 이미 걸려 있다.
