@@ -50,9 +50,9 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
             else -> ErrorCode.INTERNAL_ERROR
         }
         val message = when (ex) {
-            is MissingServletRequestParameterException -> "필수 파라미터 ${ex.parameterName} 가 없습니다."
-            is MethodArgumentTypeMismatchException -> "파라미터 ${ex.name} 의 값 형식이 올바르지 않습니다."
-            is TypeMismatchException -> "파라미터 ${ex.propertyName} 의 값 형식이 올바르지 않습니다."
+            is MissingServletRequestParameterException -> "필수 파라미터 '${ex.parameterName}' 이(가) 없습니다."
+            is MethodArgumentTypeMismatchException -> "파라미터 '${ex.name}' 의 값 형식이 올바르지 않습니다."
+            is TypeMismatchException -> "파라미터 '${ex.propertyName}' 의 값 형식이 올바르지 않습니다."
             else -> errorCode.defaultMessage
         }
         return ResponseEntity.status(statusCode).headers(headers).body(ErrorResponse.of(errorCode, message))
