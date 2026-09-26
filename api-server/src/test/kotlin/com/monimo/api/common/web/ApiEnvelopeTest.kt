@@ -77,7 +77,7 @@ class ApiEnvelopeTest(mockMvc: MockMvc, objectMapper: ObjectMapper) : BehaviorSp
             Then("400 INVALID_REQUEST 와 빠진 파라미터 이름을 알려 준다") {
                 result.response.status shouldBe 400
                 body(result)["error"]["code"].asText() shouldBe "INVALID_REQUEST"
-                body(result)["error"]["message"].asText() shouldBe "필수 파라미터 from 가 없습니다."
+                body(result)["error"]["message"].asText() shouldBe "필수 파라미터 'from' 이(가) 없습니다."
             }
         }
 

@@ -37,7 +37,7 @@
 
 **페이징**: 쪽 번호 대신 커서. `limit`(기본 50, 최대 500) · `cursor`(직전 응답의 `page.next_cursor`, 마지막 쪽이면 `null`). 예외: 스캐터 차트(`GET /traces/scatter`)의 `limit`은 점 개수 상한이며, 초과 시 서버가 격자로 접어 `mode`가 `raw`→`bucketed`로 바뀜(FN-47, 사용자가 아니라 시스템이 결정).
 
-**시간 범위 공통 파라미터**: `from`(필수, 시작 포함) · `to`(필수, 끝 제외) · `step`(선택, 초 단위, 기본 60 — 60 미만 원본, 60 이상 1분 롤업, 3600 이상 1시간 롤업을 서버가 자동 선택, FN-47). `from`>`to`면 422 UNPROCESSABLE, 범위 초과 시 422 TIME_RANGE_TOO_WIDE.
+**시간 범위 공통 파라미터**: `from`(필수, 시작 포함) · `to`(필수, 끝 제외) · `step`(선택, 초 단위, 기본 60 — 60 미만 원본, 60 이상 1분 롤업, 3600 이상 1시간 롤업을 서버가 자동 선택, FN-47). `from`≥`to`(같거나 늦음)면 422 UNPROCESSABLE, 범위 초과 시 422 TIME_RANGE_TOO_WIDE — 상한은 기본 7일(`to`−`from` 길이), 더 긴 범위가 필요한 API는 그 API에서만 상한을 늘린다(예: `metrics/series` 롤업별, 구현 시 확정).
 
 **식별자 규칙**: 숫자 `id`는 절대 외부 노출 안 함. 서비스·파드·규칙·채널·경보·설정·사용자·덤프는 경로/본문에서 **UUID**. 신호 조회 시 서비스는 `service_name`(문자열, `applications.name`과 동일 글자), 파드는 `agent_key`(문자열, CH의 `agent_id`와 동일값, PG 숫자 FK `agent_id`와 혼동 방지). 트레이스는 `trace_id`(외부 발급 문자열), 스레드 덤프는 `dump_uuid`(CH `thread_dumps.dump_uuid`). 공통 쿼리 파라미터명 7개로 통일: `from`·`to`·`step`·`cursor`·`limit`·`service_name`·`agent_key`.
 
