@@ -22,3 +22,5 @@ springdoc:
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
+  pattern:
+    correlation: "[%X{requestId:-}] "   # 로그 줄마다 X-Request-Id (RequestIdFilter)
