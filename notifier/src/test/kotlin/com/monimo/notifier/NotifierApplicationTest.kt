@@ -1,15 +1,18 @@
 package com.monimo.notifier
 
+import com.monimo.notifier.support.ALERT_SCHEMA_FLYWAY
 import com.monimo.notifier.support.TestInfraConfig
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.test.context.TestPropertySource
 import org.springframework.core.env.Environment
 import org.springframework.jdbc.core.JdbcTemplate
 
 @SpringBootTest
 @Import(TestInfraConfig::class)
+@TestPropertySource(properties = [ALERT_SCHEMA_FLYWAY])
 class NotifierApplicationTest(
     environment: Environment,
     jdbcTemplate: JdbcTemplate,
