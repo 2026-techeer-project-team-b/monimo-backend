@@ -12,9 +12,11 @@ dependencies {
     implementation(libs.bundles.postgres)
     implementation(libs.clickhouse.jdbc)
     implementation(libs.springdoc.openapi.starter.webmvc.ui)
+    implementation(libs.bundles.security)
 
     testImplementation(libs.bundles.service.test)
     testImplementation(libs.bundles.postgres.test)
     testImplementation(libs.testcontainers.clickhouse)
+    testImplementation(libs.spring.security.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
