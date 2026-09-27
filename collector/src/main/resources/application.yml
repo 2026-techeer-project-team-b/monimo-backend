@@ -10,6 +10,8 @@ spring:
   kafka:
     # 임시 메시지 형식: OTLP protobuf 바이트 그대로 (개발환경 9단계에서 확정)
     producer:
+      # 브로커가 저장을 끝낸 뒤에만 성공으로 친다
+      acks: all
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
 
