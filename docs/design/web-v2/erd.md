@@ -11,6 +11,7 @@
 | description | 설명 | TEXT |  | NULL | 이 서비스가 무슨 일을 하는지 메모. 서비스 상세 화면 |
 | created_at | 만든 시각 | TIMESTAMPTZ |  | NN | 등록 시각 |
 | updated_at | 고친 시각 | TIMESTAMPTZ |  | NN | 마지막 편집 시각 |
+| deleted_at | 제외한 시각 | TIMESTAMPTZ |  | NULL | 감시 대상에서 뺀 시각. 감시 중이면 NULL. 규칙 · 파드가 FK로 참조해 줄은 지우지 않는다 |
 
 ### agents (PG, 소유: 적재 처리기 · 탐지)
 
