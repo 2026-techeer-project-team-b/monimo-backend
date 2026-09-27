@@ -13,6 +13,17 @@ spring:
 server:
   port: 8080
 
+monimo:
+  auth:
+    # access JWT(HS256) 서명 키. 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트 전용)
+    jwt-secret: ${MONIMO_JWT_SECRET:}
+    access-ttl: 3600s
+    refresh-ttl: 14d
+    # refresh 쿠키의 Secure 속성. HTTPS 가 아닌 로컬에서만 끈다
+    cookie-secure: true
+  # 내부 문 5개(/api/v1/internal/**)의 X-Internal-Token 값. 비우면 내부 문이 전부 닫힌다
+  internal-token: ${MONIMO_INTERNAL_TOKEN:}
+
 # REST 명세(/v3/api-docs)와 Swagger UI(/swagger-ui.html)는 기본으로 끈다. local 프로필에서만 켠다.
 # 이 접두는 API 명세 §0-1 주소 규칙에 없고 §0-2 인증 분류도 미정이라 운영에 노출하지 않는다.
 springdoc:

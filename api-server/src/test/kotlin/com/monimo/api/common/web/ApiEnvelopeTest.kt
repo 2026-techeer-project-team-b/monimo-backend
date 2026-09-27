@@ -9,6 +9,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldMatch
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import com.monimo.api.common.security.SecurityConfig
+import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Profile
 import org.springframework.dao.DataAccessResourceFailureException
 import org.springframework.test.context.ActiveProfiles
@@ -20,7 +22,9 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
-@WebMvcTest
+// controllers 로 한정: 다른 파트 컨트롤러(서비스 빈 필요)까지 뜨지 않게. SecurityConfig 는 자동으로 안 읽혀서 직접 넣는다 (없으면 기본 설정이 전부 401)
+@WebMvcTest(controllers = [EnvelopeTestController::class])
+@Import(SecurityConfig::class)
 @ActiveProfiles("envelope-test")
 class ApiEnvelopeTest(mockMvc: MockMvc, objectMapper: ObjectMapper) : BehaviorSpec({
 
@@ -110,7 +114,8 @@ class ApiEnvelopeTest(mockMvc: MockMvc, objectMapper: ObjectMapper) : BehaviorSp
         }
 
         When("없는 주소를 부르면") {
-            val result = call("/api/v1/no-such-path")
+            // /api/v1/** 는 토큰이 없으면 주소가 있든 없든 401 이 먼저다 (SecurityConfig). 404 봉투는 인증 밖 주소로 본다
+            val result = call("/no-such-path")
 
             Then("404 NOT_FOUND 에러 봉투") {
                 result.response.status shouldBe 404

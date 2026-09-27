@@ -85,6 +85,23 @@ docker compose --profile collector down
 - PostgreSQL: `open-in-view=false` · `ddl-auto=validate` · 실행 SQL 로깅 (ADR #42 가드레일). 표는 `db/postgres` 가 만들고 코드는 맞는지만 확인한다 (ADR #49).
 - Entity는 `data class` 로 만들지 않는다. JPA용 allOpen · noArg는 빌드에 이미 걸려 있다.
 
+## 로그인 · 권한 (api-server)
+
+API 명세 §0-2 의 권한 4종을 `common/security/SecurityConfig` 가 경로로 가른다. 에이전트(mTLS)는 수집기 몫이라 여기 없다.
+
+| 권한 | 경로 | 어떻게 |
+|---|---|---|
+| 공개 | `/api/v1/auth/login` · `/auth/refresh` · 헬스체크 · actuator · springdoc(local) | 아무것도 안 봄 |
+| VIEWER+ | 그 밖의 `/api/v1/**` | `Authorization: Bearer <access JWT>` |
+| ADMIN | 값을 바꾸는 문 | 컨트롤러 메서드에 `@PreAuthorize("hasRole('ADMIN')")` |
+| 내부 | `/api/v1/internal/**` | `X-Internal-Token` 이 `MONIMO_INTERNAL_TOKEN` 과 같아야 한다. 사람 JWT 는 403 |
+
+- access 토큰은 HS256 JWT, 1시간. `sub` = user_uuid, `role` = ADMIN · VIEWER.
+- refresh 토큰은 응답 본문이 아니라 **httpOnly 쿠키**(`monimo_refresh`, `Path=/api/v1/auth`, `SameSite=Strict`, 14일)로 오간다. PG `refresh_tokens` 에 해시만 두고 재발급마다 회전한다. 로그아웃은 그 줄을 지운다.
+- 시큐리티 필터에서 막힌 요청도 명세 에러 봉투(`401 UNAUTHENTICATED` · `403 FORBIDDEN`)로 응답한다.
+- 첫 계정: `local` 프로필은 users 표가 비어 있으면 `admin@monimo.io` / `monimo2026` 을 ADMIN 으로 만든다 (화면 가짜 응답의 데모 계정과 같다). 운영은 `monimo.auth.bootstrap-admin` 을 환경변수로 넣어 한 번만 만든다.
+- `@WebMvcTest` 로 컨트롤러를 시험할 때는 `@Import(SecurityConfig::class)` 를 붙인다. 없으면 스프링 기본 설정이 모든 요청을 401 로 막는다.
+
 ## 테스트 규칙
 
 - 테스트는 **Kotest**, 기본 스타일은 **BehaviorSpec** (Given / When / Then). JUnit `@Test` 는 쓰지 않는다. (ADR #48)
@@ -122,6 +139,13 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` | 4317 · 8081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
+
+api-server 인증용 (bootRun 환경변수):
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `MONIMO_JWT_SECRET` | (없음) | access JWT 서명 키, 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트만) |
+| `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다 |
 
 ## 포트
 

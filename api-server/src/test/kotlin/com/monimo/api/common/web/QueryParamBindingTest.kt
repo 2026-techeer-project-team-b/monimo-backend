@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import com.monimo.api.common.security.SecurityConfig
+import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Profile
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
@@ -16,7 +18,9 @@ import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 
 // 실제 요청의 쿼리 문자열이 Instant 로 바뀌고, 검사 결과가 명세 상태 코드로 나가는지 확인한다
-@WebMvcTest
+// controllers 로 한정: 다른 파트 컨트롤러(서비스 빈 필요)까지 뜨지 않게. SecurityConfig 는 자동으로 안 읽혀서 직접 넣는다 (없으면 기본 설정이 전부 401)
+@WebMvcTest(controllers = [QueryParamTestController::class])
+@Import(SecurityConfig::class)
 @ActiveProfiles("query-param-test")
 class QueryParamBindingTest(mockMvc: MockMvc, objectMapper: ObjectMapper) : BehaviorSpec({
 

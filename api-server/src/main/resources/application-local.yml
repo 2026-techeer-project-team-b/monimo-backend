@@ -13,6 +13,14 @@ monimo:
     jdbc-url: jdbc:clickhouse://localhost:${CLICKHOUSE_HTTP_PORT:18123}/monimo
     username: ${CLICKHOUSE_USER:monimo}
     password: ${CLICKHOUSE_PASSWORD:monimo}
+  auth:
+    cookie-secure: false         # 로컬은 http://localhost 라 Secure 쿠키가 안 붙는다
+    # users 표가 비어 있으면 이 계정을 ADMIN 으로 만든다. 화면 가짜 응답의 데모 계정과 같은 값
+    bootstrap-admin:
+      email: admin@monimo.io
+      password: monimo2026
+      name: 관리자
+  internal-token: local-internal-token
 
 # 로컬에서만 REST 명세 · Swagger UI 를 켠다: http://localhost:8080/swagger-ui.html
 springdoc:

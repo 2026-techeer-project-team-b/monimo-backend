@@ -7,6 +7,8 @@ import org.springframework.dao.TransientDataAccessException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.core.AuthenticationException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -29,6 +31,15 @@ class GlobalExceptionHandler : ResponseEntityExceptionHandler() {
         log.warn("저장소 응답 없음", ex)
         return respond(ErrorCode.UPSTREAM_UNAVAILABLE, ErrorCode.UPSTREAM_UNAVAILABLE.defaultMessage)
     }
+
+    // @PreAuthorize 가 컨트롤러 안에서 던진 것. 여기서 잡지 않으면 아래 Exception 핸들러가 500 으로 삼킨다
+    @ExceptionHandler(AccessDeniedException::class)
+    fun handleAccessDenied(ex: AccessDeniedException): ResponseEntity<ErrorResponse> =
+        respond(ErrorCode.FORBIDDEN, ErrorCode.FORBIDDEN.defaultMessage)
+
+    @ExceptionHandler(AuthenticationException::class)
+    fun handleAuthentication(ex: AuthenticationException): ResponseEntity<ErrorResponse> =
+        respond(ErrorCode.UNAUTHENTICATED, ErrorCode.UNAUTHENTICATED.defaultMessage)
 
     // 예상 못한 예외는 내부 메시지를 숨기고 500 으로 응답한다
     @ExceptionHandler(Exception::class)

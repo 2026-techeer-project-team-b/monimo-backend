@@ -37,6 +37,10 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-extensions-spring = { module = "io.kotest:kotest-extensions-spring", version.ref = "kotest" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+# API 서버 인증 (노션 「사용할 라이브러리 정리」: 검사 = Resource Server(Nimbus) · 발급 = NimbusJwtEncoder · 비밀번호 해시 = spring-security-crypto)
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
+spring-boot-starter-oauth2-resource-server = { module = "org.springframework.boot:spring-boot-starter-oauth2-resource-server" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
 # API 서버 REST 명세 자동 생성 + Swagger UI (local 프로필에서만 켠다). 노션 API 명세서가 설계 정본, 이건 대조용
 springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 # 임시 Kafka 메시지 형식: 수집기가 받은 OTLP를 protobuf 바이트 그대로 raw 토픽에 넣고, 적재 처리기가 이 라이브러리로 푼다.
@@ -53,6 +57,8 @@ service-test = ["spring-boot-starter-test", "kotest-runner-junit5", "kotest-asse
 # PostgreSQL 쓰는 모듈 공통 (5개 서비스 전부)
 postgres = ["spring-boot-starter-data-jpa", "postgresql"]
 postgres-test = ["spring-boot-testcontainers", "testcontainers-postgresql", "flyway-core", "flyway-postgresql"]
+# API 서버 인증
+security = ["spring-boot-starter-security", "spring-boot-starter-oauth2-resource-server"]
 # 수집기 OTLP gRPC 서버
 grpc-server = ["grpc-netty-shaded", "grpc-protobuf", "grpc-stub", "opentelemetry-proto"]
 # 스프링이 없는 모듈(common)용
