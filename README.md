@@ -53,6 +53,11 @@ docker compose down -v         # 데이터까지 전부 지우기
 docker compose --profile collector up -d --wait --build
 ./scripts/check-wiring.sh      # 가짜 발신기(telemetrygen)로 collector:4317 에 보내고 수집기가 받았는지 확인
 docker compose --profile collector down
+
+# 수집기 + 적재 처리기까지 컨테이너로 (한 줄이 통째로 이어지는지 시험할 때)
+docker compose --profile collector --profile ingester up -d --wait --build
+./scripts/check-pipeline.sh    # 수집기가 받은 건수와 적재 처리기가 푼 건수를 대조한다 (CI 도 이걸 돈다)
+docker compose --profile collector --profile ingester down
 ```
 
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
@@ -137,6 +142,7 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
 | `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` | 4317 · 8081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트 |
+| `INGESTER_HTTP_PORT` | 8082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 
@@ -165,8 +171,11 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 |---|---|---|
 | `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(표 · MV) · PostgreSQL(마이그레이션) | `monimo-dev` |
 | `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081`) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082`) | `monimo-dev` |
 | `monimo-shop/docker-compose.dev.yml` (예정) | 쇼핑몰 4개 + MySQL. OTel 에이전트는 `collector:4317` 로 보낸다 | `monimo-dev` (external) |
-| (없음) | ingester · api-server · detector · notifier 는 `bootRun` 또는 IDE 로 실행. 컨테이너 프로필은 구현 때 추가 | |
+| (없음) | api-server · detector · notifier 는 `bootRun` 또는 IDE 로 실행. 컨테이너 프로필은 구현 때 추가 | |
+
+프로필은 겹쳐 쓸 수 있다: `--profile collector --profile ingester`. 같은 서비스를 IDE 로도 띄우면 호스트 포트가 겹치므로 둘 중 하나만 켠다.
 
 로컬 인프라 (호스트 포트는 다른 프로젝트와 겹치지 않게 1로 시작):
 

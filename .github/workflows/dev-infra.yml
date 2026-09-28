@@ -1,6 +1,6 @@
-# 로컬 인프라(compose.yaml)가 Intel 계열(amd64) 컴퓨터에서도 뜨는지, 그리고 수집기 컨테이너가
-# 공용 네트워크에서 OTLP 를 받는지(연결 약속) 확인한다.
-# compose · DDL · 가짜 데이터 · 점검 스크립트 · 수집기가 바뀐 PR에서만 돈다.
+# 로컬 인프라(compose.yaml)가 Intel 계열(amd64) 컴퓨터에서도 뜨는지, 그리고
+# 에이전트 → 수집기 → Kafka raw → 적재 처리기 한 줄이 실제로 이어지는지 확인한다.
+# compose · DDL · 가짜 데이터 · 점검 스크립트 · 수집기 · 적재 처리기가 바뀐 PR에서만 돈다.
 name: dev-infra
 
 on:
@@ -12,7 +12,9 @@ on:
       - scripts/check-dev-infra.sh
       - scripts/seed-clickhouse.sh
       - scripts/check-wiring.sh
+      - scripts/check-pipeline.sh
       - collector/**
+      - ingester/**
       - common/**
       - gradle/**
       - "*.gradle.kts"
@@ -25,7 +27,9 @@ on:
       - scripts/check-dev-infra.sh
       - scripts/seed-clickhouse.sh
       - scripts/check-wiring.sh
+      - scripts/check-pipeline.sh
       - collector/**
+      - ingester/**
       - common/**
       - gradle/**
       - "*.gradle.kts"
@@ -50,13 +54,13 @@ jobs:
       - name: 가짜 데이터 넣기
         run: ./scripts/seed-clickhouse.sh
       - uses: docker/setup-buildx-action@v4
-      - name: 수집기 컨테이너 켜기 (연결 약속)
-        run: docker compose --profile collector up -d --wait --build
-      - name: 연결 점검 (telemetrygen → collector:4317)
-        run: ./scripts/check-wiring.sh
+      - name: 수집기 · 적재 처리기 컨테이너 켜기
+        run: docker compose --profile collector --profile ingester up -d --wait --build
+      - name: 파이프라인 점검 (telemetrygen → 수집기 → Kafka raw → 적재 처리기)
+        run: ./scripts/check-pipeline.sh
       - name: 실패하면 로그 보기
         if: failure()
-        run: docker compose --profile collector logs --no-color --tail 100
+        run: docker compose --profile collector --profile ingester logs --no-color --tail 150
       - name: 정리
         if: always()
-        run: docker compose --profile collector down -v
+        run: docker compose --profile collector --profile ingester down -v

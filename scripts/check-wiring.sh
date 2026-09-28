@@ -2,6 +2,7 @@
 # 로컬 연결 약속(개발환경 6단계) 점검: 쇼핑몰 대신 가짜 발신기(telemetrygen)를 공용 네트워크 monimo-dev 에 띄워
 # collector:4317 로 트레이스 · 메트릭 · 로그를 보내고, 수집기가 받았는지 /actuator/metrics 로 확인한다.
 # 사용: docker compose --profile collector up -d --wait --build && ./scripts/check-wiring.sh
+# 적재 처리기까지 한 줄로 확인하려면 scripts/check-pipeline.sh 를 쓴다 (CI 가 도는 것도 그쪽이다).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [ -f .env ] && set -a && . ./.env && set +a
