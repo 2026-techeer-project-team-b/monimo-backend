@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 // 채널 등록 · 목록 · 상세 · 수정 · 켜고 끄기. 삭제 문은 명세에 없다 (끄고 이력은 남긴다)
@@ -23,11 +24,11 @@ class AlertChannelService(
 
     @Transactional
     fun create(request: CreateAlertChannelRequest): AlertChannel {
-        val now = Instant.now()
+        val at = now()
         return channels.save(
             AlertChannel(
                 UUID.randomUUID(), nameOf(request.name), request.type, ChannelConfigPolicy.validate(request.type, request.config),
-                request.enabled, now, now,
+                request.enabled, at, at,
             ),
         )
     }
@@ -53,7 +54,7 @@ class AlertChannelService(
         channel.config = ChannelConfigPolicy.validate(request.type, incoming)
         channel.name = nameOf(request.name)
         channel.type = request.type
-        channel.updatedAt = Instant.now()
+        channel.updatedAt = now()
         return channel
     }
 
@@ -63,7 +64,7 @@ class AlertChannelService(
         val channel = find(alertChannelUuid)
         if (channel.enabled != enabled) {
             channel.enabled = enabled
-            channel.updatedAt = Instant.now()
+            channel.updatedAt = now()
         }
         return channel
     }
@@ -83,6 +84,9 @@ class AlertChannelService(
         }
         return name
     }
+
+    // PG timestamptz 는 마이크로초까지만 저장한다. 잘라 두지 않으면 방금 준 응답과 다시 읽은 값이 달라진다 (Linux 는 나노초까지 나옴)
+    private fun now(): Instant = Instant.now().truncatedTo(ChronoUnit.MICROS)
 
     private companion object {
         const val NAME_MAX = 100
