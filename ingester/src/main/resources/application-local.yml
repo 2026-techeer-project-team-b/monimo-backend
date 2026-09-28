@@ -25,3 +25,4 @@ management:
 logging:
   level:
     org.hibernate.orm.jdbc.bind: trace   # 로컬에서는 SQL에 들어간 값까지 본다
+    com.monimo.ingester: debug           # 로컬에서는 "raw 소비: traces 6건" 같은 줄을 눈으로 본다
