@@ -17,6 +17,13 @@ spring:
 server:
   port: 8082
 
+# /actuator/metrics 로 소비 건수(monimo.ingester.raw.consumed)를 본다. 연결 점검 · 관통 확인 스크립트가 읽는다
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, metrics
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
