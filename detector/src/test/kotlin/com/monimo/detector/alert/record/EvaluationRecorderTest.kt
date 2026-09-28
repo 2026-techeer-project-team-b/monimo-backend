@@ -8,7 +8,6 @@ import com.monimo.detector.alert.state.IgnoreReason
 import com.monimo.detector.alert.state.Outcome
 import com.monimo.detector.alert.state.Transition
 import com.monimo.detector.alert.state.Verdict
-import com.monimo.detector.support.ALERT_SCHEMA_FLYWAY
 import com.monimo.detector.support.MutableClock
 import com.monimo.detector.support.TestInfraConfig
 import io.kotest.assertions.throwables.shouldThrow
@@ -24,7 +23,6 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.JdbcTemplate
-import org.springframework.test.context.TestPropertySource
 import java.math.BigDecimal
 import java.time.Duration
 import java.time.Instant
@@ -56,7 +54,6 @@ class RecorderTestConfig {
 // 실제 PostgreSQL(Testcontainers)에서 상태 · 사건 · outbox 가 한 트랜잭션으로 움직이는지 본다. N=3, M=2 (기본 설정값)
 @SpringBootTest
 @Import(TestInfraConfig::class, RecorderTestConfig::class)
-@TestPropertySource(properties = [ALERT_SCHEMA_FLYWAY])
 class EvaluationRecorderTest(
     recorder: EvaluationRecorder,
     jdbc: JdbcTemplate,

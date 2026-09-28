@@ -3,7 +3,8 @@ CREATE TABLE alert_evaluation_states (
     id                    BIGSERIAL   PRIMARY KEY,
     fingerprint           VARCHAR(64) NOT NULL UNIQUE,
     alert_rule_id         BIGINT      NOT NULL REFERENCES alert_rules (id),
-    agent_id              BIGINT      REFERENCES agents (id),
+    -- agents(수집 파트) 표가 아직 없어 FK 는 뒤로 미룬다. 생기면 alter 파일로 REFERENCES agents (id) 를 붙인다
+    agent_id              BIGINT,
     phase                 VARCHAR(10) NOT NULL CHECK (phase IN ('NORMAL', 'PENDING', 'FIRING')),
     consecutive_bad       INT         NOT NULL DEFAULT 0,
     consecutive_good      INT         NOT NULL DEFAULT 0,

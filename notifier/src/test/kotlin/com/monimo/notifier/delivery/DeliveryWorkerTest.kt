@@ -2,7 +2,6 @@ package com.monimo.notifier.delivery
 
 import com.monimo.notifier.channel.OutboundMessage
 import com.monimo.notifier.channel.SlackWebhookSender
-import com.monimo.notifier.support.ALERT_SCHEMA_FLYWAY
 import com.monimo.notifier.support.FakeSlackServer
 import com.monimo.notifier.support.MutableClock
 import com.monimo.notifier.support.TestInfraConfig
@@ -37,7 +36,6 @@ class DeliveryTestConfig {
 @Import(TestInfraConfig::class, DeliveryTestConfig::class)
 @TestPropertySource(
     properties = [
-        ALERT_SCHEMA_FLYWAY,
         "monimo.notifier.delivery.enabled=false",
         "monimo.notifier.delivery.batch-size=10",
         "monimo.notifier.delivery.lease=30s",
