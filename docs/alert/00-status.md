@@ -49,7 +49,7 @@
 
 ## 3. API 17개 ↔ 코드
 
-원문 계약: 노션 「알림파트 API 17개 상세」(요청 · 응답 예시 원문 포함). 전부 **미구현**.
+원문 계약: 노션 「알림파트 API 17개 상세」(요청 · 응답 예시 원문 포함). 채널 #8~#12 구현(#40), 나머지 미구현.
 
 | # | 엔드포인트 | 서비스 / 권한 | 코드 | 막는 것 |
 |---|---|---|---|---|
@@ -60,11 +60,11 @@
 | 5 | `PATCH /api/v1/alert-rules/{alertRuleUuid}/enabled` | API / ADMIN | 없음 | PG 표, 규칙 off 정책 |
 | 6 | `GET /api/v1/alert-rules/{alertRuleUuid}/channels` | API / VIEWER+ | 없음 | PG 표 |
 | 7 | `PUT /api/v1/alert-rules/{alertRuleUuid}/channels` | API / ADMIN | 없음 | PG 표 |
-| 8 | `GET /api/v1/alert-channels` | API / VIEWER+ | 없음 | PG 표 |
-| 9 | `POST /api/v1/alert-channels` | API / ADMIN | 없음 | PG 표, 비밀값 저장 방식 |
-| 10 | `GET /api/v1/alert-channels/{alertChannelUuid}` | API / ADMIN | 없음 | PG 표, 마스킹 규칙 |
-| 11 | `PUT /api/v1/alert-channels/{alertChannelUuid}` | API / ADMIN | 없음 | 마스킹 값 재전송 처리 계약 |
-| 12 | `PATCH /api/v1/alert-channels/{alertChannelUuid}/enabled` | API / ADMIN | 없음 | PG 표 |
+| 8 | `GET /api/v1/alert-channels` | API / VIEWER+ | `AlertChannelController.list` | — |
+| 9 | `POST /api/v1/alert-channels` | API / ADMIN | `AlertChannelController.create` | — |
+| 10 | `GET /api/v1/alert-channels/{alertChannelUuid}` | API / ADMIN | `AlertChannelController.get` | — |
+| 11 | `PUT /api/v1/alert-channels/{alertChannelUuid}` | API / ADMIN | `AlertChannelController.update` | — |
+| 12 | `PATCH /api/v1/alert-channels/{alertChannelUuid}/enabled` | API / ADMIN | `AlertChannelController.setEnabled` | — |
 | 13 | `POST /api/v1/alert-channels/{alertChannelUuid}/test` | API / ADMIN | 없음 | #17 |
 | 14 | `GET /api/v1/alert-events` | API / VIEWER+ | 없음 | PG 표 |
 | 15 | `GET /api/v1/alert-events/{alertEventUuid}` | API / VIEWER+ | 없음 | 스냅샷 컬럼 |
