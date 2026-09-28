@@ -9,6 +9,10 @@
 #   수집기까지 컨테이너로 (쇼핑몰 에이전트가 collector:4317 로 보내는 것을 시험할 때):
 #   docker compose --profile collector up -d --wait --build
 #   ./scripts/check-wiring.sh
+#
+#   적재 처리기까지 컨테이너로 (수집기 → Kafka → 적재 처리기 한 줄을 통째로 시험할 때):
+#   docker compose --profile collector --profile ingester up -d --wait --build
+#   ./scripts/check-pipeline.sh
 
 name: monimo-dev
 
@@ -176,6 +180,40 @@ services:
     healthcheck:
       # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 /actuator/health 를 읽는다
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081; printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # 적재 처리기 (프로필 ingester 일 때만). 수집기가 raw 에 넣은 것을 꺼내 protobuf 로 푼다.
+  # IDE 나 bootRun 으로 직접 실행할 때는 이 프로필을 켜지 않는다 (8082 포트가 겹친다)
+  ingester:
+    profiles: ["ingester"]
+    build:
+      context: .
+      dockerfile: ingester/Dockerfile
+    image: monimo/ingester:dev
+    ports:
+      - "${INGESTER_HTTP_PORT:-8082}:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # local 프로필의 localhost 대신 컨테이너 이름으로
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-monimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+      KAFKA_HOST: kafka
+      KAFKA_PORT: "29092"
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_HTTP_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-monimo}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+    depends_on:
+      infra-ready:
+        condition: service_healthy
+    healthcheck:
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 /actuator/health 를 읽는다
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
       interval: 5s
       timeout: 5s
       retries: 30
