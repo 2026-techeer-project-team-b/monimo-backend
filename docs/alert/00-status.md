@@ -1,7 +1,7 @@
 # 알림 파트 구현 현황 (박유경)
 
 > **개인 작업 기록 · 팀 미확정.** 팀 정본은 노션 「API 명세」「ERD」「기능 명세」와 `docs/design/` 이다.
-> 이 폴더의 새 표 · 컬럼 · 정책은 **제안**이며, 합의 전에는 `db/postgres/alert/` 에 마이그레이션을 넣지 않는다.
+> 이 폴더의 새 표 · 컬럼 · 정책은 **제안**이다. 알림 표는 서비스 기동을 위해 합의 전에 `db/postgres/alert/` 로 옮겼다(#38). 바꿀 게 생기면 `alter` 파일로 고친다.
 >
 > 기준: 2026-09-27, 브랜치 `feat/alert-state-machine`, 분기 원점 `6c83ce1` (main)
 
@@ -27,7 +27,7 @@
 
 | 영역 | 상태 | 근거 |
 |---|---|---|
-| PG 알림 표 5개 (`alert_rules` 등) | **없음** | `db/postgres/` 에 baseline 1개뿐, `alert/` 는 `.gitkeep` |
+| PG 알림 표 (`alert_rules` 등 7개) | **`db/postgres/alert/` 이관 (#38)**. `agent_id` 두 컬럼은 `agents` 표가 없어 FK 보류 | `db/postgres/alert/V202609281820~1824` |
 | 아웃박스 | **없음 (저장소에서 찾지 못함)** | `*.kt` · `*.sql` 에 outbox 흔적 0건, 원격 브랜치 7개 커밋 메시지에도 없음. 노션 학습 노트에도 "사용자 설명만 확인"으로 적혀 있음 |
 | 탐지 스케줄러 | 없음 | `detector/` 는 `DetectorApplication.kt` 뿐 |
 | 발송 워커 · 채널 어댑터 | 없음 | `notifier/` 는 `NotifierApplication.kt` 뿐 |
@@ -38,7 +38,6 @@
 | **경보 상태머신 순수 로직** | **구현됨 · 테스트 25건 통과** | `detector/.../alert/state/` |
 | 전이 + outbox 원자 저장 (탐지) | **구현됨 (제안 스키마 위) · 실제 PG 테스트 9건 통과** | `detector/.../alert/record/` · `EvaluationRecorderTest` |
 | 발송 워커 · 재시도 · Slack 어댑터 (알림) | **구현됨 (제안 스키마 위) · 실제 PG + 가짜 Slack 11건 통과** | `notifier/.../delivery/` · `notifier/.../channel/` · `DeliveryWorkerTest` |
-| 제안 스키마 SQL | **`docs/alert/sql/` (db/postgres 아님)** — 탐지 · 알림 테스트만 추가 적용 | `docs/alert/sql/README.md` |
 | 서킷브레이커 · 그룹핑 · 실패 자체 알림 · 스케줄 평가 · API 17개 | 없음 | — |
 
 → 기존 아웃박스 코드는 없었다 (2026-09-27 사용자 확인: 새로 만든다). 새 구현 기준 답:
@@ -46,7 +45,7 @@
 > - 상태 전이와 outbox INSERT = **같은 PG 트랜잭션** (`EvaluationRecorder.record`, E3 로 검증)
 > - 외부 호출 중 DB 트랜잭션 = **유지하지 않음** (선점 TX 커밋 → 호출 → 결과 TX, `DeliveryWorker`)
 
-**주의 (다음 우선순위)**: detector · notifier 에 JPA Entity 가 생겨 `ddl-auto=validate` 가 알림 표를 요구한다. 로컬 compose PG 에는 아직 표가 없으므로 이 브랜치에서 두 서비스를 `bootRun` 하면 기동이 실패한다. 스키마 합의 → `db/postgres/alert/` 이관 → **실제 공용 스키마로 두 서비스가 기동되는 상태**를 만드는 것이 다음 우선순위다. 그 전까지는 테스트로만 검증한다.
+**남은 것**: `agents`(수집 파트) 표가 들어오면 `alert_events.agent_id` · `alert_evaluation_states.agent_id` 에 FK 를 붙이는 `alter` 파일을 추가한다. 스키마 제안 자체(평가 상태 · outbox · 스냅샷)는 여전히 팀 합의 대상이다.
 
 ## 3. API 17개 ↔ 코드
 

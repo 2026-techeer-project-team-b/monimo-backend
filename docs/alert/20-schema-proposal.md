@@ -1,6 +1,7 @@
-# 알림 PG 스키마 제안 (초안 · 미합의)
+# 알림 PG 스키마 제안 (미합의 · 이관됨)
 
-> `db/postgres/alert/` 에는 아직 넣지 않았다. main 에 들어간 마이그레이션은 고칠 수 없으므로(ADR #49) 합의 뒤 한 번에 넣는다.
+> 서비스 기동을 위해 합의 전에 `db/postgres/alert/` 로 옮겼다(#38). main 에 들어간 마이그레이션은 고칠 수 없으므로(ADR #49) 합의 과정에서 바뀌는 것은 `alter` 파일로 반영한다.
+> `agents` 표가 아직 없어 `agent_id` 컬럼의 FK 는 보류했다. 아래 SQL 은 FK 를 붙인 최종 모양이다.
 > 기존 ERD 9표 중 알림 5표(`alert_rules` · `alert_channels` · `alert_rule_channels` · `alert_events` · `notification_history`)는 ERD 그대로 만들고, 아래는 **추가 · 보완분**이다.
 
 ## 1. 기존 표 보완
