@@ -24,6 +24,11 @@ monimo:
     otlp:
       grpc:
         port: 4317
+    # 트레이스 샘플링. 에이전트는 100% 보내고(always_on) 고르는 일은 수집기가 한다 (ADR #33).
+    # 카나리 표시(trace_state 의 monimon=canary)가 붙은 것은 비율과 무관하게 통과한다 (ADR #41).
+    # 다음 이슈에서 이 비율을 PG(application_configs)에서 읽어 재배포 없이 바꾼다
+    sampling:
+      ratio: 0.01
 
 # /actuator/metrics 로 받은 건수(monimo.collector.otlp.received)를 본다. 연결 점검 스크립트가 읽는다
 management:

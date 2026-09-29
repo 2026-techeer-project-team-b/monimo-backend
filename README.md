@@ -143,6 +143,7 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
 | `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` | 4317 · 8081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트 |
 | `INGESTER_HTTP_PORT` | 8082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트 |
+| `COLLECTOR_SAMPLING_RATIO` | 1.0 | 수집기 트레이스 샘플링 비율 (로컬은 전부 통과. 운영 정본은 1%, ADR #33). 카나리 표시는 비율과 무관하게 통과 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 

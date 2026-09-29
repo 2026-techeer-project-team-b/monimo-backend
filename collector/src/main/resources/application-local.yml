@@ -11,6 +11,13 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_HOST:localhost}:${KAFKA_PORT:19092}
 
+# 로컬에서는 보낸 것이 그대로 보여야 흐름을 확인할 수 있으므로 샘플링을 끈다(전부 통과).
+# 샘플링 자체의 동작은 단위 테스트(TraceSamplerTest)가 확인한다
+monimo:
+  collector:
+    sampling:
+      ratio: 1.0
+
 management:
   endpoint:
     health:
@@ -19,3 +26,4 @@ management:
 logging:
   level:
     org.hibernate.orm.jdbc.bind: trace   # 로컬에서는 SQL에 들어간 값까지 본다
+    com.monimo.collector: debug          # 로컬에서는 "OTLP traces 수신" · "샘플링: ..." 같은 줄을 눈으로 본다

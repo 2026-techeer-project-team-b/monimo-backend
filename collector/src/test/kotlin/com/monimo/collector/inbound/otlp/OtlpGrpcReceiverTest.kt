@@ -33,7 +33,14 @@ import java.util.concurrent.TimeUnit
 
 // 연결 약속 검증: OTLP gRPC 로 보낸 스팬 · 메트릭 · 로그를 수집기가 받아 세고, raw 토픽에 protobuf 그대로 넣는다.
 // 포트 0 = 빈 포트 아무거나. 테스트끼리 · 로컬 4317 과 겹치지 않는다.
-@SpringBootTest(properties = ["monimo.collector.otlp.grpc.port=0"]) // 스프링을 실제로 띄운다. 포트만 테스트용으로 덮어쓴다
+// 샘플링 비율 1.0 = 전부 통과. 이 테스트가 보는 것은 "받은 것이 raw 에 그대로 들어가는가" 라서
+// 샘플링이 끼어들면 안 된다. 샘플링 자체는 TraceSamplerTest 가 확인한다
+@SpringBootTest(
+    properties = [
+        "monimo.collector.otlp.grpc.port=0", // 스프링을 실제로 띄운다. 포트만 테스트용으로 덮어쓴다
+        "monimo.collector.sampling.ratio=1.0",
+    ],
+)
 @Import(TestInfraConfig::class) // 진짜 PostgreSQL · Kafka 컨테이너를 띄워 붙인다 (Testcontainers)
 class OtlpGrpcReceiverTest(
     server: OtlpGrpcServer, // 생성자로 스프링 빈을 받는다 (실제로 잡은 포트를 알려면 필요)
