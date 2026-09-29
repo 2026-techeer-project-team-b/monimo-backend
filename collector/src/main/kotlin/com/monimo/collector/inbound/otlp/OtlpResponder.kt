@@ -31,3 +31,10 @@ fun <T> StreamObserver<T>.respondAfter(sent: CompletableFuture<*>, response: T, 
         }
     }
 }
+
+// 기다릴 것이 없을 때(예: 샘플링에서 전부 걸러져 Kafka 에 넣을 게 없을 때) 바로 성공 응답을 보낸다.
+// 에이전트 입장에서는 "잘 받았다" 가 맞다. 버린 것은 우리 정책이지 에이전트의 실패가 아니다
+fun <T> StreamObserver<T>.respondNow(response: T) {
+    onNext(response)
+    onCompleted()
+}

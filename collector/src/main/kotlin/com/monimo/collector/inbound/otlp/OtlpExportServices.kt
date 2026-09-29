@@ -1,6 +1,8 @@
 package com.monimo.collector.inbound.otlp
 
 import com.monimo.collector.outbound.kafka.RawProducer // 나가는 문 (Kafka raw 발행)
+import com.monimo.collector.sampling.TraceSampler // 남길 스팬 고르기 (비율 + 카나리 예외)
+import com.monimo.collector.sampling.spanCount // 요청 안의 스팬 수 세기
 import com.monimo.common.kafka.RawSignal // 토픽 이름 · 키 약속
 import io.grpc.stub.StreamObserver // 에이전트에게 답장을 써 보내는 통로
 import io.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest
@@ -15,8 +17,8 @@ import io.opentelemetry.proto.collector.trace.v1.TraceServiceGrpc
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
-// OTLP 들어오는 문. 받은 요청을 풀지 않고 protobuf 바이트 그대로 Kafka raw 에 넣고, 넣기가 끝나면 응답한다.
-// 샘플링(trace ID 해시 + 카나리 예외)은 다음 이슈에서 받기와 발행 사이에 들어간다.
+// OTLP 들어오는 문. 받은 요청을 protobuf 바이트 그대로 Kafka raw 에 넣고, 넣기가 끝나면 응답한다.
+// 트레이스만 중간에 샘플링을 거친다 (메트릭 · 로그는 전부 통과. 로그 레벨 하한 필터는 별도 이슈).
 // 부분 실패(partial_success)는 쓰지 않는다. 받았으면 전부 받은 것이다.
 //
 // 세 클래스(트레이스 · 메트릭 · 로그)는 구조가 똑같다. 아래 트레이스에 자세히 적었고, 나머지는 다른 점만 표시한다.
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Component
 class OtlpTraceService(
     private val counter: OtlpReceiveCounter, // 받은 건수를 세는 카운터 (스프링이 넣어 준다)
     private val producer: RawProducer, // 나가는 문 (스프링이 넣어 준다)
+    private val sampler: TraceSampler, // 남길 스팬 고르기 (스프링이 넣어 준다)
 ) : TraceServiceGrpc.TraceServiceImplBase() { // : 는 상속. OTel 이 정해 둔 TraceService 를 우리가 구현한다
 
     // override = 부모가 정해 둔 함수를 우리 내용으로 덮어쓴다. 에이전트가 트레이스를 보내면 gRPC 가 이걸 불러 준다
@@ -34,8 +37,19 @@ class OtlpTraceService(
         val spans = request.resourceSpansList.sumOf { rs -> rs.scopeSpansList.sumOf { it.spansCount } }
         counter.received(OtlpReceiveCounter.Signal.TRACES, spans) // 카운터 증가 (연결 점검 스크립트가 이 값을 본다)
         log.debug("OTLP traces 수신: 스팬 {}건 (resource {}개)", spans, request.resourceSpansCount) // {} 자리에 값이 들어간다
+
+        // 넣기 전에 걸러 낸다. 남은 스팬만 든 새 요청이 돌아온다
+        val sampled = sampler.sample(request)
+        val keptSpans = sampled.spanCount()
+        if (keptSpans == 0) { // 전부 버려졌다 — Kafka 에 빈 메시지를 넣을 이유가 없다
+            log.debug("샘플링에서 스팬 {}건 전부 제외", spans)
+            responseObserver.respondNow(ExportTraceServiceResponse.getDefaultInstance())
+            return
+        }
+        if (keptSpans < spans) log.debug("샘플링: 스팬 {}건 중 {}건만 남김", spans, keptSpans)
+
         responseObserver.respondAfter( // 응답은 규칙 함수에 맡긴다 (Kafka 저장이 끝난 뒤에 답장한다)
-            sent = producer.send(RawSignal.TRACES, request.toByteArray()), // 핵심: 풀지 않고 바이트 그대로 raw 에 넣기 시작
+            sent = producer.send(RawSignal.TRACES, sampled.toByteArray()), // 남긴 것만 바이트로 바꿔 raw 에 넣기 시작
             response = ExportTraceServiceResponse.getDefaultInstance(), // 성공 때 보낼 빈 응답
             signal = "traces", // 로그에 찍을 이름
         )
