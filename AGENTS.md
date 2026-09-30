@@ -86,6 +86,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#42`** 적재 처리기가 `raw` 를 구독해 키로 protobuf 를 고르고 풀어서 건수를 센다. ClickHouse 적재는 아직 없다
 - **`#44`** 적재 처리기 컨테이너 프로필, `check-pipeline.sh`(수집기 수신 수와 적재 처리기 소비 수 대조), dev-infra CI 가 그 검사를 돈다
 - **`#46`** 트레이스 샘플링. trace ID 뒤 8바이트 해시로 골라 한 trace 가 통째로 남거나 사라지게 하고, `trace_state` 에 `monimon=canary` 가 있으면 비율을 건너뛴다. 비율은 설정값(운영 1% · 로컬 100%)
+- **`#52`** `agents` 표 신설(정본 ERD 12컬럼)과 알림 표 2개의 `agent_id` FK 부착. 가짜 데이터가 PG 명단에도 서비스 4줄을 넣는다(전에는 CH 에만 넣어 화면 목록이 비었다)
+- **`#58`** 스팬을 ClickHouse `spans` 에 적재. OTLP → 우리 모델(`SpanRow`) 변환은 프레임워크를 모르는 순수 코드, 저장할 곳은 도메인이 정한 포트(`SpanStore`)이고 ClickHouse 구현은 `outbound/` 에 둔다. 수집기가 읽고 버리던 카나리 표식을 `attributes['monimo.canary']` 로 남긴다. **이로써 에이전트 → 수집기 → Kafka → 적재 처리기 → ClickHouse 가 이어졌다**
 
 ### 알림 파트 (ukong)
 
@@ -115,14 +117,19 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 
 | 무엇 | 누가 풀어야 하나 | 안 풀면 |
 |---|---|---|
-| `agents` 표가 없다 | 수집 | 알림 표 2개가 FK 를 못 붙이고, CPU · 힙 · GC · 에이전트다운 경보 4종이 데이터 원천 없이 남는다 |
-| 카나리 표식이 ClickHouse 에 안 남는다 | 수집(적재) → 조회 · 파수꾼 | 수집기가 `trace_state` 를 읽고 버려서 `canary/freshness` 를 구현할 수 없다. 파수꾼 판정 전체가 여기 걸린다 |
-| `peer_service` 를 채우는 코드가 없다 | 수집(적재) | 서버맵 노드에 서비스 이름 대신 `shop-order:8080` 같은 주소가 뜬다. 가짜 데이터는 이 값을 손으로 박아 둬서 지금은 안 보인다 |
+| `agents` 표에 줄을 넣는 코드가 없다 | 수집 | 표와 FK 는 생겼다(`#52`). 적재 처리기가 처음 보는 `agent_key` 를 등록하지 않아 아직 빈 표이고, CPU · 힙 · GC · 에이전트다운 경보 4종이 대상을 못 찾는다 |
+| 카나리 조회 문이 없다 | 조회 · 파수꾼 | 적재가 표식을 `attributes['monimo.canary']` 로 남기기 시작했다(`#58`). `GET /internal/canary/freshness` 를 `mapContains(attributes, 'monimo.canary')` 기준으로 만들면 된다. 명세의 `service_name=canary-probe` 기준은 0건이 나오므로 고쳐야 한다 |
+| `peer_service` 를 채우는 코드가 없다 | 수집(적재) | 적재는 OTel 이 준 값을 그대로 넣는데(`#58`) 에이전트 2.x 는 `peer.service` 를 기본으로 안 넣는다. 그래서 서버맵 노드에 서비스 이름 대신 `shop-order:8080` 같은 주소가 뜬다. `applications.name` 매핑이 필요하다. 가짜 데이터는 이 값을 손으로 박아 둬서 지금은 안 보인다 |
 | 경보 규칙을 만들 문도 읽을 코드도 없다 | 인증 설정(CRUD) + 알림(폴링) | 탐지가 평가할 규칙이 0건이다. 지금 `alert_rules` 에 줄을 넣는 곳은 테스트뿐 |
 | `service-health` 의 `step` 규칙이 명세와 다르다 | 조회 | 명세대로 `step=30` 을 보내는 탐지가 매 주기 400 을 받고 판정 불가로 떨어진다. 코드 제약이 타당하니 명세를 고치는 쪽 |
 | 재발급 토큰이 명세는 본문, 코드는 쿠키 | 인증 설정 | 명세대로 만든 화면이 재발급에서 401 을 받는다 |
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
 | `/healthz` · `/readyz` 가 어느 모듈에도 없다 | 전원 (규격은 배포) | 쿠버네티스 프로브와 화면 S10 의 "우리 서비스 6개" 카드가 읽을 대상이 없다 |
+
+**이 과정에서 정한 것**
+
+- `spans.agent_id`(파드 식별자)는 resource 속성에서 `service.instance.id` → `k8s.pod.name` → `host.name` 순서로 고른다. 셋 다 없으면 빈 글자(`#58`). 쇼핑몰 에이전트가 첫 번째를 채워 주는 것이 맞다 — `monimo-shop` 후속 작업
+- 카나리 표식은 CH `spans.attributes` 의 `monimo.canary` 키로 남긴다. `trace_state` 컬럼을 새로 만들지 않았다(`#58`)
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
