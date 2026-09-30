@@ -25,6 +25,10 @@ class DeliveryConfig {
         require(props.lease > worstBatch) { "lease(${props.lease})는 batch × (connect + request timeout) = $worstBatch 보다 길어야 합니다" }
         return RetryPolicy(props.retryBase, props.retryCap, props.maxAttempts, props.maxAge)
     }
+
+    @Bean
+    fun channelCircuitBreaker(props: DeliveryProperties, clock: Clock) =
+        ChannelCircuitBreaker(props.circuitFailureThreshold, props.circuitOpenDuration, clock)
 }
 
 @Component

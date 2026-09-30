@@ -70,8 +70,8 @@ class DeliveryWorkerTest(
     )!!
 
     // 탐지가 만들었을 사건 1개 + 발송 작업 1개를 직접 넣는다 (모듈 경계상 탐지 코드를 쓰지 않는다)
-    fun outbox(channelId: Long, ruleName: String = "rule"): Long {
-        val now = Timestamp.from(clock.now)
+    fun outbox(channelId: Long, ruleName: String = "rule", createdAt: Instant = clock.now): Long {
+        val now = Timestamp.from(createdAt)
         val eventId = jdbc.queryForObject(
             """
             INSERT INTO alert_events (alert_event_uuid, alert_rule_id, fingerprint, state, fired_at,
@@ -258,6 +258,69 @@ class DeliveryWorkerTest(
         Then("성공으로 치지 않고 FAILED (미구현)") {
             row(id)["status"] shouldBe "FAILED"
             (row(id)["last_error"] as String) shouldContain "미구현"
+        }
+    }
+
+    Given("E8: 채널이 계속 503 이면 (서킷 기본값: 연속 5번 → 30초 OPEN)") {
+        isolate()
+        fake.switchStatus = 503
+        val down = channel("switch")
+        val ok = channel("ok")
+        val first = (1..5).map { outbox(down, "down-$it") }
+        worker.pollOnce()
+        val hitsWhenOpened = fake.hits.get()
+
+        When("회로가 열린 뒤 같은 채널 작업과 다른 채널 작업이 오면") {
+            val held = outbox(down, "held")
+            val other = outbox(ok, "other")
+            worker.pollOnce()
+
+            Then("같은 채널은 호출 0번 · attempt_count 그대로 · OPEN 이 끝나는 시각으로 재예약") {
+                fake.hits.get() shouldBe hitsWhenOpened + 1   // 다른 채널(ok) 호출 1번만 늘었다
+                row(held)["status"] shouldBe "PENDING"
+                row(held)["attempt_count"] shouldBe 0
+                row(held)["last_error"].toString() shouldContain "서킷 OPEN"
+                (row(held)["next_attempt_at"] as Timestamp).toInstant() shouldBe clock.now.plusSeconds(30)
+            }
+
+            Then("다른 채널은 영향 없이 발송된다") {
+                row(other)["status"] shouldBe "SENT"
+            }
+        }
+
+        When("채널이 살아나고 30초가 지나면") {
+            fake.switchStatus = 200
+            clock.advance(Duration.ofSeconds(31))
+            while (worker.pollOnce() > 0) Unit
+
+            Then("시험 호출이 성공해 회로가 닫히고, 쌓였던 작업이 모두 발송된다") {
+                first.forEach { row(it)["status"] shouldBe "SENT" }
+                fake.received.count { it.contains("held") } shouldBe 1
+            }
+
+            Then("보류됐던 작업의 이력은 재시도 0 — 보류는 시도로 세지 않았다") {
+                val held = jdbc.queryForObject(
+                    "SELECT o.id FROM notification_outbox o WHERE o.payload->>'rule_name' = 'held' AND o.alert_channel_id = ?", Long::class.java, down,
+                )!!
+                historyOf(held).single()["retry_count"] shouldBe 0
+            }
+        }
+    }
+
+    Given("E8: OPEN 동안 max-age(30분)를 넘긴 작업이면") {
+        isolate()
+        val down = channel("503")
+        repeat(5) { outbox(down, "open-$it") }
+        worker.pollOnce()
+        val hits = fake.hits.get()
+        val stale = outbox(down, "stale", createdAt = clock.now.minus(Duration.ofMinutes(30)))
+        worker.pollOnce()
+
+        Then("호출 없이 FAILED 로 끝낸다 — 복구 뒤 낡은 경보가 쏟아지지 않게") {
+            fake.hits.get() shouldBe hits
+            row(stale)["status"] shouldBe "FAILED"
+            row(stale)["attempt_count"] shouldBe 0
+            historyOf(stale).single()["response"].toString() shouldContain "최대 나이 초과"
         }
     }
 })

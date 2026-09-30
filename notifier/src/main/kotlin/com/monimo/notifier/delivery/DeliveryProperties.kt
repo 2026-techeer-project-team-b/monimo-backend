@@ -13,4 +13,6 @@ data class DeliveryProperties(
     val retryCap: Duration = Duration.ofMinutes(5),
     val maxAttempts: Int = 5,
     val maxAge: Duration = Duration.ofMinutes(30),
+    val circuitFailureThreshold: Int = 5,    // 채널별 연속 실패가 이만큼이면 호출을 멈춘다 (E8)
+    val circuitOpenDuration: Duration = Duration.ofSeconds(30),  // 멈춘 뒤 시험 호출까지 기다리는 시간
 )
