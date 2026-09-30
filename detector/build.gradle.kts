@@ -15,3 +15,8 @@ dependencies {
     testImplementation(libs.bundles.postgres.test)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+tasks.withType<Test>().configureEach {
+    // 스케줄 평가는 실제 시계로 돌며 API 서버를 부른다. 테스트는 끄고 EvaluationRunner.runOnce 를 직접 부른다
+    systemProperty("monimo.alert.schedule.enabled", "false")
+}

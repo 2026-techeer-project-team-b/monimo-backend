@@ -11,6 +11,14 @@ spring:
 server:
   port: 8083
 
+monimo:
+  # 내부 문(/api/v1/internal/**) 공유 비밀값. API 서버와 같은 값을 X-Internal-Token 으로 보낸다
+  internal-token: ${MONIMO_INTERNAL_TOKEN:}
+  alert:
+    schedule:
+      query:
+        base-url: ${MONIMO_API_SERVER_URL:http://localhost:8080}   # service-health 를 여는 API 서버
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
