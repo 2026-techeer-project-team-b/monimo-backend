@@ -166,9 +166,9 @@ WHERE span_kind = 'SERVER' AND service_name IN ('shop-order', 'shop-payment')
 -- 4) 스레드 덤프 (화면 확인용 2건) ------------------------------------------------------------------
 INSERT INTO monimo.thread_dumps (agent_id, service_name, dump_uuid, requested_by, requested_at, thread_count, dump)
 VALUES
-    ('shop-payment-84f6c9-x8d3f', 'shop-payment', '3f2b8c1e-6a4d-4e2f-9b1a-7c5d8e9f0a12', 'admin@monimo.dev',
+    ('shop-payment-84f6c9-x8d3f', 'shop-payment', '3f2b8c1e-6a4d-4e2f-9b1a-7c5d8e9f0a12', 'admin@monimo.io',
      now64(3) - INTERVAL 12 MINUTE, 47,
      '"http-nio-8080-exec-7" #41 daemon prio=5 WAITING\n\tat java.base/jdk.internal.misc.Unsafe.park(Native Method)\n\tat com.monimo.shop.payment.PgClient.approve(PgClient.kt:58)\n\tat com.monimo.shop.payment.PaymentService.approve(PaymentService.kt:42)\n\n"http-nio-8080-exec-8" #42 daemon prio=5 RUNNABLE\n\tat java.base/sun.nio.ch.SocketDispatcher.read0(Native Method)\n\tat com.mysql.cj.protocol.ReadAheadInputStream.fill(ReadAheadInputStream.java:107)'),
-    ('shop-order-7c9d5f-2xk8p', 'shop-order', '9a7e4d2c-1b3f-4a5e-8c6d-2e4f6a8b0c34', 'admin@monimo.dev',
+    ('shop-order-7c9d5f-2xk8p', 'shop-order', '9a7e4d2c-1b3f-4a5e-8c6d-2e4f6a8b0c34', 'admin@monimo.io',
      now64(3) - INTERVAL 40 MINUTE, 39,
      '"http-nio-8080-exec-3" #37 daemon prio=5 RUNNABLE\n\tat com.monimo.shop.order.OrderService.create(OrderService.kt:31)\n\n"HikariPool-1 housekeeper" #22 daemon prio=5 TIMED_WAITING\n\tat java.base/jdk.internal.misc.Unsafe.park(Native Method)');

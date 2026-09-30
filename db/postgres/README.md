@@ -4,18 +4,20 @@ PostgreSQL 표 정의는 **전부 이 폴더 한 곳**에 두고, 전용 Flyway 
 
 ## 왜 한 곳인가
 
-표 9개가 서로 다른 파트의 표를 FK로 참조한다. 예: `alert_events` → `agents` → `applications`.
+표 12개가 서로 다른 파트의 표를 FK로 참조한다. 예: `agents` → `applications`, `alert_rules` → `applications`.
 서비스마다 따로 돌리면 실행 순서가 꼬이고, 같은 DB에 이력 표(`flyway_schema_history`)가 여러 개 생겨 충돌한다.
 
 ## 폴더 = 표의 주인 파트
 
 | 폴더 | 파트 | 표 |
 |---|---|---|
-| `config/` | 인증 설정 | `users` · `applications` · `application_configs` |
-| `alert/` | 알림 | `alert_rules` · `alert_channels` · `alert_rule_channels` · `alert_events` · `notification_history` (+ 발송 대기 큐) |
+| `config/` | 인증 설정 | `users` · `refresh_tokens` · `applications` · `application_configs` |
+| `alert/` | 알림 | `alert_rules` · `alert_channels` · `alert_rule_channels` · `alert_events` · `alert_evaluation_states` · `notification_outbox` · `notification_history` |
 | `ingest/` | 수집 | `agents` |
 
 조회 파트는 ClickHouse만 읽으므로 PostgreSQL 표가 없다. ClickHouse 표는 `db/clickhouse/`.
+
+**이 폴더에는 마이그레이션만 둔다.** Flyway 가 하위 폴더까지 훑어 읽고, 이름 규칙에 안 맞는 파일이 있으면 실행 전체가 실패한다. 가짜 데이터는 `scripts/seed/` 에 있다.
 
 ## 파일 이름
 
