@@ -29,7 +29,7 @@
 |---|---|---|
 | PG 알림 표 (`alert_rules` 등 7개) | **`db/postgres/alert/` 이관 (#38)**. `agent_id` 두 컬럼은 `agents` 표가 없어 FK 보류 | `db/postgres/alert/V202609281820~1824` |
 | 아웃박스 | **없음 (저장소에서 찾지 못함)** | `*.kt` · `*.sql` 에 outbox 흔적 0건, 원격 브랜치 7개 커밋 메시지에도 없음. 노션 학습 노트에도 "사용자 설명만 확인"으로 적혀 있음 |
-| 탐지 스케줄러 | 없음 | `detector/` 는 `DetectorApplication.kt` 뿐 |
+| 탐지 스케줄 평가 | **구현됨 (#56)** — 켜진 서비스 단위 규칙(5XX · 4XX · P95)을 15초마다 평가. 조회는 `service-health`(조회 #48) 1분 버킷, 비율은 sum/sum, p95 는 버킷별. 로컬 compose 에서 ClickHouse → API 서버 → 탐지 → outbox → 알림 → Slack(가짜) 관통 확인 | `detector/.../alert/evaluate/` |
 | 발송 워커 · 채널 어댑터 | 없음 | `notifier/` 는 `NotifierApplication.kt` 뿐 |
 | API 서버 공통 틀 (봉투 · 에러 · 커서 · limit · X-Request-Id) | 구현됨 (다른 담당) | `api-server/.../common/web/*` · `common/error/*` |
 | `RULE_CHANNEL_DUPLICATE` 에러 코드 | 구현됨 | `api-server/.../common/error/ErrorCode.kt` |

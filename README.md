@@ -155,6 +155,13 @@ api-server 인증용 (bootRun 환경변수):
 | `MONIMO_JWT_SECRET` | (없음) | access JWT 서명 키, 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트만) |
 | `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다 |
 
+detector 스케줄 평가용 (bootRun 환경변수):
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | API 서버와 같은 값. `service-health` 를 부를 때 `X-Internal-Token` 으로 보낸다 |
+| `MONIMO_API_SERVER_URL` | `http://localhost:8080` | `service-health` 를 여는 API 서버 주소 |
+
 ## 포트
 
 HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연결 약속)에서 확정.
