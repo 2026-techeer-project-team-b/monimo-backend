@@ -49,17 +49,17 @@
 
 ## 3. API 17개 ↔ 코드
 
-원문 계약: 노션 「알림파트 API 17개 상세」(요청 · 응답 예시 원문 포함). 채널 #8~#12 구현(#40), 나머지 미구현.
+원문 계약: 노션 「알림파트 API 17개 상세」(요청 · 응답 예시 원문 포함). 규칙 #1~#7(#54) · 채널 #8~#12(#40) 구현, 나머지 미구현.
 
 | # | 엔드포인트 | 서비스 / 권한 | 코드 | 막는 것 |
 |---|---|---|---|---|
-| 1 | `GET /api/v1/alert-rules` | API / VIEWER+ | 없음 | PG 표, 인증 |
-| 2 | `POST /api/v1/alert-rules` | API / ADMIN | 없음 | PG 표, 인증 |
-| 3 | `GET /api/v1/alert-rules/{alertRuleUuid}` | API / VIEWER+ | 없음 | PG 표 |
-| 4 | `PUT /api/v1/alert-rules/{alertRuleUuid}` | API / ADMIN | 없음 | PG 표, 규칙 판 번호 정책 |
-| 5 | `PATCH /api/v1/alert-rules/{alertRuleUuid}/enabled` | API / ADMIN | 없음 | PG 표, 규칙 off 정책 |
-| 6 | `GET /api/v1/alert-rules/{alertRuleUuid}/channels` | API / VIEWER+ | 없음 | PG 표 |
-| 7 | `PUT /api/v1/alert-rules/{alertRuleUuid}/channels` | API / ADMIN | 없음 | PG 표 |
+| 1 | `GET /api/v1/alert-rules` | API / VIEWER+ | `AlertRuleController.list` | — |
+| 2 | `POST /api/v1/alert-rules` | API / ADMIN | `AlertRuleController.create` | — |
+| 3 | `GET /api/v1/alert-rules/{alertRuleUuid}` | API / VIEWER+ | `AlertRuleController.get` | — |
+| 4 | `PUT /api/v1/alert-rules/{alertRuleUuid}` | API / ADMIN | `AlertRuleController.update` | — |
+| 5 | `PATCH /api/v1/alert-rules/{alertRuleUuid}/enabled` | API / ADMIN | `AlertRuleController.setEnabled` | — |
+| 6 | `GET /api/v1/alert-rules/{alertRuleUuid}/channels` | API / VIEWER+ | `AlertRuleController.getChannels` | — |
+| 7 | `PUT /api/v1/alert-rules/{alertRuleUuid}/channels` | API / ADMIN | `AlertRuleController.replaceChannels` | — |
 | 8 | `GET /api/v1/alert-channels` | API / VIEWER+ | `AlertChannelController.list` | — |
 | 9 | `POST /api/v1/alert-channels` | API / ADMIN | `AlertChannelController.create` | — |
 | 10 | `GET /api/v1/alert-channels/{alertChannelUuid}` | API / ADMIN | `AlertChannelController.get` | — |
