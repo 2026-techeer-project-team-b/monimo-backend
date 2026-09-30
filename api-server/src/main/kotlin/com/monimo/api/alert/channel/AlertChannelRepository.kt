@@ -8,6 +8,7 @@ import java.util.UUID
 
 interface AlertChannelRepository : JpaRepository<AlertChannel, Long> {
     fun findByAlertChannelUuid(alertChannelUuid: UUID): AlertChannel?
+    fun findByAlertChannelUuidIn(alertChannelUuids: Collection<UUID>): List<AlertChannel>
 
     // 최신 등록 순(id 내림차순) 커서 페이징. 필터가 null 이면 걸지 않는다
     @Query(
