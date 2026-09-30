@@ -38,7 +38,8 @@
 | **경보 상태머신 순수 로직** | **구현됨 · 테스트 25건 통과** | `detector/.../alert/state/` |
 | 전이 + outbox 원자 저장 (탐지) | **구현됨 (제안 스키마 위) · 실제 PG 테스트 9건 통과** | `detector/.../alert/record/` · `EvaluationRecorderTest` |
 | 발송 워커 · 재시도 · Slack 어댑터 (알림) | **구현됨 (제안 스키마 위) · 실제 PG + 가짜 Slack 11건 통과** | `notifier/.../delivery/` · `notifier/.../channel/` · `DeliveryWorkerTest` |
-| 서킷브레이커 · 그룹핑 · 실패 자체 알림 · 스케줄 평가 · API 17개 | 없음 | — |
+| 채널별 서킷브레이커 (E8) | **구현됨 (#60)** — 연속 실패 5번 → OPEN 30초, OPEN 동안은 호출 없이 재예약(시도 수 그대로) | `notifier/.../delivery/ChannelCircuitBreaker.kt` · `docs/alert/30-delivery.md` D9 |
+| 그룹핑 · 실패 자체 알림 · API #13~#17 | 없음 | — |
 
 → 기존 아웃박스 코드는 없었다 (2026-09-27 사용자 확인: 새로 만든다). 새 구현 기준 답:
 > - 아웃박스 = **채널별 발송 작업** (사건 × 전이 × 채널 한 줄, A안)
