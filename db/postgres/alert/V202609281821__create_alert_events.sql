@@ -3,7 +3,7 @@ CREATE TABLE alert_events (
     id               BIGSERIAL     PRIMARY KEY,
     alert_event_uuid UUID          NOT NULL UNIQUE,
     alert_rule_id    BIGINT        NOT NULL REFERENCES alert_rules (id),
-    -- 파드 단위 규칙일 때만 채워진다. FK 는 agents 표가 생긴 뒤 V202609300130__alter_alert_add_agent_fk.sql 에서 붙였다
+    -- agents(수집 파트) 표가 아직 없어 FK 는 뒤로 미룬다. 생기면 alter 파일로 REFERENCES agents (id) 를 붙인다
     agent_id         BIGINT,
     fingerprint      VARCHAR(64)   NOT NULL,
     state            VARCHAR(20)   NOT NULL CHECK (state IN ('FIRING', 'RESOLVED')),
