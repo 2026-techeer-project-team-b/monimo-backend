@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 파이프라인 관통 점검: 가짜 발신기(telemetrygen) → 수집기(OTLP gRPC) → Kafka raw → 적재 처리기 → ClickHouse.
 # 수집기가 "받은 건수" 와 적재 처리기가 "푼 건수" 가 같은 만큼 늘었는지 대조하고,
-# 트레이스는 ClickHouse spans 줄 수까지 늘었는지 본다 (#58 부터 적재가 있다. 메트릭 · 로그는 적재가 생기면 같은 자리에 붙인다).
+# 신호별 ClickHouse 표(spans · metrics_raw · logs)의 줄 수까지 늘었는지 본다.
 # 중간에 하나라도 끊기면 숫자가 어긋나므로, 어디서 막혔는지도 메시지로 드러난다.
 #
 # 사용:
@@ -43,8 +43,8 @@ rows() {
   docker compose exec -T clickhouse bash -c \
     'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --query "SELECT count() FROM monimo.'"$1"'"'
 }
-# 신호별로 적재되는 표. 비어 있으면 아직 적재가 없는 신호라 ClickHouse 확인을 건너뛴다
-table_of() { case "$1" in traces) echo spans ;; esac; }
+# 신호별로 적재되는 표. 비어 있으면 적재가 없는 신호라 ClickHouse 확인을 건너뛴다 (지금은 셋 다 있다)
+table_of() { case "$1" in traces) echo spans ;; metrics) echo metrics_raw ;; logs) echo logs ;; esac; }
 
 for signal in traces metrics logs; do
   before_in=$(received "$signal")  || fail "수집기 카운터($signal) 조회 실패: http://$COLLECTOR/actuator/metrics"
