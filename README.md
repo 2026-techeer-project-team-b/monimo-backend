@@ -57,7 +57,7 @@ docker compose --profile collector down
 
 # 수집기 + 적재 처리기까지 컨테이너로 (한 줄이 통째로 이어지는지 시험할 때)
 docker compose --profile collector --profile ingester up -d --wait --build
-./scripts/check-pipeline.sh    # 수집기가 받은 건수와 적재 처리기가 푼 건수를 대조한다 (CI 도 이걸 돈다)
+./scripts/check-pipeline.sh    # 수집기가 받은 건수 · 적재 처리기가 푼 건수 · ClickHouse spans 늘어난 줄 수를 대조한다 (CI 도 이걸 돈다)
 docker compose --profile collector --profile ingester down
 ```
 
