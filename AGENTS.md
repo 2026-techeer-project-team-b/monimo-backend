@@ -48,12 +48,15 @@ Kotlin · Java 17 · Spring Boot 3.5 · Gradle 멀티모듈. 버전은 `gradle/l
 ## 3. 작업 흐름
 
 1. GitHub 이슈를 만든다. 제목은 커밋 형식과 같게 (`feat(collector): ...`), 라벨은 `type/*` 과 `area/*`.
-2. 브랜치를 판다. `feat/<이슈번호>-<설명>` · `fix/<이슈번호>-<설명>` · `chore/<설명>`.
+2. 브랜치를 판다. `feat/<이슈번호>-<설명>` · `fix/<이슈번호>-<설명>` · `chore/<설명>`. **항상 `origin/develop` 에서 새로 판다.**
 3. 커밋 메시지는 `<타입>(<범위>): <요약>`. 타입은 feat · fix · docs · chore · refactor · test.
 4. PR 을 올린다. 본문에 무엇을 · 왜 · 어떻게 확인했는지와 `Closes #번호`.
-5. **main 직접 push 는 막혀 있다.** 리뷰 승인은 필수가 아니지만 CI 통과는 필수다 (ADR `#46`).
+5. PR 의 base 는 **`develop`** 이다 (기본 브랜치라 기본값 그대로 두면 된다). `main` 은 배포 단위로 `develop` 에서 한 번에 올린다.
+6. **`main` · `develop` 직접 push 는 막혀 있다.** 리뷰 승인은 필수가 아니지만 CI 통과는 필수다 (ADR `#46`).
 
 CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose 관통 점검) 를 돈다. `dev-infra` 는 compose · db · scripts · collector · ingester 가 바뀐 PR 에서만 돈다.
+
+`develop` → `main` 올릴 때는 **스쿼시가 아니라 머지 커밋**으로 머지한다. 스쿼시하면 두 브랜치의 역사가 갈라져 다음 배포 PR 에 충돌이 쏟아진다.
 
 ## 4. 파트와 담당
 
