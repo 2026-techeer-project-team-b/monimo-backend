@@ -26,7 +26,7 @@ Kotlin · Java 17 · Spring Boot 3.5 · Gradle 멀티모듈. 버전은 `gradle/l
 |---|---|---|
 | `common/` | 공유 모델 · Kafka 메시지 형식 · 에러 코드. **Entity · Repository · Service 금지** | — |
 | `collector/` | OTLP gRPC 수신 → 샘플링 → Kafka `raw` 발행 | 8081 · gRPC 4317 |
-| `ingester/` | Kafka `raw` 소비 → protobuf 풀기 → ClickHouse 적재 (스팬만. 메트릭 · 로그는 예정) | 8082 |
+| `ingester/` | Kafka `raw` 소비 → protobuf 풀기 → ClickHouse 적재 (스팬 · 메트릭 · 로그) | 8082 |
 | `api-server/` | 화면이 부르는 REST. 인증 · 서비스 등록 · 조회 · 알림 채널 | 8080 |
 | `detector/` | 주기 평가 → 경보 상태 전이 → 발송 의도 기록 | 8083 |
 | `notifier/` | 발송 대기 큐 소비 → Slack 등 채널 전송 | 8084 |
@@ -89,6 +89,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#52`** `agents` 표 신설(정본 ERD 12컬럼)과 알림 표 2개의 `agent_id` FK 부착. 가짜 데이터가 PG 명단에도 서비스 4줄을 넣는다(전에는 CH 에만 넣어 화면 목록이 비었다)
 - **`#58`** 스팬을 ClickHouse `spans` 에 적재. OTLP → 우리 모델(`SpanRow`) 변환은 프레임워크를 모르는 순수 코드, 저장할 곳은 도메인이 정한 포트(`SpanStore`)이고 ClickHouse 구현은 `outbound/` 에 둔다. 수집기가 읽고 버리던 카나리 표식을 `attributes['monimo.canary']` 로 남긴다. **이로써 에이전트 → 수집기 → Kafka → 적재 처리기 → ClickHouse 가 이어졌다**
 - **`#62`** `check-pipeline.sh` 가 ClickHouse `spans` 줄 수가 늘었는지까지 본다. dev-infra CI 가 이 스크립트를 돌리므로 적재(변환 · insert)를 깨뜨리는 PR 은 CI 에서 걸린다. 메트릭 · 로그는 적재가 생기면 `table_of` 에 표 이름만 추가
+- **`#64`** 메트릭을 `metrics_raw` 에, 로그를 `logs` 에 적재. `#58` 과 같은 꼴(모델 · 순수 변환 · 포트 · CH 어댑터)이고, 세 변환기가 같이 쓰는 OTLP 값 도구(`transform/OtlpValues.kt`)와 세 저장소가 같이 쓰는 JSONEachRow 도구(`outbound/clickhouse/JsonEachRow.kt`)를 뽑았다. 메트릭은 포인트 1개 = 1줄, 히스토그램은 `.count` · `.sum` · `.min` · `.max` 로 편다. **이로써 세 신호가 전부 ClickHouse 에 쌓이고, `check-pipeline.sh` 와 CI 가 세 표를 다 본다**
 
 ### 알림 파트 (ukong)
 
@@ -124,6 +125,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | `agents` 표에 줄을 넣는 코드가 없다 | 수집 | 표와 FK 는 생겼다(`#52`). 적재 처리기가 처음 보는 `agent_key` 를 등록하지 않아 아직 빈 표이고, CPU · 힙 · GC · 에이전트다운 경보 4종이 대상을 못 찾는다 |
 | 카나리 조회 문이 없다 | 조회 · 파수꾼 | 적재가 표식을 `attributes['monimo.canary']` 로 남기기 시작했다(`#58`). `GET /internal/canary/freshness` 를 `mapContains(attributes, 'monimo.canary')` 기준으로 만들면 된다. 명세의 `service_name=canary-probe` 기준은 0건이 나오므로 고쳐야 한다 |
 | `peer_service` 를 채우는 코드가 없다 | 수집(적재) | 적재는 OTel 이 준 값을 그대로 넣는데(`#58`) 에이전트 2.x 는 `peer.service` 를 기본으로 안 넣는다. 그래서 서버맵 노드에 서비스 이름 대신 `shop-order:8080` 같은 주소가 뜬다. `applications.name` 매핑이 필요하다. 가짜 데이터는 이 값을 손으로 박아 둬서 지금은 안 보인다 |
+| 가짜 데이터와 실데이터의 메트릭 모양이 다르다 | 조회 · 알림 | 가짜 데이터(`db/clickhouse/seed`)는 `jvm.gc.duration` 을 한 값으로 넣지만, 실데이터는 OTel 히스토그램이라 `jvm.gc.duration.count` · `.sum` · `.min` · `.max` 네 이름으로 들어온다(`#64`). GC_TIME 경보와 인스펙터 GC 그래프는 `.sum` 기준으로 짜야 한다. `series_hash` 도 가짜(`cityHash64`)와 실데이터(SHA-256 앞 8바이트)가 다른 식이지만 같은 지표 안에서 갈래를 나누는 용도라 섞이지 않으면 문제 없다 |
 | `service-health` 의 `step` 규칙이 명세와 다르다 | 조회 | 탐지는 코드 제약대로 `step=60` 을 보낸다(`#56`). 명세만 `step≥60 · 60의 배수` 로 고치면 된다 |
 | 재발급 토큰이 명세는 본문, 코드는 쿠키 | 인증 설정 | 명세대로 만든 화면이 재발급에서 401 을 받는다 |
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
@@ -133,6 +135,9 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 
 - `spans.agent_id`(파드 식별자)는 resource 속성에서 `service.instance.id` → `k8s.pod.name` → `host.name` 순서로 고른다. 셋 다 없으면 빈 글자(`#58`). 쇼핑몰 에이전트가 첫 번째를 채워 주는 것이 맞다 — `monimo-shop` 후속 작업
 - 카나리 표식은 CH `spans.attributes` 의 `monimo.canary` 키로 남긴다. `trace_state` 컬럼을 새로 만들지 않았다(`#58`)
+- 메트릭 변환 규칙(`#64`): Gauge · Sum 은 포인트 1개 = 1줄, 값은 Double. Histogram · ExponentialHistogram · Summary 는 `<이름>.count` · `.sum`(+ 있으면 `.min` · `.max`) 로 펴고 버킷은 버린다. Sum 의 누적/델타는 바꾸지 않고 그대로 넣는다(ADR `#38`) — 누적 → 델타는 조회가 `runningDifference` 로. `series_hash` = attributes 를 키 정렬해 `k=v` 줄로 이은 글자의 SHA-256 앞 8바이트
+- 로그 변환 규칙(`#64`): `logger` = scope 이름(OTel Java 로그 appender 가 로거 이름을 넣는 자리), `thread` = 꼬리표 `thread.name`, `level` = `severity_text` 대문자, 없으면 `severity_number` 구간(1~4 TRACE … 21~24 FATAL), `ts` = `time_unix_nano`, 0 이면 `observed_time_unix_nano`
+- 적재 처리기 카운터 `monimo.ingester.raw.consumed` 는 수집기와 같은 단위(스팬 · 메트릭 · 레코드 **개수**)를 센다. 줄 수가 아니다 — `check-pipeline.sh` 가 둘을 대조하기 때문
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
