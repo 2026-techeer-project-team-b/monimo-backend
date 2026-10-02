@@ -111,6 +111,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#70`** 경보 사건 목록 · 상세 · 전송 이력 3개 문 (api-server, VIEWER+). 사건은 탐지가, 이력은 알림이 쓰는 표라 읽기 전용 Entity(`@Immutable`). 상세의 조건 · 심각도는 지금 규칙이 아니라 **발화 당시 스냅샷**. 목록은 기본 FIRING, `from` · `to` 는 함께 보내야 하고 최대 90일, 제외된 서비스의 사건은 안 보인다. 파드 단위 사건은 `agents` 를 읽어 `agent_uuid` · `agent_key` 를 채운다
 - **`#67`** `#52` 가 주석을 고친 알림 마이그레이션 2개(`V202609281821` · `1822`)를 처음 들어갔을 때 내용으로 되돌림. Flyway 는 주석까지 체크섬에 넣어, 고친 채로 두면 `#52` 이전에 만든 DB 가 `checksum mismatch` 로 멈춘다 (ADR `#49`). SQL 변화 없음
 - **`#72`** 채널 시험 발송 (api-server `POST /alert-channels/{uuid}/test` → 알림 서비스 내부 문 `POST /internal/channels/test`). 저장된 실제 config 로 한 번 보내고 결과만 돌려준다(비밀값 미노출). outbox · 재시도 · 서킷을 거치지 않고 `notification_history` 에도 남기지 않는다. 공급자가 응답했으면(2xx SUCCESS, 4xx · 429 · 5xx FAILED) 200, 닿지 않으면 FAILED("채널 서버가 응답하지 않습니다"), 알림 서비스가 죽었으면 503. 같은 채널은 10초에 한 번(인스턴스 메모리 기준). 꺼진 채널도 시험 가능. **알림 서비스도 이제 `MONIMO_INTERNAL_TOKEN` 이 필요하다**
+- **`#81`** 탐지 · 알림 헬스체크. `/actuator/health/liveness` · `/actuator/health/readiness` 를 관리 포트 **8081** 로 연다(local 프로필은 서비스 포트 8083 · 8084 그대로 — 로컬에서 수집기 8081 과 겹쳐서). readiness = `readinessState` + `db`(PostgreSQL), liveness 는 자기 자신만. 응답은 `{"status":"UP"}` 하나(운영은 세부 항목 미노출). PG 를 끄면 readiness 503 · liveness 200 — 단 **503 까지 약 30초**(Hikari 연결 대기 기본값)
 
 ### 인증 설정 파트 (재범)
 
@@ -140,7 +141,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | 재발급 토큰이 명세는 본문, 코드는 쿠키 | 인증 설정 | 명세대로 만든 화면이 재발급에서 401 을 받는다 |
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
 | `#52` 머지 후 ~ `#67` 머지 전에 만든 로컬 DB 는 `postgres-migrate` 가 `checksum mismatch` 로 멈춘다 | 해당하는 사람 각자 | `docker compose run --rm postgres-migrate repair` 를 한 번 돌리면 풀린다. 주석만 바뀐 것이라 표 구조는 같다. 그 전이나 그 후에 만든 DB 는 해당 없음 |
-| `/healthz` · `/readyz` 가 어느 모듈에도 없다 | 전원 (규격은 배포) | 쿠버네티스 프로브와 화면 S10 의 "우리 서비스 6개" 카드가 읽을 대상이 없다 |
+| 헬스체크 probe 가 API 서버 · 수집기 · 적재 처리기에 아직 없다 | 인증 설정 · 수집 (규격은 재범 헬스체크 정리) | 탐지 · 알림은 켰다(`#81`). 경로는 `/healthz` · `/readyz` 가 아니라 `/actuator/health/liveness` · `/readiness`, 관리 포트 8081. 로컬에서는 8081 이 수집기 포트와 겹치므로 local 프로필은 서비스 포트를 그대로 쓴다(포트는 나중에 한 번에 정리). DB 가 응답하지 않으면 readiness 가 Hikari 연결 대기(기본 30초)만큼 걸리니 probe `timeoutSeconds` 를 정할 때 감안 |
 
 **이 과정에서 정한 것**
 

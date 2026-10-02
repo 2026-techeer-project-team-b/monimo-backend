@@ -19,6 +19,17 @@ monimo:
       query:
         base-url: ${MONIMO_API_SERVER_URL:http://localhost:8080}   # service-health 를 여는 API 서버
 
+management:
+  server:
+    port: 8081                   # 관리 포트. actuator 는 업무 포트와 나눠 밖(인그레스)으로 안 나간다. probe 는 kubelet 이 파드에 직접 붙는다
+  endpoint:
+    health:
+      probes:
+        enabled: true            # /actuator/health/liveness · /actuator/health/readiness (헬스체크 규약)
+      group:
+        readiness:
+          include: readinessState, db   # 일할 수 있나 = PostgreSQL 에 붙나. API 서버 · Slack 같은 외부는 넣지 않는다 (남이 죽었다고 나까지 빠지면 안 된다)
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
