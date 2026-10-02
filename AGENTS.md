@@ -95,6 +95,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#64`** 메트릭을 `metrics_raw` 에, 로그를 `logs` 에 적재. `#58` 과 같은 꼴(모델 · 순수 변환 · 포트 · CH 어댑터)이고, 세 변환기가 같이 쓰는 OTLP 값 도구(`transform/OtlpValues.kt`)와 세 저장소가 같이 쓰는 JSONEachRow 도구(`outbound/clickhouse/JsonEachRow.kt`)를 뽑았다. 메트릭은 포인트 1개 = 1줄, 히스토그램은 `.count` · `.sum` · `.min` · `.max` 로 편다. **이로써 세 신호가 전부 ClickHouse 에 쌓이고, `check-pipeline.sh` 와 CI 가 세 표를 다 본다**
 - **`#66`** 적재하면서 처음 보는 파드를 PG `agents` 표에 등록. resource 에서 (서비스 이름 · 파드 식별자 · 호스트 · JVM · 에이전트 버전)을 꺼내 `INSERT ... SELECT FROM applications ... ON CONFLICT (agent_key) DO NOTHING` 한 문장으로 넣는다. 이미 등록한 키는 메모리에 들고 있어 PG 왕복이 파드당 한 번이다. 적재(save) **뒤에** 등록하고 실패는 로그 · 카운터만 남겨 적재를 막지 않는다. 적재 처리기가 PG 에 쓰는 첫 코드
 - **`#79`** 스팬 `events`(예외 종류 · 메시지 · 스택트레이스)를 `spans` 에 적재. `#58` 에서 이 컬럼만 빼먹었다 — 다른 컬럼은 값 하나인데 `events` 는 스팬 하나에 사건 여러 개(1:다)라 모양이 달라 미뤘다가 잊었고, 가짜 데이터가 채워 넣어 화면이 멀쩡해 보여 늦게 발견했다(ukong 피드백). CH `Nested` 는 배열 세 개(`events.ts` · `events.name` · `events.attributes`)로 넣는다. 수집기 · Kafka 는 손대지 않았다 — 바이트를 풀지 않고 넘기므로 events 는 처음부터 Kafka 에 있었다
+- **`#83`** CLIENT 스팬의 `peer_service` 를 호출 대상 주소에서 채운다. OTel 에이전트 2.x 는 `peer.service` 를 안 넣고 `server.address` 만 넣는데, 서버맵 MV 가 insert 시점에 `peer_service` 가 비면 주소를 노드 이름으로 쓰고 `EXTERNAL` 로 굳히므로 적재 **전**에 채워야 한다. 주소의 첫 DNS 라벨이 `applications.name` 과 정확히 같을 때만(`shop-order:8080` · `shop-order.default.svc.cluster.local` → `shop-order`). 서비스 목록은 PG 에서 30초 캐시(`PostgresServiceCatalog`), `#66` 과 같은 "PG 조회 + 캐시" 꼴. `SpanTranslator` 는 손대지 않았다(순수성 유지) — 채우기는 `PeerServiceResolver.fill` 이 변환 뒤 · 저장 앞에서
 
 ### 알림 파트 (ukong)
 
@@ -134,7 +135,6 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 |---|---|---|
 | `agents.ip` 가 비어 있다 | 수집 | 등록은 시작됐지만(`#66`) `ip` 는 못 채운다. ERD 는 수집기가 gRPC 연결 통로에서 알아내 메시지에 붙이고 적재 처리기가 적는 것으로 정했는데, 수집기 쪽 코드가 없다. 파드 이름이 비슷할 때 구분하는 단서라 화면에만 영향 |
 | 카나리 조회 문이 없다 | 조회 · 파수꾼 | 적재가 표식을 `attributes['monimo.canary']` 로 남기기 시작했다(`#58`). `GET /internal/canary/freshness` 를 `mapContains(attributes, 'monimo.canary')` 기준으로 만들면 된다. 명세의 `service_name=canary-probe` 기준은 0건이 나오므로 고쳐야 한다 |
-| `peer_service` 를 채우는 코드가 없다 | 수집(적재) | 적재는 OTel 이 준 값을 그대로 넣는데(`#58`) 에이전트 2.x 는 `peer.service` 를 기본으로 안 넣는다. 그래서 서버맵 노드에 서비스 이름 대신 `shop-order:8080` 같은 주소가 뜬다. `applications.name` 매핑이 필요하다. 가짜 데이터는 이 값을 손으로 박아 둬서 지금은 안 보인다 |
 | 가짜 데이터와 실데이터의 메트릭 모양이 다르다 | 조회 · 알림 | 가짜 데이터(`db/clickhouse/seed`)는 `jvm.gc.duration` 을 한 값으로 넣지만, 실데이터는 OTel 히스토그램이라 `jvm.gc.duration.count` · `.sum` · `.min` · `.max` 네 이름으로 들어온다(`#64`). GC_TIME 경보와 인스펙터 GC 그래프는 `.sum` 기준으로 짜야 한다. `series_hash` 도 가짜(`cityHash64`)와 실데이터(SHA-256 앞 8바이트)가 다른 식이지만 같은 지표 안에서 갈래를 나누는 용도라 섞이지 않으면 문제 없다 |
 | `service-health` 의 `step` 규칙이 노션 명세와 다르다 | 조회 | 레포 사본(`api-spec.md` 2번)은 `step≥60 · 60의 배수` 로 고쳤다(`#50`). 노션 「API 명세」 반영만 남았다 |
 | 적재가 `spans.events` 를 채우지 않는다 | 수집(적재) | `SpanRow` 에 events 가 없어(`#58`) 실데이터에서 예외 type · message · stacktrace 가 빈다. 트레이스 상세의 예외 표시와 에러 목록 · 타임라인(`exception_type`)이 비어 나온다. 가짜 데이터는 손으로 넣어 지금은 안 보인다 |
@@ -152,6 +152,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 적재 처리기 카운터 `monimo.ingester.raw.consumed` 는 수집기와 같은 단위(스팬 · 메트릭 · 레코드 **개수**)를 센다. 줄 수가 아니다 — `check-pipeline.sh` 가 둘을 대조하기 때문
 - 화면에 **등록되지 않았거나 제외된(`deleted_at`) 서비스**의 파드는 `agents` 에 넣지 않는다(`#66`). `application_id` 가 NOT NULL FK 이고, 감시 대상 등록은 사람이 화면에서 하는 것이 설계다(ADR `#36`). 건너뛴 수는 `monimo.ingester.agents{outcome=unknown_service}` 로 센다 — telemetrygen 기본 서비스 이름이 여기 걸린다
 - `agents.first_seen_at` 은 적재 처리기가 **본 시각**이다(`#66`). 신호 안의 시각을 쓰지 않는 이유: 에이전트 시계가 틀릴 수 있고 배포 시점을 가늠하는 칸이라 초 단위 정확성이 필요 없다. `status` 는 기본값 `UNKNOWN` 으로 두고 탐지가 바꾼다(ADR `#39`)
+- `peer_service` 는 **첫 DNS 라벨 == `applications.name` 정확 일치**로만 채운다(`#83`). 부분 일치 · 별칭 · 대소문자 무시 없음 — 틀리게 맞추면 서버맵에 가짜 간선이 생기고, 안 맞추면 `EXTERNAL` 로 남아 눈에 띈다. 에이전트가 `peer.service` 를 명시했으면 그 값이 우선. IP · `localhost` · DB 주소는 비운다 (DB 는 MV 가 `db.system` 으로 분류)
+- 적재 처리기가 `applications` 를 **읽는다**(`#66` FK 번호, `#83` 이름 목록). 표 주인은 API 서버지만 읽기 전용이고 수집기가 샘플링 비율을 읽는 것과 같은 성격(ADR `#20`). 쓰지 않는다. API 를 거치면 적재 처리기 → API 서버 의존이 생겨 더 비싸다
 
 - 트레이스 상세 응답(`#50`, 2026-09-29 회의): 루트 `parent_span_id` = `null`, HTTP 아닌 스팬 `http_status` = `null`(CH 는 0), 시각은 나노초 9자리 고정. 부모 스팬 없는 스팬이 1개면 그대로 루트, 2개 이상이면 `span_id` 가 빈 "(누락된 구간)" 자리를 루트로 두고 그 아래에 나란히 둔다(실제로 없는 호출 관계를 만들지 않기 위해). 샘플링으로는 트리가 끊기지 않는다(`#46`) — 남는 원인은 요청 직후 조회(루트 스팬이 가장 늦게 도착) · 적재 실패 · 에이전트 버퍼 초과
 
