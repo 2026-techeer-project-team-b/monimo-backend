@@ -11,6 +11,10 @@ spring:
 server:
   port: 8084
 
+monimo:
+  # 내부 문(/internal/**) 공유 비밀값. api-server 가 같은 값을 X-Internal-Token 으로 보낸다. 비우면 내부 문이 전부 닫힌다
+  internal-token: ${MONIMO_INTERNAL_TOKEN:}
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅

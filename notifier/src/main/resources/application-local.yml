@@ -8,6 +8,9 @@ spring:
     username: ${POSTGRES_USER:monimo}
     password: ${POSTGRES_PASSWORD:monimo}
 
+monimo:
+  internal-token: local-internal-token   # api-server local 프로필과 같은 값
+
 management:
   endpoint:
     health:
