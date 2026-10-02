@@ -19,6 +19,12 @@ private val AGENT_ID_KEYS = listOf("service.instance.id", "k8s.pod.name", "host.
 private const val SERVICE_NAME_KEY = "service.name"
 private const val UNKNOWN_SERVICE = "unknown_service" // 에이전트가 이름을 안 넣으면 OTel 이 이렇게 보낸다
 
+// 파드 환경 정보. agents 표의 사람이 보는 칸을 채운다 (없으면 null 로 두고 억지로 만들지 않는다)
+private const val HOST_NAME_KEY = "host.name"
+private const val JVM_VERSION_KEY = "process.runtime.version"
+// OTel Java Agent 는 배포판 버전(distro)을 먼저 넣는다. 없으면 SDK 버전으로 대신한다
+private val AGENT_VERSION_KEYS = listOf("telemetry.distro.version", "telemetry.sdk.version")
+
 // resource(서비스 · 파드 단위 정보)에서 서비스 이름과 파드 식별자를 한 번에 꺼낸다.
 // 3겹 구조(resource → scope → 기록)에서 resource 는 바깥에 한 번만 있으므로, 변환기는 이걸 한 번 꺼내 안쪽 기록들에 나눠 준다
 internal data class Origin(val serviceName: String, val agentId: String)
@@ -52,3 +58,18 @@ internal fun ByteString.toHex(): String =
 // OTLP 시각은 1970 년부터 흐른 나노초(Long) 하나다. Instant 로 바꾸면 초와 나노초가 갈라져 CH 가 받는 글자로 만들기 쉽다
 internal fun Long.nanosToInstant(): Instant =
     Instant.ofEpochSecond(this / 1_000_000_000L, this % 1_000_000_000L)
+
+// resource 에서 "이 파드를 봤다" 기록을 만든다. 서비스 이름과 파드 식별자는 origin() 과 같은 규칙으로 고른다.
+// 적재할 줄을 만드는 것과 달리 이쪽은 PG agents 표에 올릴 재료라, 사람이 보는 환경 정보까지 같이 꺼낸다
+internal fun Resource.sighting(seenAt: Instant): AgentSighting {
+    val attributes = attributesList.toStringMap()
+    return AgentSighting(
+        // unknown_service 는 사람이 등록한 서비스 이름일 수 없으므로 빈 글자로 둬서 등록 대상에서 빠지게 한다
+        serviceName = attributes[SERVICE_NAME_KEY]?.takeIf { it != UNKNOWN_SERVICE } ?: "",
+        agentKey = AGENT_ID_KEYS.firstNotNullOfOrNull { attributes[it] } ?: "",
+        hostname = attributes[HOST_NAME_KEY],
+        jvmVersion = attributes[JVM_VERSION_KEY],
+        agentVersion = AGENT_VERSION_KEYS.firstNotNullOfOrNull { attributes[it] },
+        seenAt = seenAt,
+    )
+}
