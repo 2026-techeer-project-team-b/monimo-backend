@@ -7,6 +7,8 @@ import com.monimo.ingester.transform.LogStore
 import com.monimo.ingester.transform.LogTranslator
 import com.monimo.ingester.transform.MetricStore
 import com.monimo.ingester.transform.MetricTranslator
+import com.monimo.ingester.transform.PeerServiceResolver // 비어 있는 peer_service 를 호출 대상 주소에서 채움
+import com.monimo.ingester.transform.ServiceCatalog // 감시 중인 서비스 이름 목록 (PG, 캐시)
 import com.monimo.ingester.transform.SpanStore // 저장하는 곳 (무엇으로 저장하는지는 모른다)
 import com.monimo.ingester.transform.SpanTranslator // OTLP → 우리 모델 변환
 import com.monimo.ingester.transform.sighting // resource → "이 파드를 봤다" 기록
@@ -34,6 +36,7 @@ class RawConsumer(
     private val metricStore: MetricStore,
     private val logStore: LogStore,
     private val agentRegistry: AgentRegistry, // PG 쪽 포트. 구현은 PostgresAgentRegistry 지만 이 클래스는 모른다
+    private val serviceCatalog: ServiceCatalog, // PG 쪽 포트. 서비스 이름 목록 (읽기 전용)
 ) {
 
     // 스프링이 알아서 소비자를 만들어 메시지를 하나씩 이 함수에 넣어 준다.
@@ -51,7 +54,8 @@ class RawConsumer(
         val count = when (signal) {
             RawSignal.TRACES -> {
                 val request = ExportTraceServiceRequest.parseFrom(record.value())
-                val rows = SpanTranslator.toRows(request)
+                // 변환 → peer_service 채움 → 저장. 채우는 자리가 save 앞이어야 서버맵 MV 가 SERVICE 로 분류한다 (#83)
+                val rows = PeerServiceResolver.fill(SpanTranslator.toRows(request), serviceCatalog.activeNames())
                 spanStore.save(rows)
                 resources = request.resourceSpansList.map { it.resource }
                 rows.size // 스팬 1개 = 1줄이라 줄 수가 곧 스팬 수
