@@ -2,8 +2,10 @@
 # 파트(노션 「레포별 파일 구성」): 수집 = 승조 · 알림 = ukong · 조회 = Nova · 인증 설정(보안) = 재범 (2026-09-23 확정)
 # 여기 적히려면 레포 write 권한이 있어야 한다.
 
-# 기본: 전원 (common · db/clickhouse · docs 등 파트를 넘는 것)
-* @SeungJo-02 @jaebeom79 @ukongee @hyl1115
+# 기본: 승조 (common · db/clickhouse 등 파트를 넘는 것).
+# 전원을 적었더니 AGENTS.md 한 줄만 바뀐 PR 에도 네 명 전원에게 리뷰 요청이 가서 알림이 묻혔다.
+# 파트 경계를 넘는 변경은 PR 본문과 AGENTS.md §5 · §6 로 공유하고, 봐야 할 사람은 직접 리뷰어로 추가한다.
+* @SeungJo-02
 
 # 수집 파트 (수집기 · 적재 처리기) + 배포 (CI · compose · 이미지)
 /collector/ @SeungJo-02
@@ -32,5 +34,5 @@
 /api-server/src/main/kotlin/com/monimo/api/threaddump/ @jaebeom79
 /db/postgres/config/ @jaebeom79
 
-# 설계 문서: 결정 기록은 전원이 리뷰한다
-/docs/ @SeungJo-02 @jaebeom79 @ukongee @hyl1115
+# 설계 문서: 결정(ADR)을 바꾸는 PR 은 올린 사람이 봐야 할 파트를 리뷰어로 직접 추가한다
+/docs/ @SeungJo-02
