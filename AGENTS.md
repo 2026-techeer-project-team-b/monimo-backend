@@ -119,6 +119,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#17`** 응답 봉투 · 에러 코드 · 전역 예외 처리 · `X-Request-Id`
 - **`#19`** 시간 범위 검사 · step 별 읽을 표 단위 · limit 검사 · 커서 페이징
 - **`#48`** 내부 문 `GET /internal/service-health`. 실제 ClickHouse 에 스팬을 넣어 검증
+- **`#50`** 트레이스 상세 `GET /traces/{traceId}`. `trace_id` 로 `spans` 를 평면 조회해 서버 코드(`SpanTree`)에서 부모-자식 트리로 조립한다. 루트 `parent_span_id` · HTTP 아닌 스팬 `http_status` 는 `null`, 부모 스팬 없는 스팬이 2개 이상이면 "(누락된 구간)" 자리 아래 나란히 둔다. 같은 스팬이 두 번 적재돼도 한 번만 나온다
 
 ## 6. 지금 막혀 있는 것
 
@@ -130,7 +131,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | 카나리 조회 문이 없다 | 조회 · 파수꾼 | 적재가 표식을 `attributes['monimo.canary']` 로 남기기 시작했다(`#58`). `GET /internal/canary/freshness` 를 `mapContains(attributes, 'monimo.canary')` 기준으로 만들면 된다. 명세의 `service_name=canary-probe` 기준은 0건이 나오므로 고쳐야 한다 |
 | `peer_service` 를 채우는 코드가 없다 | 수집(적재) | 적재는 OTel 이 준 값을 그대로 넣는데(`#58`) 에이전트 2.x 는 `peer.service` 를 기본으로 안 넣는다. 그래서 서버맵 노드에 서비스 이름 대신 `shop-order:8080` 같은 주소가 뜬다. `applications.name` 매핑이 필요하다. 가짜 데이터는 이 값을 손으로 박아 둬서 지금은 안 보인다 |
 | 가짜 데이터와 실데이터의 메트릭 모양이 다르다 | 조회 · 알림 | 가짜 데이터(`db/clickhouse/seed`)는 `jvm.gc.duration` 을 한 값으로 넣지만, 실데이터는 OTel 히스토그램이라 `jvm.gc.duration.count` · `.sum` · `.min` · `.max` 네 이름으로 들어온다(`#64`). GC_TIME 경보와 인스펙터 GC 그래프는 `.sum` 기준으로 짜야 한다. `series_hash` 도 가짜(`cityHash64`)와 실데이터(SHA-256 앞 8바이트)가 다른 식이지만 같은 지표 안에서 갈래를 나누는 용도라 섞이지 않으면 문제 없다 |
-| `service-health` 의 `step` 규칙이 명세와 다르다 | 조회 | 탐지는 코드 제약대로 `step=60` 을 보낸다(`#56`). 명세만 `step≥60 · 60의 배수` 로 고치면 된다 |
+| `service-health` 의 `step` 규칙이 노션 명세와 다르다 | 조회 | 레포 사본(`api-spec.md` 2번)은 `step≥60 · 60의 배수` 로 고쳤다(`#50`). 노션 「API 명세」 반영만 남았다 |
+| 적재가 `spans.events` 를 채우지 않는다 | 수집(적재) | `SpanRow` 에 events 가 없어(`#58`) 실데이터에서 예외 type · message · stacktrace 가 빈다. 트레이스 상세의 예외 표시와 에러 목록 · 타임라인(`exception_type`)이 비어 나온다. 가짜 데이터는 손으로 넣어 지금은 안 보인다 |
 | 재발급 토큰이 명세는 본문, 코드는 쿠키 | 인증 설정 | 명세대로 만든 화면이 재발급에서 401 을 받는다 |
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
 | `#52` 머지 후 ~ `#67` 머지 전에 만든 로컬 DB 는 `postgres-migrate` 가 `checksum mismatch` 로 멈춘다 | 해당하는 사람 각자 | `docker compose run --rm postgres-migrate repair` 를 한 번 돌리면 풀린다. 주석만 바뀐 것이라 표 구조는 같다. 그 전이나 그 후에 만든 DB 는 해당 없음 |
@@ -144,11 +146,14 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 로그 변환 규칙(`#64`): `logger` = scope 이름(OTel Java 로그 appender 가 로거 이름을 넣는 자리), `thread` = 꼬리표 `thread.name`, `level` = `severity_text` 대문자, 없으면 `severity_number` 구간(1~4 TRACE … 21~24 FATAL), `ts` = `time_unix_nano`, 0 이면 `observed_time_unix_nano`
 - 적재 처리기 카운터 `monimo.ingester.raw.consumed` 는 수집기와 같은 단위(스팬 · 메트릭 · 레코드 **개수**)를 센다. 줄 수가 아니다 — `check-pipeline.sh` 가 둘을 대조하기 때문
 
+- 트레이스 상세 응답(`#50`, 2026-09-29 회의): 루트 `parent_span_id` = `null`, HTTP 아닌 스팬 `http_status` = `null`(CH 는 0), 시각은 나노초 9자리 고정. 부모 스팬 없는 스팬이 1개면 그대로 루트, 2개 이상이면 `span_id` 가 빈 "(누락된 구간)" 자리를 루트로 두고 그 아래에 나란히 둔다(실제로 없는 호출 관계를 만들지 않기 위해). 샘플링으로는 트리가 끊기지 않는다(`#46`) — 남는 원인은 요청 직후 조회(루트 스팬이 가장 늦게 도착) · 적재 실패 · 에이전트 버퍼 초과
+
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
 - 1% 샘플링한 표본이 그대로 화면의 "호출 수" 가 된다. 보정할지, 표본이라고 표시할지 정해야 한다
 - 파수꾼이 Gradle 모듈에 없다(별도 레포 · Python). 그런데 명세는 서비스 6개가 `/readyz` 를 연다고 적는다
 - `application_configs.log_level` 이 폐기 기록 없이 사라졌다. 핵심기능 5에 로그 등급 변경이 포함되는지
+- 트레이스 404 에서 `SIGNAL_EXPIRED`(93일 지나 지워짐)와 `NOT_FOUND`(처음부터 없음)를 나눌지. trace ID 에 시각이 없어 서버가 구분할 수 없다. 지금은 `NOT_FOUND` 하나로 응답한다(`#50`)
 
 ## 7. 참고
 
