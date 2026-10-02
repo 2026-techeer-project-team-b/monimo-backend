@@ -57,6 +57,16 @@ internal class JsonLineBuilder {
         comma(); sb.append('"').append(name).append("\":").append(value.toJsonObject())
     }
 
+    // "name":["a","b"] — 글자 배열. CH Nested 의 한 열(events.name 등)이 이 모양이다. 빈 목록이면 []
+    fun array(name: String, values: List<String>) {
+        comma(); sb.append('"').append(name).append("\":").append(values.joinToString(",", "[", "]") { it.jsonQuoted() })
+    }
+
+    // "name":[{"k":"v"},{...}] — Map 배열. Nested 안의 Map 열(events.attributes)
+    fun arrayOfMaps(name: String, values: List<Map<String, String>>) {
+        comma(); sb.append('"').append(name).append("\":").append(values.joinToString(",", "[", "]") { it.toJsonObject() })
+    }
+
     fun finish(): String = sb.append('}').toString()
 }
 
