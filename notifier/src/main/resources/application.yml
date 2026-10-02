@@ -15,6 +15,17 @@ monimo:
   # 내부 문(/internal/**) 공유 비밀값. api-server 가 같은 값을 X-Internal-Token 으로 보낸다. 비우면 내부 문이 전부 닫힌다
   internal-token: ${MONIMO_INTERNAL_TOKEN:}
 
+management:
+  server:
+    port: 8081                   # 관리 포트. actuator 는 업무 포트와 나눠 밖(인그레스)으로 안 나간다. probe 는 kubelet 이 파드에 직접 붙는다
+  endpoint:
+    health:
+      probes:
+        enabled: true            # /actuator/health/liveness · /actuator/health/readiness (헬스체크 규약)
+      group:
+        readiness:
+          include: readinessState, db   # 일할 수 있나 = PostgreSQL 에 붙나. API 서버 · Slack 같은 외부는 넣지 않는다 (남이 죽었다고 나까지 빠지면 안 된다)
+
 logging:
   level:
     org.hibernate.SQL: debug     # ADR #42 가드레일 ⑤ 실행 SQL 상시 로깅
