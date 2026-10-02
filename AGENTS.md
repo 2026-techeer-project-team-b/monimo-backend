@@ -94,6 +94,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#62`** `check-pipeline.sh` 가 ClickHouse `spans` 줄 수가 늘었는지까지 본다. dev-infra CI 가 이 스크립트를 돌리므로 적재(변환 · insert)를 깨뜨리는 PR 은 CI 에서 걸린다. 메트릭 · 로그는 적재가 생기면 `table_of` 에 표 이름만 추가
 - **`#64`** 메트릭을 `metrics_raw` 에, 로그를 `logs` 에 적재. `#58` 과 같은 꼴(모델 · 순수 변환 · 포트 · CH 어댑터)이고, 세 변환기가 같이 쓰는 OTLP 값 도구(`transform/OtlpValues.kt`)와 세 저장소가 같이 쓰는 JSONEachRow 도구(`outbound/clickhouse/JsonEachRow.kt`)를 뽑았다. 메트릭은 포인트 1개 = 1줄, 히스토그램은 `.count` · `.sum` · `.min` · `.max` 로 편다. **이로써 세 신호가 전부 ClickHouse 에 쌓이고, `check-pipeline.sh` 와 CI 가 세 표를 다 본다**
 - **`#66`** 적재하면서 처음 보는 파드를 PG `agents` 표에 등록. resource 에서 (서비스 이름 · 파드 식별자 · 호스트 · JVM · 에이전트 버전)을 꺼내 `INSERT ... SELECT FROM applications ... ON CONFLICT (agent_key) DO NOTHING` 한 문장으로 넣는다. 이미 등록한 키는 메모리에 들고 있어 PG 왕복이 파드당 한 번이다. 적재(save) **뒤에** 등록하고 실패는 로그 · 카운터만 남겨 적재를 막지 않는다. 적재 처리기가 PG 에 쓰는 첫 코드
+- **`#79`** 스팬 `events`(예외 종류 · 메시지 · 스택트레이스)를 `spans` 에 적재. `#58` 에서 이 컬럼만 빼먹었다 — 다른 컬럼은 값 하나인데 `events` 는 스팬 하나에 사건 여러 개(1:다)라 모양이 달라 미뤘다가 잊었고, 가짜 데이터가 채워 넣어 화면이 멀쩡해 보여 늦게 발견했다(ukong 피드백). CH `Nested` 는 배열 세 개(`events.ts` · `events.name` · `events.attributes`)로 넣는다. 수집기 · Kafka 는 손대지 않았다 — 바이트를 풀지 않고 넘기므로 events 는 처음부터 Kafka 에 있었다
 
 ### 알림 파트 (ukong)
 
@@ -156,6 +157,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
 - 1% 샘플링한 표본이 그대로 화면의 "호출 수" 가 된다. 보정할지, 표본이라고 표시할지 정해야 한다
+- 같은 이유로 **예외도 1% 만 남는다**(`#79`). 에러 화면(`/errors` · `/errors/timeline`)이 표본으로도 쓸 만한지, 아니면 `status_code = ERROR` 인 트레이스는 샘플링을 건너뛸지(tail 샘플링) 정해야 한다. 후자는 수집기 `TraceSampler` 에 조건 하나 추가로 가능하지만 "에러만 100%" 라 비율이 왜곡된다
 - 파수꾼이 Gradle 모듈에 없다(별도 레포 · Python). 그런데 명세는 서비스 6개가 `/readyz` 를 연다고 적는다
 - `application_configs.log_level` 이 폐기 기록 없이 사라졌다. 핵심기능 5에 로그 등급 변경이 포함되는지
 - 트레이스 404 에서 `SIGNAL_EXPIRED`(93일 지나 지워짐)와 `NOT_FOUND`(처음부터 없음)를 나눌지. trace ID 에 시각이 없어 서버가 구분할 수 없다. 지금은 `NOT_FOUND` 하나로 응답한다(`#50`)

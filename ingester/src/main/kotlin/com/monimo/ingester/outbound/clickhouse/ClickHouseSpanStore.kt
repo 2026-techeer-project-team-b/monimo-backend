@@ -33,6 +33,11 @@ class ClickHouseSpanStore(private val client: Client) : SpanStore {
         field("peer_address", peerAddress)
         field("peer_service", peerService)
         map("attributes", attributes)
+        // Nested 컬럼은 배열 세 개로 저장된다. 키도 "events.ts" 처럼 점이 든 글자 셋이고, 세 배열 길이가 같아야 insert 가 된다.
+        // 한 목록(events)에서 map 세 번으로 뽑으므로 길이는 저절로 같다. 따로 만들면 어긋날 수 있다
+        array("events.ts", events.map { ClickHouseTime.nanos(it.ts) }) // DateTime64(9) — start_time 과 같은 포맷
+        array("events.name", events.map { it.name })
+        arrayOfMaps("events.attributes", events.map { it.attributes })
     }
 
     private companion object {
