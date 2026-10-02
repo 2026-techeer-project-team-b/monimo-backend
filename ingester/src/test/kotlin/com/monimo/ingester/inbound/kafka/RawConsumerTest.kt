@@ -12,7 +12,10 @@ import io.opentelemetry.proto.logs.v1.ResourceLogs
 import io.opentelemetry.proto.logs.v1.ScopeLogs
 import io.opentelemetry.proto.metrics.v1.Metric
 import io.opentelemetry.proto.metrics.v1.ResourceMetrics
+import io.opentelemetry.proto.common.v1.AnyValue
+import io.opentelemetry.proto.common.v1.KeyValue
 import io.opentelemetry.proto.metrics.v1.ScopeMetrics
+import io.opentelemetry.proto.resource.v1.Resource
 import io.opentelemetry.proto.trace.v1.ResourceSpans
 import io.opentelemetry.proto.trace.v1.ScopeSpans
 import io.opentelemetry.proto.trace.v1.Span
@@ -24,6 +27,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
+import org.springframework.jdbc.core.JdbcTemplate
 
 // 수집기 테스트가 소비자를 만들어 확인했다면, 여기서는 반대로 생산자를 만들어 넣는다.
 // 수집기가 넣는 것과 같은 모양(키 = 신호 글자 · 값 = protobuf 바이트)으로 직접 넣고, 적재 처리기가 풀어 세는지 본다.
@@ -32,6 +36,7 @@ import org.springframework.core.env.Environment
 class RawConsumerTest(
     counter: RawConsumeCounter, // 카운터 빈을 생성자로 받아 값을 확인한다
     environment: Environment, // Kafka 주소를 읽는다 (컨테이너라 주소가 매번 다르다)
+    jdbc: JdbcTemplate, // 파드가 agents 표에 등록됐는지 본다
 ) : BehaviorSpec({
 
     // 수집기 역할을 하는 생산자
@@ -56,6 +61,17 @@ class RawConsumerTest(
     // 만든 요청을 protobuf 바이트로 바꿔 raw 토픽에 넣는다. .get() = 브로커가 받을 때까지 기다린다
     fun sendToRaw(signal: RawSignal, payload: ByteArray) {
         producer.send(ProducerRecord(RawSignal.TOPIC, signal.key, payload)).get()
+    }
+
+    fun attr(key: String, value: String): KeyValue =
+        KeyValue.newBuilder().setKey(key).setValue(AnyValue.newBuilder().setStringValue(value)).build()
+
+    // agents 에 줄이 생길 때까지 최대 10초 기다린다 (등록도 소비와 같은 다른 스레드에서 일어난다)
+    fun awaitAgent(agentKey: String): Int {
+        val deadline = System.currentTimeMillis() + 10_000
+        fun rows() = jdbc.queryForObject("SELECT count(*) FROM agents WHERE agent_key = ?", Int::class.java, agentKey)!!
+        while (System.currentTimeMillis() < deadline && rows() == 0) Thread.sleep(200)
+        return rows()
     }
 
     Given("raw 토픽을 구독하는 적재 처리기") {
@@ -107,6 +123,39 @@ class RawConsumerTest(
 
             Then("풀어서 로그 레코드 3건으로 센다") {
                 awaitCount(RawSignal.LOGS, 3.0)
+            }
+        }
+    }
+
+    Given("감시 대상으로 등록된 서비스의 에이전트") {
+        val service = "shop-consumer-${System.nanoTime()}"
+        val agentKey = "$service-pod-1"
+        jdbc.update("INSERT INTO applications (name) VALUES (?)", service)
+
+        When("그 서비스 이름과 파드 식별자가 담긴 트레이스를 넣으면") {
+            val request = ExportTraceServiceRequest.newBuilder()
+                .addResourceSpans(
+                    ResourceSpans.newBuilder()
+                        .setResource(
+                            Resource.newBuilder()
+                                .addAttributes(attr("service.name", service))
+                                .addAttributes(attr("service.instance.id", agentKey))
+                                .addAttributes(attr("host.name", "node-7"))
+                                .addAttributes(attr("process.runtime.version", "17.0.9")),
+                        )
+                        .addScopeSpans(ScopeSpans.newBuilder().addSpans(Span.newBuilder().setName("POST /orders"))),
+                )
+                .build()
+            sendToRaw(RawSignal.TRACES, request.toByteArray())
+
+            Then("적재와 함께 파드가 agents 표에 등록된다") {
+                awaitAgent(agentKey) shouldBe 1
+            }
+
+            Then("환경 정보도 같이 채워진다") {
+                val row = jdbc.queryForMap("SELECT hostname, jvm_version FROM agents WHERE agent_key = ?", agentKey)
+                row["hostname"] shouldBe "node-7"
+                row["jvm_version"] shouldBe "17.0.9"
             }
         }
     }
