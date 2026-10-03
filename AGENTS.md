@@ -128,6 +128,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#19`** 시간 범위 검사 · step 별 읽을 표 단위 · limit 검사 · 커서 페이징
 - **`#48`** 내부 문 `GET /internal/service-health`. 실제 ClickHouse 에 스팬을 넣어 검증
 - **`#50`** 트레이스 상세 `GET /traces/{traceId}`. `trace_id` 로 `spans` 를 평면 조회해 서버 코드(`SpanTree`)에서 부모-자식 트리로 조립한다. 루트 `parent_span_id` · HTTP 아닌 스팬 `http_status` 는 `null`, 부모 스팬 없는 스팬이 2개 이상이면 "(누락된 구간)" 자리 아래 나란히 둔다. 같은 스팬이 두 번 적재돼도 한 번만 나온다
+- **`#77`** 서버맵 `GET /server-map`. 간선은 `server_map_1m` 을 `sum` 으로 다시 합치고(SummingMergeTree), 노드는 요청을 받은 서비스만 `service_health_1m` 에서. `service_name` 을 주면 그 서비스가 부르거나 불리는 간선과 거기 나오는 노드만
 
 ## 6. 지금 막혀 있는 것
 
@@ -158,6 +159,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 적재 처리기가 `applications` 를 **읽는다**(`#66` FK 번호, `#83` 이름 목록). 표 주인은 API 서버지만 읽기 전용이고 수집기가 샘플링 비율을 읽는 것과 같은 성격(ADR `#20`). 쓰지 않는다. API 를 거치면 적재 처리기 → API 서버 의존이 생겨 더 비싸다
 
 - 트레이스 상세 응답(`#50`, 2026-09-29 회의): 루트 `parent_span_id` = `null`, HTTP 아닌 스팬 `http_status` = `null`(CH 는 0), 시각은 나노초 9자리 고정. 부모 스팬 없는 스팬이 1개면 그대로 루트, 2개 이상이면 `span_id` 가 빈 "(누락된 구간)" 자리를 루트로 두고 그 아래에 나란히 둔다(실제로 없는 호출 관계를 만들지 않기 위해). 샘플링으로는 트리가 끊기지 않는다(`#46`) — 남는 원인은 요청 직후 조회(루트 스팬이 가장 늦게 도착) · 적재 실패 · 에이전트 버퍼 초과
+
+- 서버맵 `err_cnt`(`#77`): 간선은 부른 쪽(CLIENT) 스팬이라 OTel 규칙상 4xx 도 에러로 세고, 노드는 받은 쪽(SERVER) 스팬이라 5xx 만 센다. 그래서 같은 호출이라도 간선 에러 수가 노드보다 클 수 있다(seed 1시간: gateway → order 간선 942 · order 노드 745). 버그가 아니라 계측 규칙이다
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
