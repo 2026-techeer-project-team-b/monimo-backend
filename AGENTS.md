@@ -119,7 +119,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#32`** PG 표 3개 — `users` · `applications` · `application_configs`
 - **`#34`** 로그인 · JWT · 역할 검사. refresh 는 httpOnly 쿠키 회전, 내부 문은 `X-Internal-Token` 필터
 - **`#36`** 서비스 등록 · 목록 · 상세 · 수정 · 제외 5개 문. `deleted_at` 논리 삭제, 설정 줄 자동 생성
-- **`#85`** 설정 2개 문 — 조회(VIEWER+) · 수정(ADMIN). 수정은 조건부 UPDATE 로 CAS 를 건다: `where version = :expected_version` 이 맞을 때만 고치고 고친 줄이 0 이면 409 `CONFIG_VERSION_CONFLICT`. JPA `@Version` 은 "서버가 방금 읽은 버전" 과 비교하는데 명세는 "화면이 아까 받아간 버전" 과 비교하라고 요구해서 쓰지 않았다. **수집 파트 참고** — `sampling_rate` 가 이 문으로 바뀌므로 30초 캐시(ADR `#37`) 주기 안에 반영된다
+- **`#85`** 설정 2개 문 — 조회 · 수정. `expected_version` 이 어긋나면 409. `sampling_rate` 변경은 수집기 30초 캐시(ADR `#37`) 안에 반영된다
+- **`#88`** 에이전트 3개 문(목록 · 상세 · 서비스별) + `agent_count` 실제 집계(`#66` 으로 파드가 등록돼 0 이 틀린 값이 됐다). `agents` 는 남의 표라 Entity 없이 읽기만 한다
 
 ### 조회 파트 (Nova)
 

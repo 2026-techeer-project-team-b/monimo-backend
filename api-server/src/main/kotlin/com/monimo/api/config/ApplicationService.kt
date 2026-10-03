@@ -8,6 +8,7 @@ import com.monimo.api.config.dto.ApplicationDetailResponse
 import com.monimo.api.config.dto.ApplicationResponse
 import com.monimo.api.config.dto.CreateApplicationRequest
 import com.monimo.api.config.dto.UpdateApplicationRequest
+import com.monimo.api.config.agent.AgentRepository
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
@@ -20,6 +21,7 @@ import java.util.UUID
 class ApplicationService(
     private val applications: ApplicationRepository,
     private val configs: ApplicationConfigRepository,
+    private val agents: AgentRepository,
 ) {
     // 목록 커서. name 이 UK 라 위치로 충분하다
     data class Cursor(val name: String)
@@ -61,8 +63,7 @@ class ApplicationService(
     @Transactional(readOnly = true)
     fun get(applicationUuid: UUID): ApplicationDetailResponse {
         val app = find(applicationUuid)
-        // agents 표(수집 파트)가 아직 없어 0 으로 준다
-        return ApplicationDetailResponse.from(app, agentCount = 0)
+        return ApplicationDetailResponse.from(app, agents.countByApplicationId(app.id!!))
     }
 
     @Transactional
