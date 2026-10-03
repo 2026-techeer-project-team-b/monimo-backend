@@ -23,6 +23,9 @@ monimo:
     cookie-secure: true
   # 내부 문 5개(/api/v1/internal/**)의 X-Internal-Token 값. 비우면 내부 문이 전부 닫힌다
   internal-token: ${MONIMO_INTERNAL_TOKEN:}
+  # 채널 시험 발송(#13)이 부르는 알림 서비스. X-Internal-Token 은 위 값을 그대로 보낸다
+  notifier:
+    base-url: ${MONIMO_NOTIFIER_URL:http://localhost:8084}
 
 # REST 명세(/v3/api-docs)와 Swagger UI(/swagger-ui.html)는 기본으로 끈다. local 프로필에서만 켠다.
 # 이 접두는 API 명세 §0-1 주소 규칙에 없고 §0-2 인증 분류도 미정이라 운영에 노출하지 않는다.

@@ -5,7 +5,7 @@ name: dev-infra
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - compose.yaml
       - db/**
@@ -20,7 +20,7 @@ on:
       - "*.gradle.kts"
       - .github/workflows/dev-infra.yml
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - compose.yaml
       - db/**

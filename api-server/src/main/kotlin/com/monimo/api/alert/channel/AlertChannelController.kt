@@ -6,10 +6,13 @@ import com.monimo.api.alert.channel.dto.ChannelEnabledRequest
 import com.monimo.api.alert.channel.dto.ChannelEnabledResponse
 import com.monimo.api.alert.channel.dto.CreateAlertChannelRequest
 import com.monimo.api.alert.channel.dto.UpdateAlertChannelRequest
+import com.monimo.api.alert.channel.test.ChannelTestResponse
+import com.monimo.api.alert.channel.test.ChannelTestService
 import com.monimo.api.common.error.ApiException
 import com.monimo.api.common.error.ErrorCode
 import com.monimo.api.common.web.ApiResponse
 import com.monimo.api.common.web.PageLimit
+import java.util.UUID
 import org.springframework.http.HttpStatus
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.GetMapping
@@ -22,13 +25,13 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
-// 알림 채널 5개 문 (API 명세 #8~#12: 목록 VIEWER+, 나머지 ADMIN — 상세에 config 가 있어서)
+// 알림 채널 6개 문 (API 명세 #8~#13: 목록 VIEWER+, 나머지 ADMIN — 상세에 config 가 있어서 · 시험 발송은 실제로 메시지가 나가서)
 @RestController
 @RequestMapping("/api/v1/alert-channels")
 class AlertChannelController(
     private val channelService: AlertChannelService,
+    private val channelTestService: ChannelTestService,
 ) {
 
     @GetMapping
@@ -68,4 +71,9 @@ class AlertChannelController(
         val channel = channelService.setEnabled(alertChannelUuid, enabled)
         return ApiResponse.of(ChannelEnabledResponse(channel.alertChannelUuid, channel.enabled, channel.updatedAt))
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{alertChannelUuid}/test")
+    fun test(@PathVariable alertChannelUuid: UUID): ApiResponse<ChannelTestResponse> =
+        ApiResponse.of(channelTestService.test(alertChannelUuid))
 }

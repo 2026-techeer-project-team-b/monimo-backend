@@ -53,10 +53,17 @@ class SlackWebhookSender(
         val status = response.statusCode()
         return when {
             status in 200..299 -> SendResult.Accepted(text)
-            status == 429 -> SendResult.Retryable("429 $text", retryAfter(response))
-            status >= 500 -> SendResult.Retryable("$status $text")
+            status == 429 -> SendResult.Retryable("429 $text", retryAfter(response), responded = true)
+            status >= 500 -> SendResult.Retryable("$status $text", responded = true)
             else -> SendResult.Permanent("$status $text")
         }
+    }
+
+    // 주소 허용 범위(https://hooks.slack.com/)는 채널을 저장할 때 api-server 가 이미 검사한다. 여기서는 보낼 수 있는 모양인지만 본다
+    override fun configError(config: Map<String, Any?>): String? {
+        val url = config["webhook_url"] as? String ?: return "config.webhook_url 가 필요합니다."
+        val uri = runCatching { URI.create(url) }.getOrNull()
+        return if (uri == null || uri.scheme !in setOf("https", "http") || uri.host == null) "config.webhook_url 이 올바른 주소가 아닙니다." else null
     }
 
     private fun retryAfter(response: HttpResponse<*>): Duration? =

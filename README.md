@@ -153,7 +153,8 @@ api-server 인증용 (bootRun 환경변수):
 | 이름 | 기본값 | 설명 |
 |---|---|---|
 | `MONIMO_JWT_SECRET` | (없음) | access JWT 서명 키, 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트만) |
-| `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다 |
+| `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다. 채널 시험 발송 때 알림 서비스에도 이 값을 보낸다 |
+| `MONIMO_NOTIFIER_URL` | `http://localhost:8084` | 채널 시험 발송(#13)이 부르는 알림 서비스 주소 |
 
 detector 스케줄 평가용 (bootRun 환경변수):
 
@@ -161,6 +162,12 @@ detector 스케줄 평가용 (bootRun 환경변수):
 |---|---|---|
 | `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | API 서버와 같은 값. `service-health` 를 부를 때 `X-Internal-Token` 으로 보낸다 |
 | `MONIMO_API_SERVER_URL` | `http://localhost:8080` | `service-health` 를 여는 API 서버 주소 |
+
+notifier 용 (bootRun 환경변수):
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | API 서버와 같은 값. 채널 시험 발송 내부 문(`/internal/channels/test`)이 검사한다. 비우면 그 문이 닫힌다 |
 
 ## 포트
 
@@ -203,6 +210,7 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 
 ## 기여 규칙
 
-- `main` 직접 push 금지, PR로만 머지
+- 브랜치 전략: 기능 브랜치 → `develop`(기본 브랜치, 작업을 모으는 곳) → 배포 단위로 `develop` → `main`
+- `main` · `develop` 직접 push 금지, PR로만 머지. PR 의 base 는 기본값(`develop`) 그대로 두면 된다
 - 브랜치: `feat/<이슈번호>-<설명>` · `fix/<이슈번호>-<설명>` · `chore/<설명>`
 - 커밋: `<타입>(<범위>): <요약>` (타입: feat · fix · docs · chore · refactor · test)

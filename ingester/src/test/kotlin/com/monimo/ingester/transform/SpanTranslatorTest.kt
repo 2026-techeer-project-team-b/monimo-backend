@@ -2,6 +2,8 @@ package com.monimo.ingester.transform
 
 import com.google.protobuf.ByteString
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.shouldBe
@@ -199,6 +201,46 @@ class SpanTranslatorTest : BehaviorSpec({
             Then("각 스팬이 자기 resource 의 서비스 이름을 가져간다") {
                 SpanTranslator.toRows(request).map { it.serviceName } shouldBe listOf("shop-order", "shop-payment")
             }
+        }
+    }
+
+    Given("예외가 두 번 난 스팬 — OTel 은 예외를 name=exception 인 사건으로 보낸다") {
+        fun exceptionEvent(atNanos: Long, type: String) = Span.Event.newBuilder()
+            .setTimeUnixNano(atNanos)
+            .setName("exception")
+            .addAttributes(attr("exception.type", type))
+            .addAttributes(attr("exception.message", "$type 발생"))
+            .addAttributes(attr("exception.stacktrace", "$type\n\tat com.monimo.shop.Pay.charge(Pay.kt:42)"))
+
+        val span = Span.newBuilder()
+            .setTraceId(traceId).setSpanId(spanId).setName("POST /payments")
+            .setStartTimeUnixNano(1_700_000_000_000_000_000L).setEndTimeUnixNano(1_700_000_001_000_000_000L)
+            .addEvents(exceptionEvent(1_700_000_000_100_000_000L, "TimeoutException"))
+            .addEvents(exceptionEvent(1_700_000_000_900_000_000L, "SQLException"))
+
+        When("우리 모델로 옮기면") {
+            val row = SpanTranslator.toRows(requestOf(span)).single()
+
+            Then("사건이 둘 다 남는다 — #58 에서 빼먹었던 부분") {
+                row.events shouldHaveSize 2
+            }
+
+            Then("시각 · 이름 · 꼬리표가 그대로다. 스택트레이스도 자르지 않는다") {
+                val first = row.events[0]
+                first.ts shouldBe Instant.ofEpochSecond(1_700_000_000L, 100_000_000L)
+                first.name shouldBe "exception"
+                first.attributes shouldContain ("exception.type" to "TimeoutException")
+                first.attributes shouldContain ("exception.stacktrace" to "TimeoutException\n\tat com.monimo.shop.Pay.charge(Pay.kt:42)")
+                row.events[1].attributes shouldContain ("exception.type" to "SQLException")
+            }
+        }
+    }
+
+    Given("사건이 없는 스팬") {
+        val span = Span.newBuilder().setTraceId(traceId).setSpanId(spanId).setName("GET /items")
+
+        Then("events 는 빈 목록이다 — CH 에는 빈 배열 셋으로 들어간다") {
+            SpanTranslator.toRows(requestOf(span)).single().events.shouldBeEmpty()
         }
     }
 })

@@ -6,7 +6,7 @@ name: Slack Notify
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    branches: [main, develop]
 
 permissions: {}
 

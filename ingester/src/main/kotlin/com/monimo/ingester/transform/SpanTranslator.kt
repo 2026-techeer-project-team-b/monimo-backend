@@ -50,8 +50,16 @@ object SpanTranslator {
             peerAddress = peerAddressOf(attributes),
             peerService = attributes[PEER_SERVICE_KEY] ?: "",
             attributes = attributes + canaryMark(span),
+            // 사건 목록. 다른 컬럼은 값 하나인데 이것만 1:다라 #58 에서 빼고 진행했다가 놓쳤다 (#79)
+            events = span.eventsList.map { it.toEvent() },
         )
     }
+
+    private fun Span.Event.toEvent(): SpanEvent = SpanEvent(
+        ts = timeUnixNano.nanosToInstant(),
+        name = name,
+        attributes = attributesList.toStringMap(),
+    )
 
     // 카나리면 표식을 꼬리표에 하나 더한다. 아니면 아무것도 안 더한다(빈 map)
     private fun canaryMark(span: Span): Map<String, String> =

@@ -8,7 +8,12 @@ spring:
     username: ${POSTGRES_USER:monimo}
     password: ${POSTGRES_PASSWORD:monimo}
 
+monimo:
+  internal-token: local-internal-token   # api-server local 프로필과 같은 값
+
 management:
+  server:
+    port: 8084   # 로컬은 서비스 포트 그대로. 8081 은 로컬에서 수집기 포트와 겹친다 (포트는 팀이 나중에 한 번에 정리)
   endpoint:
     health:
       show-details: always   # 로컬에서는 /actuator/health 에 DB별 연결 상태까지 보여 준다

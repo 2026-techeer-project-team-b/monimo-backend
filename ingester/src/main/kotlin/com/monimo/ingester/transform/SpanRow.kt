@@ -24,6 +24,10 @@ data class SpanRow(
     val peerAddress: String, // 호출 대상 주소 (예: shop-order:8080). 없으면 ''
     val peerService: String, // 호출 대상 서비스 이름. 에이전트가 안 넣어 주면 '' (서버맵 매핑은 이슈 I)
     val attributes: Map<String, String>, // 그 밖의 꼬리표. 카나리 표식도 여기 들어간다
+    // 스팬 안에서 벌어진 사건들. OTel 은 예외를 여기에 name="exception" 으로 넣어 보낸다 (스팬 하나에 여러 개 가능).
+    // CH 에서는 Nested 컬럼이라 배열 세 개(events.ts · events.name · events.attributes)로 저장된다.
+    // 비어 있으면 빈 목록 — #58 에서 이 필드를 빼먹어 예외가 적재되지 않았다 (#79)
+    val events: List<SpanEvent> = emptyList(),
 ) {
     companion object {
         // 카나리 표식을 attributes 에 남길 때 쓰는 키.
@@ -33,3 +37,11 @@ data class SpanRow(
         const val CANARY_KEY = "monimo.canary"
     }
 }
+
+// 스팬 안의 사건 하나. 예외면 name = "exception", attributes 에 exception.type · exception.message · exception.stacktrace.
+// 예외가 아닌 사건(재시도, 로그)도 올 수 있다. 이름을 가리지 않고 전부 담고, 예외만 고르는 것은 조회가 한다
+data class SpanEvent(
+    val ts: Instant, // 사건 시각. 나노초까지 (CH DateTime64(9))
+    val name: String,
+    val attributes: Map<String, String>, // 스택트레이스는 수천 글자가 보통이다. 자르지 않는다 — 자르면 원인을 못 찾는다
+)
