@@ -82,6 +82,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 공용 네트워크 `monimo-dev`, 수집기 컨테이너 프로필, `check-wiring.sh` (`#13`)
 - api-server 에 springdoc — REST 명세와 Swagger UI 를 local 프로필에서만 (`#12`)
 - CODEOWNERS 파트별 담당자 (`#15`)
+- `docs/harness/README.md`(승조가 AI 와 일한 방법 — 구성 · 흐름 · 토큰 기준값 · AI 가 틀린 것) · `docs/prompts/`(프롬프트 로그, 코드와 같은 PR 에) · README 「AI 와 일한 방법」 절. **승조 담당 파트에만 해당**, 다른 파트의 방식은 적지 않는다
 
 ### 수집 파트 (승조)
 
