@@ -214,3 +214,7 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 - `main` · `develop` 직접 push 금지, PR로만 머지. PR 의 base 는 기본값(`develop`) 그대로 두면 된다
 - 브랜치: `feat/<이슈번호>-<설명>` · `fix/<이슈번호>-<설명>` · `chore/<설명>`
 - 커밋: `<타입>(<범위>): <요약>` (타입: feat · fix · docs · chore · refactor · test)
+
+## AI 와 일한 방법 (승조 담당 파트)
+
+수집 · 쇼핑몰 · 배포 파트(`collector/` · `ingester/` · `common/` · `db/` · compose · CI)는 AI(Claude Code)와 함께 만들었다. 규칙은 [`AGENTS.md`](AGENTS.md), 절차 · 역할 분담 · 토큰 기준값은 [`docs/harness/`](docs/harness/README.md), 무엇을 어떻게 물었는지는 [`docs/prompts/`](docs/prompts/README.md), 결정 근거는 [`docs/design/01-decisions.md`](docs/design/01-decisions.md) 에 있다. AI 가 틀린 것과 어떻게 잡았는지도 `docs/harness/` 에 같이 적었다. 다른 파트의 작업 방식은 각 담당에게.
