@@ -79,7 +79,12 @@ class HealthCheckFilter(
         val result = ExportTraceServiceRequest.newBuilder()
 
         // 구조가 resource → scope → span 3겹이라 안쪽부터 걸러 올린다.
-        // 스팬이 하나도 안 남은 scope · resource 는 빈 껍데기가 되므로 넣지 않는다
+        // 스팬이 하나도 안 남은 scope · resource 는 빈 껍데기가 되므로 넣지 않는다.
+        //
+        // 이 3겹 돌기는 TraceSampler.sample 과 모양이 같다. 일부러 합치지 않았다:
+        // 거르는 기준(여기는 속성 일치, 저기는 trace ID 해시)과 지름길 조건이 다르고, 공통으로 빼면
+        // 판정 함수와 버린 스팬 처리를 인자로 받는 고차 함수가 되어 두 개의 구체적인 반복문보다 읽기 어렵다.
+        // 같은 모양이 **셋**이 되면(예: L 의 로그 하한 거르기) 그때 빼는 것이 맞다
         for (resourceSpans in request.resourceSpansList) {
             val resourceBuilder = ResourceSpans.newBuilder(resourceSpans).clearScopeSpans() // 서비스 이름 등 resource 속성은 그대로 두고
             for (scopeSpans in resourceSpans.scopeSpansList) {

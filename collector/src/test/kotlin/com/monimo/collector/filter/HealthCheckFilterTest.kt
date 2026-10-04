@@ -18,7 +18,11 @@ import kotlin.random.Random
 // SimpleMeterRegistry = 메모리에만 값을 쌓는 가벼운 계량기 창고 (테스트용)
 class HealthCheckFilterTest : BehaviorSpec({
 
-    // 목록을 바꿔 가며 필터를 만드는 도우미. registry 도 같이 돌려줘 카운터를 읽을 수 있게 한다
+    // 목록을 바꿔 가며 필터를 만드는 도우미. registry 도 같이 돌려줘 카운터를 읽을 수 있게 한다.
+    //
+    // When 블록마다 새로 만든다. Kotest 기본 격리 방식에서는 Given 블록 몸통이 한 번만 돌아
+    // 거기서 만든 필터를 여러 When 이 공유하는데, 카운터가 쌓여서 "버린 수가 1" 같은 검사가
+    // 앞 블록의 결과에 따라 달라진다
     fun filterOf(vararg paths: String): Pair<HealthCheckFilter, SimpleMeterRegistry> {
         val registry = SimpleMeterRegistry()
         return HealthCheckFilter(HealthCheckProperties(paths.toSet()), registry) to registry
@@ -51,7 +55,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         .also { builder ->
             if (urlPath != null) {
                 builder.addAttributes(
-                    KeyValue.newBuilder().setKey("url.path").setValue(AnyValue.newBuilder().setStringValue(urlPath)),
+                    KeyValue.newBuilder().setKey(HealthCheckFilter.URL_PATH)
+                        .setValue(AnyValue.newBuilder().setStringValue(urlPath)),
                 )
             }
         }
@@ -70,9 +75,9 @@ class HealthCheckFilterTest : BehaviorSpec({
         resourceSpansList.flatMap { rs -> rs.scopeSpansList.flatMap { it.spansList } }.map { it.name }
 
     Given("목록이 /actuator/health 하나인 필터") {
-        val (filter, registry) = filterOf("/actuator/health")
 
         When("url.path 가 목록과 같은 SERVER 스팬을 넣으면") {
+            val (filter, registry) = filterOf("/actuator/health")
             val result = filter.drop(requestOf(span(name = "GET /actuator/health", urlPath = "/actuator/health")))
 
             Then("버려져서 하나도 안 남는다") {
@@ -85,8 +90,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         }
 
         When("url.path 가 목록에 없는 SERVER 스팬을 넣으면") {
-            val (freshFilter, freshRegistry) = filterOf("/actuator/health")
-            val result = freshFilter.drop(requestOf(span(name = "GET /orders", urlPath = "/orders")))
+            val (filter, registry) = filterOf("/actuator/health")
+            val result = filter.drop(requestOf(span(name = "GET /orders", urlPath = "/orders")))
 
             Then("그대로 남는다") {
                 result.spanCount() shouldBe 1
@@ -94,15 +99,15 @@ class HealthCheckFilterTest : BehaviorSpec({
             }
 
             Then("버린 수가 0 이다") {
-                freshRegistry.droppedCount() shouldBe 0.0
+                registry.droppedCount() shouldBe 0.0
             }
         }
 
         // 파수꾼이나 게이트웨이가 남의 /actuator/health 를 호출한 기록이다.
         // 진짜 호출이라 서버맵 화살표에 필요하므로 버리면 안 된다
         When("url.path 는 같지만 CLIENT 스팬이면") {
-            val (freshFilter, _) = filterOf("/actuator/health")
-            val result = freshFilter.drop(
+            val (filter, _) = filterOf("/actuator/health")
+            val result = filter.drop(
                 requestOf(span(name = "GET", kind = Span.SpanKind.SPAN_KIND_CLIENT, urlPath = "/actuator/health")),
             )
 
@@ -112,8 +117,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         }
 
         When("url.path 속성이 아예 없는 SERVER 스팬이면") {
-            val (freshFilter, _) = filterOf("/actuator/health")
-            val result = freshFilter.drop(requestOf(span(name = "내부 작업", urlPath = null)))
+            val (filter, _) = filterOf("/actuator/health")
+            val result = filter.drop(requestOf(span(name = "내부 작업", urlPath = null)))
 
             Then("남는다") {
                 result.spanCount() shouldBe 1
@@ -121,8 +126,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         }
 
         When("헬스체크와 보통 요청이 섞여 있으면") {
-            val (freshFilter, freshRegistry) = filterOf("/actuator/health")
-            val result = freshFilter.drop(
+            val (filter, registry) = filterOf("/actuator/health")
+            val result = filter.drop(
                 requestOf(
                     span(name = "GET /actuator/health", urlPath = "/actuator/health"),
                     span(name = "POST /orders", urlPath = "/orders"),
@@ -135,7 +140,7 @@ class HealthCheckFilterTest : BehaviorSpec({
             }
 
             Then("버린 수가 2 로 센다") {
-                freshRegistry.droppedCount() shouldBe 2.0
+                registry.droppedCount() shouldBe 2.0
             }
         }
 
@@ -147,9 +152,9 @@ class HealthCheckFilterTest : BehaviorSpec({
         // Connection.isValid() 로 확인해서 OTel 이 스팬을 만들지 않기 때문이다.
         // 그 조건이 바뀌면 이 테스트가 먼저 말해 준다. 그때 트레이스 단위 제거로 넓힌다
         When("헬스체크 SERVER 스팬에 자식 CLIENT 스팬이 붙어 있으면") {
-            val (freshFilter, _) = filterOf("/actuator/health")
+            val (filter, _) = filterOf("/actuator/health")
             val parentId = Random.nextBytes(8)
-            val result = freshFilter.drop(
+            val result = filter.drop(
                 requestOf(
                     span(name = "GET /actuator/health", urlPath = "/actuator/health", spanId = parentId),
                     span(
@@ -167,8 +172,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         }
 
         When("전부 헬스체크였으면") {
-            val (freshFilter, _) = filterOf("/actuator/health")
-            val result = freshFilter.drop(
+            val (filter, _) = filterOf("/actuator/health")
+            val result = filter.drop(
                 requestOf(
                     span(urlPath = "/actuator/health"),
                     span(urlPath = "/actuator/health"),
@@ -257,9 +262,9 @@ class HealthCheckFilterTest : BehaviorSpec({
     }
 
     Given("목록에 주소가 여럿인 필터") {
-        val (filter, _) = filterOf("/actuator/health", "/healthz", "/readyz")
 
         When("각 주소의 SERVER 스팬을 넣으면") {
+            val (filter, _) = filterOf("/actuator/health", "/healthz", "/readyz")
             val result = filter.drop(
                 requestOf(
                     span(urlPath = "/actuator/health"),
@@ -277,8 +282,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         // 목록을 잘못 써서 진짜 트래픽이 사라질 때 어느 경로인지 보여야 한다.
         // 합계만 세면 "많이 버렸다" 는 보이지만 "무엇을" 버렸는지는 안 보인다
         When("경로별로 버린 수를 물으면") {
-            val (freshFilter, freshRegistry) = filterOf("/actuator/health", "/healthz", "/readyz")
-            freshFilter.drop(
+            val (filter, registry) = filterOf("/actuator/health", "/healthz", "/readyz")
+            filter.drop(
                 requestOf(
                     span(urlPath = "/healthz"),
                     span(urlPath = "/healthz"),
@@ -287,13 +292,13 @@ class HealthCheckFilterTest : BehaviorSpec({
             )
 
             Then("경로마다 따로 센다") {
-                freshRegistry.droppedCount("/healthz") shouldBe 2.0
-                freshRegistry.droppedCount("/actuator/health") shouldBe 1.0
-                freshRegistry.droppedCount("/readyz") shouldBe 0.0
+                registry.droppedCount("/healthz") shouldBe 2.0
+                registry.droppedCount("/actuator/health") shouldBe 1.0
+                registry.droppedCount("/readyz") shouldBe 0.0
             }
 
             Then("합계는 경로를 합친 값이다") {
-                freshRegistry.droppedCount() shouldBe 3.0
+                registry.droppedCount() shouldBe 3.0
             }
         }
 
@@ -301,8 +306,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         // (/actuator/health/liveness 같은 것)는 목록에 없으면 남는다.
         // 틀리게 버리면 진짜 트래픽이 사라지므로 안전한 쪽(안 버리는 쪽)을 고른다
         When("목록 주소로 시작하지만 정확히 같지 않은 주소면") {
-            val (freshFilter, _) = filterOf("/actuator/health")
-            val result = freshFilter.drop(
+            val (filter, _) = filterOf("/actuator/health")
+            val result = filter.drop(
                 requestOf(span(name = "GET /actuator/health/liveness", urlPath = "/actuator/health/liveness")),
             )
 
@@ -315,15 +320,15 @@ class HealthCheckFilterTest : BehaviorSpec({
     // url.path 값이 글자가 아닌 경우. OTel 규약은 글자로 정했지만 보내는 쪽이 어길 수 있다.
     // stringValue 는 다른 타입일 때 빈 글자를 돌려주므로 목록에 없어서 남는다 (안전한 쪽)
     Given("url.path 값이 글자가 아닌 스팬") {
-        val (filter, _) = filterOf("/actuator/health")
 
         When("숫자 값으로 들어오면") {
+            val (filter, _) = filterOf("/actuator/health")
             val weird = Span.newBuilder()
                 .setTraceId(ByteString.copyFrom(Random.nextBytes(16)))
                 .setName("이상한 스팬")
                 .setKind(Span.SpanKind.SPAN_KIND_SERVER)
                 .addAttributes(
-                    KeyValue.newBuilder().setKey("url.path").setValue(AnyValue.newBuilder().setIntValue(42)),
+                    KeyValue.newBuilder().setKey(HealthCheckFilter.URL_PATH).setValue(AnyValue.newBuilder().setIntValue(42)),
                 )
                 .build()
             val result = filter.drop(ExportTraceServiceRequest.newBuilder()
@@ -336,8 +341,8 @@ class HealthCheckFilterTest : BehaviorSpec({
         }
 
         When("빈 글자로 들어오면") {
-            val (freshFilter, _) = filterOf("/actuator/health")
-            val result = freshFilter.drop(requestOf(span(name = "빈 경로", urlPath = "")))
+            val (filter, _) = filterOf("/actuator/health")
+            val result = filter.drop(requestOf(span(name = "빈 경로", urlPath = "")))
 
             Then("남는다") {
                 result.spanCount() shouldBe 1
