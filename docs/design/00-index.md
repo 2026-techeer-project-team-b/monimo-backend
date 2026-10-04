@@ -24,4 +24,4 @@ erd-note(2026-09-16): 경보 규칙 팀 공용 확정 · alert_rules/alert_chann
 - `#48` **테스트 = Kotest 6.2.5, 기본 BehaviorSpec**(JUnit 5 기각: given-when-then이 이름·주석에만 있고 구조에 안 드러남). 스프링은 모듈별 `io.kotest.provided.ProjectConfig` + SpringExtension, 생성자 주입. 되돌림=연동 문제로 반나절 이상 막힘 2회 시 그 모듈만 JUnit 5
 - `#47` **설계 문서 이관 = `monimo-backend/docs/design/`**(deploy 레포·로컬 유지·Notion 단독 원본 기각). 원본=레포, Notion=사본. `.omc/`·`.bak` 제외, 원 자리 `~/monimonitoring/design/00-index.md` 는 포인터
 - `#46` **레포 구성 = 폴리레포 5개**(backend 멀티모듈 6, web·shop·watchdog·deploy) · 퍼블릭+MIT · main 보호는 PR 필수만(리뷰 승인 필수 없음). 모노레포·서비스별 9개·docs 레포 기각. Q9 종결. 첫 커밋 파일 로컬 준비 `~/monimonitoring/repos/`
-docs: 01-decisions(결정 50) · 02-open-questions · 10-requirements · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../research(선택지 비교 카드) · ../prompts(프롬프트 로그) · ../harness(AI 와 일한 방법)
+docs: 01-decisions(결정 50) · 02-open-questions · 10-requirements · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../seungjo(승조: 하네스 · 이슈별 리서치 · 프롬프트 · 결정 · ERD 영향. 2026-10-04 한 폴더로 합침, 첫 이슈 폴더 92-health-check-filter)
