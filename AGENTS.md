@@ -97,6 +97,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#66`** 적재하면서 처음 보는 파드를 PG `agents` 표에 등록. resource 에서 (서비스 이름 · 파드 식별자 · 호스트 · JVM · 에이전트 버전)을 꺼내 `INSERT ... SELECT FROM applications ... ON CONFLICT (agent_key) DO NOTHING` 한 문장으로 넣는다. 이미 등록한 키는 메모리에 들고 있어 PG 왕복이 파드당 한 번이다. 적재(save) **뒤에** 등록하고 실패는 로그 · 카운터만 남겨 적재를 막지 않는다. 적재 처리기가 PG 에 쓰는 첫 코드
 - **`#79`** 스팬 `events`(예외 종류 · 메시지 · 스택트레이스)를 `spans` 에 적재. `#58` 에서 이 컬럼만 빼먹었다 — 다른 컬럼은 값 하나인데 `events` 는 스팬 하나에 사건 여러 개(1:다)라 모양이 달라 미뤘다가 잊었고, 가짜 데이터가 채워 넣어 화면이 멀쩡해 보여 늦게 발견했다(ukong 피드백). CH `Nested` 는 배열 세 개(`events.ts` · `events.name` · `events.attributes`)로 넣는다. 수집기 · Kafka 는 손대지 않았다 — 바이트를 풀지 않고 넘기므로 events 는 처음부터 Kafka 에 있었다
 - **`#83`** CLIENT 스팬의 `peer_service` 를 호출 대상 주소에서 채운다. OTel 에이전트 2.x 는 `peer.service` 를 안 넣고 `server.address` 만 넣는데, 서버맵 MV 가 insert 시점에 `peer_service` 가 비면 주소를 노드 이름으로 쓰고 `EXTERNAL` 로 굳히므로 적재 **전**에 채워야 한다. 주소의 첫 DNS 라벨이 `applications.name` 과 정확히 같을 때만(`shop-order:8080` · `shop-order.default.svc.cluster.local` → `shop-order`). 서비스 목록은 PG 에서 30초 캐시(`PostgresServiceCatalog`), `#66` 과 같은 "PG 조회 + 캐시" 꼴. `SpanTranslator` 는 손대지 않았다(순수성 유지) — 채우기는 `PeerServiceResolver.fill` 이 변환 뒤 · 저장 앞에서
+- **`#92`** 수집기가 헬스체크 SERVER 스팬을 Kafka 발행 전에 버린다. 도커 · 쿠버네티스가 쇼핑몰의 `/actuator/health` 를 몇 초마다 찌르는데 에이전트가 그걸 진짜 요청과 똑같이 기록해 보내 `service_health_1m`(호출 수 · 에러율 · P95) · `transactions` → 히트맵 · `url_stats_1m` 이 전부 틀어졌다. 화면에 숫자가 없는 게 아니라 틀린 것이라 늦게 발견했다(`#79` · `#83` 과 같은 함정). 거르는 자리는 `TraceSampler` **앞** : 순서를 뒤집으면 헬스체크가 샘플링을 통과한 뒤 버려져 샘플링 카운터가 헛돈다. 수신 카운터(`monimo.collector.otlp.received`)는 거르기 전 숫자를 그대로 센다(`check-pipeline.sh` 의 수신 대조). 버린 수는 `monimo.collector.dropped{reason=health_check}`. 에이전트 · 저장소에서 거르는 안을 버린 이유는 `docs/research/2026-10-04-health-check-span-filter.md`
 
 ### 알림 파트 (ukong)
 
@@ -146,6 +147,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
 | `#52` 머지 후 ~ `#67` 머지 전에 만든 로컬 DB 는 `postgres-migrate` 가 `checksum mismatch` 로 멈춘다 | 해당하는 사람 각자 | `docker compose run --rm postgres-migrate repair` 를 한 번 돌리면 풀린다. 주석만 바뀐 것이라 표 구조는 같다. 그 전이나 그 후에 만든 DB 는 해당 없음 |
 | 헬스체크 probe 가 API 서버 · 수집기 · 적재 처리기에 아직 없다 | 인증 설정 · 수집 (규격은 재범 헬스체크 정리) | 탐지 · 알림은 켰다(`#81`). 경로는 `/healthz` · `/readyz` 가 아니라 `/actuator/health/liveness` · `/readiness`, 관리 포트 8081. 로컬에서는 8081 이 수집기 포트와 겹치므로 local 프로필은 서비스 포트를 그대로 쓴다(포트는 나중에 한 번에 정리). DB 가 응답하지 않으면 readiness 가 Hikari 연결 대기(기본 30초)만큼 걸리니 probe `timeoutSeconds` 를 정할 때 감안 |
+| 헬스체크가 쿼리 · HTTP 호출을 하게 되면 고아 스팬이 생긴다 | 수집 | `#92` 가 헬스체크 SERVER 스팬만 버리므로, 그 요청 안에 자식(CLIENT) 스팬이 생기면 부모 없이 남아 트레이스 상세에서 `(누락된 구간)` 아래에 매달린다. **지금은 안 생긴다** : 쇼핑몰 actuator 의 `db` 지표가 쿼리를 보내는 대신 `Connection.isValid()` 로 확인해서 OTel 이 스팬을 만들지 않는다(로컬 실데이터 헬스체크 트레이스 57개 = 스팬 57개, SERVER 아닌 것 0개). 뒤집히는 조건은 `spring.datasource.validation-query` 지정 · 헬스체크에 Redis · 외부 API 확인 추가 · gateway 의 `/health` 가 order 의 `/health` 를 확인. 그때 트레이스 단위 제거(trace_id 기억 = 버퍼 비용)와 호출자 표시(`traceparent sampled=0`) 중에서 고른다. 현재 동작("자식은 남는다")은 `HealthCheckFilterTest` 가 고정해 둔다 |
 
 **이 과정에서 정한 것**
 
@@ -158,6 +160,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - `agents.first_seen_at` 은 적재 처리기가 **본 시각**이다(`#66`). 신호 안의 시각을 쓰지 않는 이유: 에이전트 시계가 틀릴 수 있고 배포 시점을 가늠하는 칸이라 초 단위 정확성이 필요 없다. `status` 는 기본값 `UNKNOWN` 으로 두고 탐지가 바꾼다(ADR `#39`)
 - `peer_service` 는 **첫 DNS 라벨 == `applications.name` 정확 일치**로만 채운다(`#83`). 부분 일치 · 별칭 · 대소문자 무시 없음 — 틀리게 맞추면 서버맵에 가짜 간선이 생기고, 안 맞추면 `EXTERNAL` 로 남아 눈에 띈다. 에이전트가 `peer.service` 를 명시했으면 그 값이 우선. IP · `localhost` · DB 주소는 비운다 (DB 는 MV 가 `db.system` 으로 분류)
 - 적재 처리기가 `applications` 를 **읽는다**(`#66` FK 번호, `#83` 이름 목록). 표 주인은 API 서버지만 읽기 전용이고 수집기가 샘플링 비율을 읽는 것과 같은 성격(ADR `#20`). 쓰지 않는다. API 를 거치면 적재 처리기 → API 서버 의존이 생겨 더 비싸다
+- 헬스체크 스팬은 **`url.path` 가 목록과 정확히 같고 `span_kind` 가 SERVER 일 때만** 버린다(`#92`). `http.route` 를 안 쓰는 이유: OTel 규약에서 `url.path` 는 Required 라 항상 있고 `http.route` 는 Conditionally Required 라 WebFlux · 게이트웨이 · starter 방식에서는 비어도 규약 위반이 아니다. 스팬 이름은 `{메서드} {http.route}` 조합이라 더 약하다. 접두 일치는 쓰지 않는다 : `/a` 같은 값이 들어가면 `/api/orders` 가 전부 사라진다. CLIENT 스팬은 남긴다 : 파수꾼 · 게이트웨이가 남의 `/health` 를 호출한 진짜 기록이고 서버맵 화살표에 필요하다
+- 거를 주소 목록은 **수집기 전역 env** `MONIMO_COLLECTOR_HEALTH_CHECK_PATHS`(기본 `/actuator/health`)에 둔다(`#92`). 앱별(PG)로 하지 않은 이유: 쇼핑몰 4개가 전부 Spring Boot 라 채울 값이 같고, 앱별로 하려면 API 문 · 설정 화면 · 30초 캐시가 전부 필요하다. 로그 하한을 전역 env 로 정한 것과 같은 성격(ADR `#38`). **목록을 비우면 필터가 꺼진다** : 머지 전후 비교나 헬스체크 조사에 쓴다. K(샘플링 비율을 PG 로)가 길을 뚫으면 그때 옮길 수 있다
 
 - 트레이스 상세 응답(`#50`, 2026-09-29 회의): 루트 `parent_span_id` = `null`, HTTP 아닌 스팬 `http_status` = `null`(CH 는 0), 시각은 나노초 9자리 고정. 부모 스팬 없는 스팬이 1개면 그대로 루트, 2개 이상이면 `span_id` 가 빈 "(누락된 구간)" 자리를 루트로 두고 그 아래에 나란히 둔다(실제로 없는 호출 관계를 만들지 않기 위해). 샘플링으로는 트리가 끊기지 않는다(`#46`) — 남는 원인은 요청 직후 조회(루트 스팬이 가장 늦게 도착) · 적재 실패 · 에이전트 버퍼 초과
 

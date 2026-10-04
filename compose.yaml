@@ -177,6 +177,9 @@ services:
       # 트레이스 샘플링 비율. 로컬 기본은 1.0(전부 통과)이라 보낸 것이 그대로 보인다.
       # 샘플링을 눈으로 시험하려면 .env 에 COLLECTOR_SAMPLING_RATIO=0.1 처럼 넣는다 (0.0 이면 카나리만 통과)
       MONIMO_COLLECTOR_SAMPLING_RATIO: "${COLLECTOR_SAMPLING_RATIO:-1.0}"
+      # 헬스체크로 보고 버릴 주소. SERVER 스팬의 url.path 가 이 중 하나와 정확히 같으면 Kafka 로 안 보낸다.
+      # 비우면(.env 에 COLLECTOR_HEALTH_CHECK_PATHS= 로 빈 값) 필터가 꺼져 헬스체크도 그대로 적재된다
+      MONIMO_COLLECTOR_HEALTH_CHECK_PATHS: "${COLLECTOR_HEALTH_CHECK_PATHS:-/actuator/health}"
     depends_on:
       infra-ready:
         condition: service_healthy

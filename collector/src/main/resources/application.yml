@@ -29,6 +29,13 @@ monimo:
     # 다음 이슈에서 이 비율을 PG(application_configs)에서 읽어 재배포 없이 바꾼다
     sampling:
       ratio: 0.01
+    # 헬스체크 스팬 거르기. 도커 · 쿠버네티스가 쇼핑몰의 이 주소를 몇 초마다 찌르는데, 에이전트가 그걸
+    # 진짜 요청과 똑같이 기록해 보내 집계(호출 수 · 에러율 · P95 · 히트맵)를 틀리게 만든다.
+    # SERVER 스팬의 url.path 가 이 목록과 정확히 같을 때만 버린다. CLIENT 는 진짜 호출이라 남긴다.
+    # 비워 두면 필터가 꺼진다 (머지 전후 비교나 헬스체크 조사용).
+    # 환경변수 MONIMO_COLLECTOR_HEALTH_CHECK_PATHS 로 덮어쓴다 (쉼표 구분)
+    health-check:
+      paths: /actuator/health
 
 # /actuator/metrics 로 받은 건수(monimo.collector.otlp.received)를 본다. 연결 점검 스크립트가 읽는다
 management:
