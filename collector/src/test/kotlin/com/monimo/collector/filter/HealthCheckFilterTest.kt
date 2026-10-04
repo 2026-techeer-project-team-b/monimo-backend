@@ -199,6 +199,56 @@ class HealthCheckFilterTest : BehaviorSpec({
         }
     }
 
+    // 3겹(resource → scope → span) 을 안쪽부터 걸러 올리는 부분을 따로 본다.
+    // 위의 테스트들은 resource · scope 를 하나씩만 써서 이 길을 안 지난다
+    Given("resource 와 scope 가 여럿인 요청") {
+        val (filter, _) = filterOf("/actuator/health")
+
+        When("한 resource 는 전부 헬스체크, 다른 resource 는 섞여 있으면") {
+            // resource 1: shop-order 의 헬스체크만 (전부 빠져서 resource 째로 사라져야 한다)
+            // resource 2: shop-gateway 의 scope 2개. 하나는 전부 헬스체크, 하나는 섞임
+            val request = ExportTraceServiceRequest.newBuilder()
+                .addResourceSpans(
+                    ResourceSpans.newBuilder().addScopeSpans(
+                        ScopeSpans.newBuilder().addAllSpans(
+                            listOf(span(name = "order 헬스체크", urlPath = "/actuator/health")),
+                        ),
+                    ),
+                )
+                .addResourceSpans(
+                    ResourceSpans.newBuilder()
+                        .addScopeSpans(
+                            ScopeSpans.newBuilder().addAllSpans(
+                                listOf(span(name = "gateway 헬스체크", urlPath = "/actuator/health")),
+                            ),
+                        )
+                        .addScopeSpans(
+                            ScopeSpans.newBuilder().addAllSpans(
+                                listOf(
+                                    span(name = "gateway 헬스체크2", urlPath = "/actuator/health"),
+                                    span(name = "POST /api/orders", urlPath = "/api/orders"),
+                                ),
+                            ),
+                        ),
+                )
+                .build()
+
+            val result = filter.drop(request)
+
+            Then("보통 요청 하나만 남는다") {
+                result.spanNames() shouldContainExactly listOf("POST /api/orders")
+            }
+
+            Then("스팬이 다 빠진 resource 는 결과에 없다") {
+                result.resourceSpansCount shouldBe 1
+            }
+
+            Then("스팬이 다 빠진 scope 도 결과에 없다") {
+                result.resourceSpansList.single().scopeSpansCount shouldBe 1
+            }
+        }
+    }
+
     Given("목록에 주소가 여럿인 필터") {
         val (filter, _) = filterOf("/actuator/health", "/healthz", "/readyz")
 
@@ -227,6 +277,39 @@ class HealthCheckFilterTest : BehaviorSpec({
             )
 
             Then("정확 일치가 아니라 남는다") {
+                result.spanCount() shouldBe 1
+            }
+        }
+    }
+
+    // url.path 값이 글자가 아닌 경우. OTel 규약은 글자로 정했지만 보내는 쪽이 어길 수 있다.
+    // stringValue 는 다른 타입일 때 빈 글자를 돌려주므로 목록에 없어서 남는다 (안전한 쪽)
+    Given("url.path 값이 글자가 아닌 스팬") {
+        val (filter, _) = filterOf("/actuator/health")
+
+        When("숫자 값으로 들어오면") {
+            val weird = Span.newBuilder()
+                .setTraceId(ByteString.copyFrom(Random.nextBytes(16)))
+                .setName("이상한 스팬")
+                .setKind(Span.SpanKind.SPAN_KIND_SERVER)
+                .addAttributes(
+                    KeyValue.newBuilder().setKey("url.path").setValue(AnyValue.newBuilder().setIntValue(42)),
+                )
+                .build()
+            val result = filter.drop(ExportTraceServiceRequest.newBuilder()
+                .addResourceSpans(ResourceSpans.newBuilder().addScopeSpans(ScopeSpans.newBuilder().addSpans(weird)))
+                .build())
+
+            Then("남는다 (버리는 쪽으로 기울지 않는다)") {
+                result.spanCount() shouldBe 1
+            }
+        }
+
+        When("빈 글자로 들어오면") {
+            val (freshFilter, _) = filterOf("/actuator/health")
+            val result = freshFilter.drop(requestOf(span(name = "빈 경로", urlPath = "")))
+
+            Then("남는다") {
                 result.spanCount() shouldBe 1
             }
         }
