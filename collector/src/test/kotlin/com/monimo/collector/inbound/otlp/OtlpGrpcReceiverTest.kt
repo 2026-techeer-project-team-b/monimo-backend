@@ -39,6 +39,9 @@ import java.util.concurrent.TimeUnit
     properties = [
         "monimo.collector.otlp.grpc.port=0", // 스프링을 실제로 띄운다. 포트만 테스트용으로 덮어쓴다
         "monimo.collector.sampling.ratio=1.0",
+        // 거르기도 끈다. 지금은 테스트 스팬에 url.path 가 없어 안 걸리지만, 그건 우연이다.
+        // 이 테스트가 보는 것은 "받은 바이트가 그대로 Kafka 에 들어가나" 라서 중간에서 빼는 것이 없어야 한다
+        "monimo.collector.health-check.paths=",
     ],
 )
 @Import(TestInfraConfig::class) // 진짜 PostgreSQL · Kafka 컨테이너를 띄워 붙인다 (Testcontainers)
