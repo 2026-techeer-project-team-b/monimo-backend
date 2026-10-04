@@ -13,7 +13,7 @@
 | 설계 결정(ADR) | `docs/design/01-decisions.md` | 노션 |
 | 미해결 질문 | `docs/design/02-open-questions.md` | — |
 | API 명세 | 노션 「API 명세」 | `docs/design/web-v2/api-spec.md` |
-| ERD | 노션 「ERD」 | `docs/design/web-v2/erd.md` |
+| 테이블 ERD (표 구조) | 노션 「ERD」 | `docs/design/web-v2/erd.md` |
 | 현재 단계·다음 할 일 | `docs/design/00-index.md` | — |
 
 `docs/design/references/` 아래 두 문서(`erd-clickhouse-guide.md`, `erd-pg-input-sheet.md`)는 **확정 ADR 보다 낡았다.** 머리말에 "정본" 이라 적혀 있어도 믿지 말고 위 표를 따른다.
@@ -82,7 +82,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 공용 네트워크 `monimo-dev`, 수집기 컨테이너 프로필, `check-wiring.sh` (`#13`)
 - api-server 에 springdoc — REST 명세와 Swagger UI 를 local 프로필에서만 (`#12`)
 - CODEOWNERS 파트별 담당자 (`#15`)
-- `docs/seungjo/`(승조가 AI 와 일한 기록 : `harness.md` 구성 · 흐름 · 토큰 기준값 · AI 가 틀린 것, 이슈 폴더마다 `research.md` · `prompts.md` · `decision.md` · `erd.md`. 코드와 같은 PR 에) · README 「AI 와 일한 방법」 절. 2026-10-04 에 `docs/harness` · `docs/research` · `docs/prompts` 를 이 한 폴더로 합쳤고 옛 자리에는 포인터만 남았다(다른 레포가 링크함). **승조 담당 파트에만 해당**, 다른 파트의 방식은 적지 않는다
+- `docs/seungjo/`(승조가 AI 와 일한 기록 : `harness.md` 구성 · 흐름 · 토큰 기준값 · AI 가 틀린 것, 이슈 폴더마다 `research.md` · `prompts.md` · `decision.md` · `tables.md`. 코드와 같은 PR 에) · README 「AI 와 일한 방법」 절. 2026-10-04 에 `docs/harness` · `docs/research` · `docs/prompts` 를 이 한 폴더로 합쳤고 옛 자리에는 포인터만 남았다(다른 레포가 링크함). **승조 담당 파트에만 해당**, 다른 파트의 방식은 적지 않는다
 
 ### 수집 파트 (승조)
 
@@ -97,7 +97,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#66`** 적재하면서 처음 보는 파드를 PG `agents` 표에 등록. resource 에서 (서비스 이름 · 파드 식별자 · 호스트 · JVM · 에이전트 버전)을 꺼내 `INSERT ... SELECT FROM applications ... ON CONFLICT (agent_key) DO NOTHING` 한 문장으로 넣는다. 이미 등록한 키는 메모리에 들고 있어 PG 왕복이 파드당 한 번이다. 적재(save) **뒤에** 등록하고 실패는 로그 · 카운터만 남겨 적재를 막지 않는다. 적재 처리기가 PG 에 쓰는 첫 코드
 - **`#79`** 스팬 `events`(예외 종류 · 메시지 · 스택트레이스)를 `spans` 에 적재. `#58` 에서 이 컬럼만 빼먹었다 — 다른 컬럼은 값 하나인데 `events` 는 스팬 하나에 사건 여러 개(1:다)라 모양이 달라 미뤘다가 잊었고, 가짜 데이터가 채워 넣어 화면이 멀쩡해 보여 늦게 발견했다(ukong 피드백). CH `Nested` 는 배열 세 개(`events.ts` · `events.name` · `events.attributes`)로 넣는다. 수집기 · Kafka 는 손대지 않았다 — 바이트를 풀지 않고 넘기므로 events 는 처음부터 Kafka 에 있었다
 - **`#83`** CLIENT 스팬의 `peer_service` 를 호출 대상 주소에서 채운다. OTel 에이전트 2.x 는 `peer.service` 를 안 넣고 `server.address` 만 넣는데, 서버맵 MV 가 insert 시점에 `peer_service` 가 비면 주소를 노드 이름으로 쓰고 `EXTERNAL` 로 굳히므로 적재 **전**에 채워야 한다. 주소의 첫 DNS 라벨이 `applications.name` 과 정확히 같을 때만(`shop-order:8080` · `shop-order.default.svc.cluster.local` → `shop-order`). 서비스 목록은 PG 에서 30초 캐시(`PostgresServiceCatalog`), `#66` 과 같은 "PG 조회 + 캐시" 꼴. `SpanTranslator` 는 손대지 않았다(순수성 유지) — 채우기는 `PeerServiceResolver.fill` 이 변환 뒤 · 저장 앞에서
-- **`#92`** 수집기가 헬스체크 SERVER 스팬을 Kafka 발행 전에 버린다. 도커 · 쿠버네티스가 쇼핑몰의 `/actuator/health` 를 몇 초마다 찌르는데 에이전트가 그걸 진짜 요청과 똑같이 기록해 보내 `service_health_1m`(호출 수 · 에러율 · P95) · `transactions` → 히트맵 · `url_stats_1m` 이 전부 틀어졌다. 화면에 숫자가 없는 게 아니라 틀린 것이라 늦게 발견했다(`#79` · `#83` 과 같은 함정). 거르는 자리는 `TraceSampler` **앞** : 순서를 뒤집으면 헬스체크가 샘플링을 통과한 뒤 버려져 샘플링 카운터가 헛돈다. 수신 카운터(`monimo.collector.otlp.received`)는 거르기 전 숫자를 그대로 센다(`check-pipeline.sh` 의 수신 대조). 버린 수는 `monimo.collector.dropped{reason=health_check}`. 에이전트 · 저장소에서 거르는 안을 버린 이유는 `docs/seungjo/92-health-check-filter/research.md`, 조사 · 결정 프롬프트 원문은 같은 폴더 `prompts.md`, 표에 미친 영향은 `erd.md`
+- **`#92`** 수집기가 헬스체크 SERVER 스팬을 Kafka 발행 전에 버린다. 도커 · 쿠버네티스가 쇼핑몰의 `/actuator/health` 를 몇 초마다 찌르는데 에이전트가 그걸 진짜 요청과 똑같이 기록해 보내 `service_health_1m`(호출 수 · 에러율 · P95) · `transactions` → 히트맵 · `url_stats_1m` 이 전부 틀어졌다. 화면에 숫자가 없는 게 아니라 틀린 것이라 늦게 발견했다(`#79` · `#83` 과 같은 함정). 거르는 자리는 `TraceSampler` **앞** : 순서를 뒤집으면 헬스체크가 샘플링을 통과한 뒤 버려져 샘플링 카운터가 헛돈다. 수신 카운터(`monimo.collector.otlp.received`)는 거르기 전 숫자를 그대로 센다(`check-pipeline.sh` 의 수신 대조). 버린 수는 `monimo.collector.dropped{reason=health_check}`. 에이전트 · 저장소에서 거르는 안을 버린 이유는 `docs/seungjo/92-health-check-filter/research.md`, 조사 · 결정 프롬프트 원문은 같은 폴더 `prompts.md`, 표에 미친 영향은 `tables.md`
 
 ### 알림 파트 (ukong)
 
