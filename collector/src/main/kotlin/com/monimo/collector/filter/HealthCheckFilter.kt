@@ -6,6 +6,7 @@ import io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest
 import io.opentelemetry.proto.trace.v1.ResourceSpans
 import io.opentelemetry.proto.trace.v1.ScopeSpans
 import io.opentelemetry.proto.trace.v1.Span
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
 
@@ -35,22 +36,47 @@ class HealthCheckFilter(
     registry: MeterRegistry,
 ) {
 
-    // 버린 스팬 수. 미리 등록해 한 건도 안 버렸을 때도 0 으로 보이게 한다.
-    // 샘플링이 버린 수(monimo.collector.sampling{outcome=dropped})와 지표 이름을 달리해서,
-    // "샘플링에서 버린 수" 를 물을 때 헬스체크가 섞여 나오지 않게 한다
-    private val dropped: Counter = Counter.builder(METRIC)
-        .description("헬스체크로 판정해 버린 스팬 수")
-        .baseUnit("spans")
-        .tag("reason", REASON_HEALTH_CHECK)
-        .register(registry)
+    // 버린 스팬 수를 경로별로 센다. 설정 목록에 있는 경로만 미리 등록하므로 가짓수가 목록 크기로 묶인다
+    // (지표 가짓수가 들어오는 값에 따라 늘어나면 안 된다).
+    //
+    // 경로별로 나누는 이유: 목록을 잘못 써서 진짜 트래픽이 사라질 때 그게 드러나야 한다.
+    // 예를 들어 목록에 /api 를 잘못 넣으면 path=/api 의 수가 치솟는다. 합계만 세면 "많이 버렸다" 는
+    // 보이지만 "무엇을" 버렸는지는 안 보인다.
+    // /actuator/metrics/monimo.collector.dropped?tag=reason:health_check 로 물으면 경로를 합쳐
+    // 전체 수가 나온다 (연결 점검 스크립트가 그렇게 읽는다)
+    private val droppedByPath: Map<String, Counter> = properties.paths.associateWith { path ->
+        Counter.builder(METRIC)
+            .description("헬스체크로 판정해 버린 스팬 수")
+            .baseUnit("spans")
+            .tag("reason", REASON_HEALTH_CHECK)
+            .tag("path", path)
+            .register(registry)
+    }
+
+    init {
+        // 돌고 있는 수집기의 실제 목록을 확인할 방법이 필요하다. 관리 문은 health · metrics 만 열려 있어
+        // configprops 로 못 보고, 목록을 잘못 쓰면 진짜 트래픽이 사라지는 설정이라 기동 때 한 줄 남긴다
+        if (properties.paths.isEmpty()) {
+            log.info("헬스체크 거르기: 꺼짐 (목록이 비어 있어 스팬을 버리지 않는다)")
+        } else {
+            log.info("헬스체크 거르기: SERVER 스팬의 url.path 가 {} 중 하나와 정확히 같으면 버린다", properties.paths)
+        }
+    }
 
     // 헬스체크 스팬을 뺀 새 요청을 만든다. 전부 헬스체크였으면 스팬이 하나도 없는 요청이 나온다.
     fun drop(request: ExportTraceServiceRequest): ExportTraceServiceRequest {
         // 목록이 비면 필터가 꺼진 것이다. 다시 만드는 비용도 아낀다
         if (properties.paths.isEmpty()) return request
 
+        // 버릴 게 하나도 없으면 받은 객체를 그대로 돌려준다.
+        // 성능 때문이 아니라 약속 때문이다: 수집기는 받은 protobuf 바이트를 풀지 않고 그대로
+        // Kafka 에 넣는다(#16). 다시 만들면 바이트가 같다는 보장이 "스키마가 이러하므로 같을 것"
+        // 이라는 가정으로 내려앉는다. TraceSampler 도 같은 이유로 ratio >= 1.0 지름길을 둔다
+        if (request.resourceSpansList.none { rs -> rs.scopeSpansList.any { it.spansList.any(::isHealthCheck) } }) {
+            return request
+        }
+
         val result = ExportTraceServiceRequest.newBuilder()
-        var droppedCount = 0
 
         // 구조가 resource → scope → span 3겹이라 안쪽부터 걸러 올린다.
         // 스팬이 하나도 안 남은 scope · resource 는 빈 껍데기가 되므로 넣지 않는다
@@ -58,7 +84,7 @@ class HealthCheckFilter(
             val resourceBuilder = ResourceSpans.newBuilder(resourceSpans).clearScopeSpans() // 서비스 이름 등 resource 속성은 그대로 두고
             for (scopeSpans in resourceSpans.scopeSpansList) {
                 val (drop, keep) = scopeSpans.spansList.partition { isHealthCheck(it) } // partition = 조건에 맞는 것과 아닌 것으로 한 번에 나눈다
-                droppedCount += drop.size
+                drop.forEach { span -> droppedByPath[pathOf(span)]?.increment() } // 어느 경로를 버렸는지까지 센다
                 if (keep.isNotEmpty()) {
                     resourceBuilder.addScopeSpans(ScopeSpans.newBuilder(scopeSpans).clearSpans().addAllSpans(keep))
                 }
@@ -66,7 +92,6 @@ class HealthCheckFilter(
             if (resourceBuilder.scopeSpansCount > 0) result.addResourceSpans(resourceBuilder)
         }
 
-        dropped.increment(droppedCount.toDouble())
         return result.build()
     }
 
@@ -85,5 +110,7 @@ class HealthCheckFilter(
 
         // OTel 의미 규약(semantic conventions)의 이름. 요청의 실제 경로이고 HTTP 서버 스팬에 항상 있다
         const val URL_PATH = "url.path"
+
+        private val log = LoggerFactory.getLogger(HealthCheckFilter::class.java)
     }
 }

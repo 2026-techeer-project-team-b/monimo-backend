@@ -2,7 +2,7 @@
 
 - 관련 PR / 이슈: 이슈 `#92`
 - 쓴 도구: 조사는 웹 리서치 서브에이전트 1개(+ 되물음 2회), 착수는 `issue-starter` 에이전트, 구현은 `/ralph`
-- 결과물: `filter/HealthCheckProperties.kt` · `filter/HealthCheckFilter.kt` 신규, `OtlpExportServices.kt` · `application.yml` · `compose.yaml` · `.env.example` 수정, 테스트 16건
+- 결과물: `filter/HealthCheckProperties.kt` · `filter/HealthCheckFilter.kt` 신규, `OtlpExportServices.kt` · `application.yml` · `compose.yaml` · `.env.example` 수정, 테스트 23건
 
 ## 프롬프트
 

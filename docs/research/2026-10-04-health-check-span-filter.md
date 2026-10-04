@@ -34,7 +34,7 @@
 | 헬스체크 스팬이 `spans` 에 있나 | **있다.** shop-gateway 18 · shop-order 18 · shop-payment 21건, 전부 `span_kind = SERVER` |
 | 보낸 에이전트 | PG `agents` 표로 확인 : **2.31.1** (16:18~16:20 등록된 실제 파드) |
 | 어떤 속성이 있나 | `url.path = /actuator/health` · `http.route = /actuator/health` · `span_name = GET /actuator/health` · `http.request.method = GET` · `http.response.status_code = 200` · `user_agent.original`(curl) · `client.address` 등 14개 |
-| 지속시간 | 평균 **11ms** · p95 **121ms** : "2ms 짜리" 가 아니다. actuator 가 DB 핑을 하므로 느릴 수 있고, 첫 호출(워밍업)이 섞여 있다 |
+| 지속시간 | 평균 **11ms** · p95 **121ms** : "2ms 짜리" 가 아니다. actuator 의 `db` 지표가 커넥션을 확인하고(쿼리가 아니라 `Connection.isValid()` 라 스팬은 안 생긴다) 첫 호출 워밍업이 섞여 있다 |
 | `service_health_1m` 에 섞였나 | **섞였다.** shop-* 253분 |
 | 로컬 비율 | SERVER 스팬의 **0.1%** : 가짜 데이터(서비스당 21,083건, 전부 14:07:33 에 seed) + k6 부하가 압도. "평소엔 거의 전부 헬스체크" 는 **쇼핑몰만 켜고 부하가 없을 때** 얘기다. PR 에 전후 수치를 적으려면 그 조건으로 재야 한다 |
 

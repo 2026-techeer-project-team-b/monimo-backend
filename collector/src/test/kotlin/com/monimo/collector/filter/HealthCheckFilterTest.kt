@@ -24,9 +24,16 @@ class HealthCheckFilterTest : BehaviorSpec({
         return HealthCheckFilter(HealthCheckProperties(paths.toSet()), registry) to registry
     }
 
-    // 버린 수 읽기. 지표 이름과 reason 태그로 찾는다 (운영에서는 /actuator/metrics 가 같은 값을 보여 준다)
+    // 버린 수 읽기. 카운터가 경로별로 나뉘어 있어 합친다.
+    // 운영에서 /actuator/metrics/monimo.collector.dropped?tag=reason:health_check 로 물으면 같은 합계가 나온다.
+    // get 이 아니라 find 를 쓴다: 목록이 비면(필터 꺼짐) 카운터가 아예 등록되지 않아 get 은 예외를 던진다
     fun SimpleMeterRegistry.droppedCount(): Double =
-        get(HealthCheckFilter.METRIC).tag("reason", HealthCheckFilter.REASON_HEALTH_CHECK).counter().count()
+        find(HealthCheckFilter.METRIC).tag("reason", HealthCheckFilter.REASON_HEALTH_CHECK)
+            .counters().sumOf { it.count() }
+
+    // 경로별 버린 수. 목록을 잘못 써서 진짜 트래픽이 사라질 때 어느 경로인지 보이는지 확인한다
+    fun SimpleMeterRegistry.droppedCount(path: String): Double =
+        find(HealthCheckFilter.METRIC).tag("path", path).counters().sumOf { it.count() }
 
     // 스팬 하나 만들기. urlPath 가 null 이면 url.path 속성을 아예 넣지 않는다
     fun span(
@@ -264,6 +271,29 @@ class HealthCheckFilterTest : BehaviorSpec({
 
             Then("목록에 있는 셋만 버리고 나머지는 남긴다") {
                 result.spanNames() shouldContainExactly listOf("POST /orders")
+            }
+        }
+
+        // 목록을 잘못 써서 진짜 트래픽이 사라질 때 어느 경로인지 보여야 한다.
+        // 합계만 세면 "많이 버렸다" 는 보이지만 "무엇을" 버렸는지는 안 보인다
+        When("경로별로 버린 수를 물으면") {
+            val (freshFilter, freshRegistry) = filterOf("/actuator/health", "/healthz", "/readyz")
+            freshFilter.drop(
+                requestOf(
+                    span(urlPath = "/healthz"),
+                    span(urlPath = "/healthz"),
+                    span(urlPath = "/actuator/health"),
+                ),
+            )
+
+            Then("경로마다 따로 센다") {
+                freshRegistry.droppedCount("/healthz") shouldBe 2.0
+                freshRegistry.droppedCount("/actuator/health") shouldBe 1.0
+                freshRegistry.droppedCount("/readyz") shouldBe 0.0
+            }
+
+            Then("합계는 경로를 합친 값이다") {
+                freshRegistry.droppedCount() shouldBe 3.0
             }
         }
 
