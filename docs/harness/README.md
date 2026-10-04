@@ -95,5 +95,6 @@ AI 에게 일을 시킬 때 **규칙은 파일로, 절차는 에이전트와 스
 ## 같이 보는 것
 
 - 프롬프트 로그 — [`docs/prompts/`](../prompts/README.md)
+- 리서치 카드 : [`docs/research/`](../research/README.md)
 - 결정 기록 — [`docs/design/01-decisions.md`](../design/01-decisions.md)
 - 규칙 · 한 일 · 막힌 것 — [`AGENTS.md`](../../AGENTS.md)

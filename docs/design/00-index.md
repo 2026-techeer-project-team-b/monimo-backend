@@ -1,6 +1,6 @@
 stage: 2
 next: 구현 착수 — Phase 진행 기준 = Notion 「API 명세」(사용자 확정 2026-09-23). 수집 파트(승조): 수집기 샘플링 + Kafka raw 발행 → 쇼핑몰 골격. 설계 잔여: Figma v4.3(figma-todo) → 20-scope 규모 숫자·T0(Q8)
-open: 6
+open: 8
 updated: 2026-09-23
 team(2026-09-23 확정): 승조 @SeungJo-02 = 수집 + 쇼핑몰 + 배포 · ukong @ukongee = 알림 · Nova @hyl1115 = 조회 · 재범 @jaebeom79 = 보안(인증 설정) + 파수꾼 · 화면 = 4명 공동. CODEOWNERS 5개 레포 파트별 반영. ⚠️ 세 멤버 레포 권한이 read 라 write 부여 필요
 devenv(2026-09-23): 계획 1~6단계 완료(`#13` 연결 약속: monimo-dev 네트워크 · collector:4317 · telemetrygen 점검 · shop otel/agent.properties) · 4단계 springdoc 추가(#12) · 7~9단계 남음. ktlint 미사용(사용자 확정, Q29 — ADR 사유 대기)
@@ -24,3 +24,4 @@ erd-note(2026-09-16): 경보 규칙 팀 공용 확정 · alert_rules/alert_chann
 - `#47` **설계 문서 이관 = `monimo-backend/docs/design/`**(deploy 레포·로컬 유지·Notion 단독 원본 기각). 원본=레포, Notion=사본. `.omc/`·`.bak` 제외, 원 자리 `~/monimonitoring/design/00-index.md` 는 포인터
 - `#46` **레포 구성 = 폴리레포 5개**(backend 멀티모듈 6, web·shop·watchdog·deploy) · 퍼블릭+MIT · main 보호는 PR 필수만(리뷰 승인 필수 없음). 모노레포·서비스별 9개·docs 레포 기각. Q9 종결. 첫 커밋 파일 로컬 준비 `~/monimonitoring/repos/`
 - `#45` **파수꾼 언어 = Python**(Kotlin 기각 — 본체 30~40줄에 fat jar·콜드스타트 1~3초·Gradle 단계가 과함). Terraform이 zip 배포. 되돌림=담당자가 첫 주 내 관통 확인 실패 시 Kotlin
+docs: 01-decisions(결정 49) · 02-open-questions · 10-requirements · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../research(선택지 비교 카드) · ../prompts(프롬프트 로그) · ../harness(AI 와 일한 방법)

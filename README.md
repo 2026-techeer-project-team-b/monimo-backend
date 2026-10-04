@@ -204,7 +204,8 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 
 ## 관련 문서
 
-- [설계 문서 (결정 기록 원본)](docs/design/00-index.md): 결정 기록 `docs/design/01-decisions.md`, 미해결 질문 `02-open-questions.md`, 요구사항 `10-requirements.md`
+- [설계 문서 (결정 기록 원본)](docs/design/00-index.md): 결정 기록 `docs/design/01-decisions.md`, 고장 나면 어떻게 되나 `30-failure-modes.md`, 미해결 질문 `02-open-questions.md`, 요구사항 `10-requirements.md`
+- [리서치 카드](docs/research/README.md): 구현 전에 선택지를 비교한 것. 선택지 표 · 출처 링크 · 확인 못 한 것
 - [레포별 파일 구성](https://app.notion.com/p/3e1d7d6851ff80a8a110e8aea0b5783b)
 - [깃허브 레포지토리 규칙](https://app.notion.com/p/3dcd7d6851ff8000b795f1cc609124e6)
 
