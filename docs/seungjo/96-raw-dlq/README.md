@@ -30,8 +30,10 @@ ClickHouse 가 잠깐 죽어 있는 동안 들어온 메시지를 **적재 처�
 | B. 예외 분류 + 전부 DLQ | 소비가 안 멈춘다 | 일시 장애 때 **DLQ 가 원본 복사본**이 된다 |
 | C. 무한 BackOff | 유실 없음 · 설정 한 줄 | 간격이 5분 넘으면 **리밸런스** |
 | D. `ContainerPausingBackOffHandler` | 유실 없음 · 자동 복구 · **리밸런스 없음** | 빈 2개 |
-| E. `CommonContainerStoppingErrorHandler` | 사고가 확실히 드러난다 | **자동 복구 안 됨** |
+| E. `CommonContainerStoppingErrorHandler` | 유실 없음 · 사고가 확실히 드러난다 | **자동 복구 안 됨** |
 | F. `@RetryableTopic` | 막히지 않는다 | **순서 깨짐 · 배치 미지원 · 전량 복제** |
+
+C · D · E 의 "유실 없음" 은 **`raw` 보관 7일 안에 복구했을 때**만 참이다. 7일을 넘기면 Kafka 가 지우므로 어느 방법도 못 막는다.
 
 각 선택지의 설명 · 출처 · 우리 데이터 · AI 가 틀린 것 · 함정 6개는 [`research.md`](research.md) 5 절에.
 
