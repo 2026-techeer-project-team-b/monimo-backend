@@ -205,7 +205,7 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 ## 관련 문서
 
 - [설계 문서 (결정 기록 원본)](docs/design/00-index.md): 결정 기록 `docs/design/01-decisions.md`, 고장 나면 어떻게 되나 `30-failure-modes.md`, 미해결 질문 `02-open-questions.md`, 요구사항 `10-requirements.md`
-- [리서치 카드](docs/research/README.md): 구현 전에 선택지를 비교한 것. 선택지 표 · 출처 링크 · 확인 못 한 것
+- [승조 : AI 와 일한 기록](docs/seungjo/README.md): 하네스, 이슈별로 리서치 · 프롬프트 원문 · 결정 요약 · 표에 미친 영향. 첫 이슈 폴더 `92-health-check-filter/`
 - [레포별 파일 구성](https://app.notion.com/p/3e1d7d6851ff80a8a110e8aea0b5783b)
 - [깃허브 레포지토리 규칙](https://app.notion.com/p/3dcd7d6851ff8000b795f1cc609124e6)
 
@@ -218,4 +218,4 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 
 ## AI 와 일한 방법 (승조 담당 파트)
 
-수집 · 쇼핑몰 · 배포 파트(`collector/` · `ingester/` · `common/` · `db/` · compose · CI)는 AI(Claude Code)와 함께 만들었다. 규칙은 [`AGENTS.md`](AGENTS.md), 절차 · 역할 분담 · 토큰 기준값은 [`docs/harness/`](docs/harness/README.md), 무엇을 어떻게 물었는지는 [`docs/prompts/`](docs/prompts/README.md), 결정 근거는 [`docs/design/01-decisions.md`](docs/design/01-decisions.md) 에 있다. AI 가 틀린 것과 어떻게 잡았는지도 `docs/harness/` 에 같이 적었다. 다른 파트의 작업 방식은 각 담당에게.
+수집 · 쇼핑몰 · 배포 파트(`collector/` · `ingester/` · `common/` · `db/` · compose · CI)는 AI(Claude Code)와 함께 만들었다. 규칙은 [`AGENTS.md`](AGENTS.md), 절차 · 역할 분담 · 토큰 기준값은 [`docs/seungjo/harness.md`](docs/seungjo/harness.md), 이슈마다 무엇을 조사하고 어떻게 물었는지는 [`docs/seungjo/<이슈>/`](docs/seungjo/README.md), 결정 근거는 [`docs/design/01-decisions.md`](docs/design/01-decisions.md) 에 있다. AI 가 틀린 것과 어떻게 잡았는지도 `docs/seungjo/harness.md` 에 같이 적었다. 다른 파트의 작업 방식은 각 담당에게.

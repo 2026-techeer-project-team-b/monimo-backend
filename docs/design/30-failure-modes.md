@@ -71,5 +71,5 @@ ADR `#34` 가 이미 답을 정해 뒀다: **적재 실패분은 Kafka `raw.dlq`
 
 - 결정 기록 : [`01-decisions.md`](01-decisions.md)
 - 미해결 질문 : [`02-open-questions.md`](02-open-questions.md)
-- 선택지 비교 · 출처 : [`../research/`](../research/README.md)
+- 선택지 비교 · 출처 · 프롬프트 : [`../seungjo/`](../seungjo/README.md)
 - 지금 막혀 있는 것 : [`AGENTS.md`](../../AGENTS.md) §6

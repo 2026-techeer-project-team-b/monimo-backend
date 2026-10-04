@@ -8,8 +8,8 @@
 | 무엇 | 어디 |
 |---|---|
 | 고장 나면 어떻게 되나 (수집 경로) | [`30-failure-modes.md`](30-failure-modes.md) |
-| 선택지를 비교한 조사 · 출처 링크 | [`../research/`](../research/README.md) |
-| 그 결정을 만들 때 AI 에게 무엇을 어떻게 물었나 | [`../prompts/`](../prompts/README.md) |
+| 선택지를 비교한 조사 · 출처 링크 | [`../seungjo/<이슈>/research.md`](../seungjo/README.md) |
+| 그 결정을 만들 때 AI 에게 무엇을 어떻게 물었나 | [`../seungjo/<이슈>/prompts.md`](../seungjo/README.md) |
 
 결정을 **프롬프트로 내린 경우에는 그 원문을 결정 항목 안에 같이 둔다**(`#50` 이 첫 사례). 과제 전형에서 프롬프트를 내라고 할 때 그대로 낼 수 있고, 결정과 그 결정을 만든 글이 떨어져 있으면 나중에 짝을 못 찾는다.
 
@@ -445,13 +445,13 @@
 - **기각**: ① **호출자가 `traceparent sampled=0` 을 붙인다** : 사유: 찌르는 쪽(도커 · 카나리 · k6)이 여럿이라 **하나라도 빠뜨리면 분리가 안 되고**, 그 사실이 조용히 묻힌다 ② **에이전트에서 거른다**(선언형 설정 YAML 또는 자체 Sampler jar) : 사유: 쇼핑몰 4곳에 설정 파일이나 jar 를 얹어야 하고 서비스가 늘면 또 늘어난다. **"에이전트만 붙이면 된다"는 제품 전제(ADR `#33`)가 깨진다.** OTel 의 그 기능은 실험적이고 3.0 에서 제거 예정이며, 설정 파일을 쓰면 환경변수 설정이 전부 무시된다 ③ **ClickHouse MV 에서 거른다** : 사유: 고칠 MV 가 3개라 하나 빠뜨리기 쉽고(히트맵이 `transactions` 를 거친다는 것을 처음엔 못 봤다), MV 는 새로 들어오는 줄만 보므로 **이미 만들어진 집계는 안 고쳐진다.** Kafka · ClickHouse 저장 비용도 그대로 ④ **목록을 PG `application_configs` 에 앱별로 둔다** : 사유: API 문 · 설정 화면 · 30초 캐시 코드가 전부 필요한데 쇼핑몰 4개가 전부 Spring Boot 라 **채울 값이 똑같다.** 화면에서 바로 바꿀 수 있어 리뷰가 없다는 위험도 있다 ⑤ **`http.route` 로 맞춘다** : 사유: OTel 규약에서 `url.path` 는 **Required** 라 항상 있고 `http.route` 는 **Conditionally Required** 라 프레임워크가 못 주면 합법적으로 빈다. 지금 셋업(javaagent + Spring MVC)에서는 둘 다 채워지지만 WebFlux · 게이트웨이 · starter 로 바꾸면 깨진다 ⑥ **접두 일치** : 사유: `/a` 같은 값 하나로 `/api/orders` 가 전부 사라진다. 틀려도 안전한 쪽(안 버리는 쪽)을 고른다
 - **되돌림**: **헬스체크가 실제 쿼리나 HTTP 호출을 하게 되면**(`spring.datasource.validation-query` 지정 · 헬스체크에 Redis · 외부 API 확인 추가 · gateway 의 `/health` 가 order 의 `/health` 를 확인) 자식 CLIENT 스팬이 생겨 **부모만 버리면 고아 스팬이 된다.** 그때 트레이스 단위 제거(trace_id 를 기억해야 하므로 버퍼 비용)와 호출자 표시 중에서 다시 고른다. 지금은 안 생긴다 : 쇼핑몰 actuator 의 `db` 지표가 쿼리 대신 `Connection.isValid()` 로 확인해 OTel 이 스팬을 만들지 않는다(실데이터 헬스체크 트레이스 57개 = 스팬 57개). 현재 동작("부모만 버려지고 자식은 남는다")은 `HealthCheckFilterTest` 가 고정해 둔다. 앱별 목록이 실제로 필요해지면(쇼핑몰이 아닌 스택을 감시하게 되면) K(샘플링 비율 PG 캐시)가 뚫는 길에 얹는다
 - **검증(2026-10-04, 로컬)**: 단위 테스트 23건(목록 일치 · 불일치 · CLIENT 보존 · 속성 없음 · 빈 목록 · 자식 보존 · 경로별 카운터 · 다중 resource/scope · 비문자 값). 관통 : telemetrygen 으로 `url.path=/actuator/health` 와 `/orders` 를 보내 앞은 `spans` 에 안 들어가고 뒤는 들어가는 것 확인. **env 바인딩을 기본값과 다른 값으로 재확인** (`/healthz,/custom-probe` 로 바꾸니 `/actuator/health` 가 남았다 = env 가 yml 기본값을 덮어쓴다). `check-pipeline.sh` 를 헬스체크가 버려지는 중에 돌려 통과
-- **구현**: PR `#93` (이슈 `#92`). 선택지 비교 · 출처 · 미확인 목록은 [`../research/2026-10-04-health-check-span-filter.md`](../research/2026-10-04-health-check-span-filter.md)
+- **구현**: PR `#93` (이슈 `#92`). 선택지 비교 · 출처 · 미확인 목록은 [`../seungjo/92-health-check-filter/research.md`](../seungjo/92-health-check-filter/research.md)
 
 ### 이 결정을 만든 프롬프트
 
 > 회사가 프롬프트에서 보는 것은 글솜씨가 아니라 **문제를 어떻게 해석했고, 범위를 어떻게 잘랐고, 끝났다는 것을 무엇으로 판단하는가** 다.
 > 아래는 조사 결과를 읽고 선택지를 다 본 뒤 사용자가 결정을 내리며 쓴 원문이다. 이 글을 쓰는 과정 자체가 설계였다.
-> 조사 단계 프롬프트와 "AI 가 틀린 것을 실데이터로 잡은 과정" 은 [`../prompts/2026-10-04-health-span-filter-92.md`](../prompts/2026-10-04-health-span-filter-92.md) 에 있다.
+> 조사 단계 프롬프트와 "AI 가 틀린 것을 실데이터로 잡은 과정" 은 [`../seungjo/92-health-check-filter/prompts.md`](../seungjo/92-health-check-filter/prompts.md) 에 있다.
 
 ```
 집계 데이터의 오염 문제가 있을 수 있어서 진짜 트래픽과 헬스체크 트래픽을 구분해야 하는 상황이다.
