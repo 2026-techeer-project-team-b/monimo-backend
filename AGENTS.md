@@ -142,7 +142,6 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | 카나리 조회 문이 없다 | 조회 · 파수꾼 | 적재가 표식을 `attributes['monimo.canary']` 로 남기기 시작했다(`#58`). `GET /internal/canary/freshness` 를 `mapContains(attributes, 'monimo.canary')` 기준으로 만들면 된다. 명세의 `service_name=canary-probe` 기준은 0건이 나오므로 고쳐야 한다 |
 | 가짜 데이터와 실데이터의 메트릭 모양이 다르다 | 조회 · 알림 | 가짜 데이터(`db/clickhouse/seed`)는 `jvm.gc.duration` 을 한 값으로 넣지만, 실데이터는 OTel 히스토그램이라 `jvm.gc.duration.count` · `.sum` · `.min` · `.max` 네 이름으로 들어온다(`#64`). GC_TIME 경보와 인스펙터 GC 그래프는 `.sum` 기준으로 짜야 한다. `series_hash` 도 가짜(`cityHash64`)와 실데이터(SHA-256 앞 8바이트)가 다른 식이지만 같은 지표 안에서 갈래를 나누는 용도라 섞이지 않으면 문제 없다 |
 | `service-health` 의 `step` 규칙이 노션 명세와 다르다 | 조회 | 레포 사본(`api-spec.md` 2번)은 `step≥60 · 60의 배수` 로 고쳤다(`#50`). 노션 「API 명세」 반영만 남았다 |
-| 적재가 `spans.events` 를 채우지 않는다 | 수집(적재) | `SpanRow` 에 events 가 없어(`#58`) 실데이터에서 예외 type · message · stacktrace 가 빈다. 트레이스 상세의 예외 표시와 에러 목록 · 타임라인(`exception_type`)이 비어 나온다. 가짜 데이터는 손으로 넣어 지금은 안 보인다 |
 | 재발급 토큰이 명세는 본문, 코드는 쿠키 | 인증 설정 | 명세대로 만든 화면이 재발급에서 401 을 받는다 |
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
 | `#52` 머지 후 ~ `#67` 머지 전에 만든 로컬 DB 는 `postgres-migrate` 가 `checksum mismatch` 로 멈춘다 | 해당하는 사람 각자 | `docker compose run --rm postgres-migrate repair` 를 한 번 돌리면 풀린다. 주석만 바뀐 것이라 표 구조는 같다. 그 전이나 그 후에 만든 DB 는 해당 없음 |
