@@ -32,6 +32,8 @@
 
 ① Spring Kafka 에서 DLQ 로 보내는 표준 방법 ② 일시 장애와 독성 메시지를 **무엇으로** 구분하나 ③ 일시 장애에 멈추면 리밸런스가 나나 ④ ClickHouse 드라이버가 둘을 가려 주나 ⑤ 다른 파이프라인은 sink 장애 때 DLQ 로 보내나
 
+답한 자리를 5절 소제목 괄호에 달아 뒀다 : 5.3=① · 5.1=②④ · 5.2=③ · 5.5=⑤.
+
 ## 2. 작업하기 전에 알아야 하는 것
 
 ### 2.1 Kafka · 토픽 · 오프셋
@@ -174,7 +176,7 @@ ADR `#34` 가 "파싱 실패 · CH 거절 · 스키마 위반을 `raw.dlq` 로" 
 
 두 갈래로 나눠 서브에이전트 2개에 동시에 보냈다(A = Spring Kafka 쪽, B = ClickHouse 예외 · 업계 비교). 원문은 같은 폴더의 [`prompts.md`](prompts.md) 에.
 
-### 5.1 무엇으로 구분하나 : client-v2 가 이미 갈라 놓았다
+### 5.1 무엇으로 구분하나 : client-v2 가 이미 갈라 놓았다 (② ④)
 
 `HttpAPIClientHelper.wrapException()` 이 원인 예외를 타입으로 바꿔 준다. **우리가 판단 규칙을 만들 필요가 없다.**
 
@@ -192,7 +194,7 @@ JSONEachRow insert 에서 실제로 자주 보는 거절 코드 : `117` INCORREC
 
 출처 : [HttpAPIClientHelper](https://github.com/ClickHouse/clickhouse-java/blob/main/client-v2/src/main/java/com/clickhouse/client/api/internal/HttpAPIClientHelper.java) · [ServerException](https://github.com/ClickHouse/clickhouse-java/blob/main/client-v2/src/main/java/com/clickhouse/client/api/ServerException.java) · [ClickHouse ErrorCodes.cpp](https://github.com/ClickHouse/ClickHouse/blob/master/src/Common/ErrorCodes.cpp)
 
-### 5.2 일시 장애일 때 무엇을 하나 : 여섯 선택지
+### 5.2 일시 장애일 때 무엇을 하나 : 여섯 선택지 (③)
 
 | 방법 | 얻는 것 | 포기하는 것 | 구현 크기 |
 |---|---|---|---|
@@ -230,7 +232,7 @@ JSONEachRow insert 에서 실제로 자주 보는 거절 코드 : `117` INCORREC
 
 출처 : [Handling Exceptions](https://docs.spring.io/spring-kafka/reference/kafka/annotation-error-handling.html) · [ContainerPausingBackOffHandler](https://docs.spring.io/spring-kafka/api/org/springframework/kafka/listener/ContainerPausingBackOffHandler.html) · [Pausing and Resuming](https://docs.spring.io/spring-kafka/reference/kafka/pause-resume.html) · [Non-Blocking Retries](https://docs.spring.io/spring-kafka/reference/retrytopic.html) · [CommonContainerStoppingErrorHandler](https://docs.spring.io/spring-kafka/api/org/springframework/kafka/listener/CommonContainerStoppingErrorHandler.html)
 
-### 5.3 DLQ 로 보내는 방법 자체는 정해져 있다
+### 5.3 DLQ 로 보내는 방법 자체는 정해져 있다 (①)
 
 `DefaultErrorHandler` + `DeadLetterPublishingRecoverer` 가 표준이다. DLQ 레코드에 원본 토픽 · 파티션 · 오프셋 · 예외 내용이 **헤더로 자동 추가**된다(`kafka_dlt-original-*` · `kafka_dlt-exception-*`).
 
@@ -265,7 +267,7 @@ Caused by: java.net.UnknownHostException: clickhouse
 
 재시도 10번이 **4초 안에 끝난다**(간격 0초). `Host 'clickhouse:8123' unknown` WARN 10줄 + `Backoff ... exhausted` 1줄. 예외 메시지의 `attempt: 1` 은 **client-v2 자체 재시도가 돌지 않았다**는 뜻이다.
 
-### 5.5 남이 어떻게 하나 : 다섯 중 하나도 sink 장애를 DLQ 로 보내지 않는다
+### 5.5 남이 어떻게 하나 : 다섯 중 하나도 sink 장애를 DLQ 로 보내지 않는다 (⑤)
 
 | 도구 | sink 장애 기본 동작 | DLQ 로 보내나 | 멈추나 · 버퍼링하나 | 출처 |
 |---|---|---|---|---|
