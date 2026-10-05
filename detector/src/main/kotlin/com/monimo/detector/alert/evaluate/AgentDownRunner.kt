@@ -42,6 +42,10 @@ class AgentDownRunner(
     fun runOnce(): Summary {
         val now = clock.instant()
         val cfg = props.agentDown
+        val agents = loadAgents(now)
+        val targets = loadTargets()
+        // 볼 키도 규칙도 없으면 부르지 않는다 (agents/active 가 아직 없는 환경에서 15초마다 실패 로그가 쌓이지 않게)
+        if (agents.isEmpty() && targets.isEmpty()) return Summary(0, 0, 0, 0, 0, 0)
         val signals = try {
             client.fetchActive(now.minus(cfg.lookback), now)
         } catch (e: Exception) {
@@ -54,10 +58,8 @@ class AgentDownRunner(
         // 이때 전부 DOWN 으로 바꾸거나 울리면 파이프라인 장애가 "서비스 전부 죽음" 경보 폭주가 된다 (그건 파수꾼 몫)
         val pipelineSilent = alive != null && alive.isEmpty()
 
-        val agents = loadAgents(now)
         val statusChanged = if (cfg.updateStatus && alive != null && !pipelineSilent) syncStatus(agents, alive, now) else 0
 
-        val targets = loadTargets()
         var applied = 0
         var fired = 0
         var resolved = 0
