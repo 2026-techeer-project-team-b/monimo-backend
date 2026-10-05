@@ -34,7 +34,7 @@
 | 폴더 | 이슈 · PR | 있는 것 | 비고 |
 |---|---|---|---|
 | [`92-health-check-filter/`](92-health-check-filter/README.md) | `#92` · PR `#93` | README(설계 한 장) · research · prompts · decision · tables | **이 방식의 첫 이슈.** 결정 프롬프트 원문이 ADR `#50` 안에 있다 |
-| [`96-raw-dlq/`](96-raw-dlq/README.md) | `#96` | README · research(8단계, ③⑥⑧ 대기) · prompts · tables | **8단계 꼴을 처음 쓴 이슈.** 2 절에 DLQ · client-v2 · 오프셋 · 데이터 흐름 설명 |
+| [`96-raw-dlq/`](96-raw-dlq/README.md) | `#96` · ADR `#51` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **8단계 꼴을 처음 쓴 이슈.** 질문 31개로 이해 10건과 AI 설명의 허점 6건을 바로잡았다 |
 | [`83-peer-service/`](83-peer-service/README.md) | `#83` · PR `#84` | README · prompts | 소급. 이 방식 전이라 프롬프트 로그만 있다 |
 
 ## 규칙
