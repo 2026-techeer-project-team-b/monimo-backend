@@ -1,7 +1,7 @@
 # `#96` 적재 실패분이 유실된다 : `raw.dlq` 로 보낸다
 
 > **이 작업의 기술 설계 문서 한 장.** 문제 → 선택지 → 결정 → 장애가 나면 순서로 읽으면 끝난다.
-> **결정 완료** (2026-10-06, ADR `#51`). 구현은 아직이다.
+> **구현 완료** (2026-10-06, ADR `#51`). 검증 결과는 아래와 [`decision.md`](decision.md).
 > 이 폴더가 **8단계 리서치 꼴을 처음 쓴 이슈**다.
 
 - 날짜 2026-10-04 시작 / 승조(`@SeungJo-02`) / 결정 ADR `#51` / 이슈 [`#96`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/96) · 브랜치 `fix/96-raw-dlq`
@@ -65,9 +65,18 @@ C · D · E 의 "유실 없음" 은 **`raw` 보관 7일 안에 복구했을 때*
 
 ## 어떻게 확인했나
 
-- **유실 직접 재현** : ClickHouse 정지 → 전송 → 되살림 → 0건. 대조군 +4 로 대조
-- **예외 사슬 전문 확보** : `ConnectionInitiationException` → `UnknownHostException`. `ExecutionException` 에 안 싸여 올라오는 것 확인
-- **라이브러리 jar 직접 확인 6건** : `isRetryable()` public · `retryOnFailures` 존재 · 기본 접미사 `-dlt` · `verifyPartition` 기본 `true`(바이트코드) · `setMaxRecoveryFailures` 3.3.16 에 없음 · 컨테이너 상태 API 존재
+| | 고치기 전 | 고친 뒤 |
+|---|---|---|
+| ClickHouse 정지 중 스팬 4개 → 되살림 | **226,417 그대로** (유실) | **226,421 → 226,425 (+4)** |
+| 정지 중 재시도 | 10번을 4초에 다 쓰고 `exhausted` | WARN 3건(0 · 2 · 6초), `exhausted` **0** |
+| 리밸런스 | : | **0건** (pause 라 `poll` 이 계속 돈다) |
+| 독성 메시지(`0x0F`, 키 `logs` = 파티션 1) | 10번 재시도 뒤 버림 | **재시도 없이** `raw.dlq` 파티션 0 으로. 헤더 `x-dlq-attempt:1` · `x-dlq-reason:poison` · `kafka_dlt-original-topic:raw` |
+| 독성 뒤의 정상 메시지 | : | 막히지 않고 `consumed 0 → 1` |
+| 테스트 | 87건 | **104건** (분류기 11 · 에러 핸들러 6 포함) |
+| `check-pipeline.sh` | 통과 | 통과 (traces 6 · metrics 3 · logs 3) |
+
+- **라이브러리 jar 직접 확인 17건** : `isRetryable()` public · `retryOnFailures` 가 DNS 실패를 대상에 안 넣음 · 기본 접미사 `-dlt` · `verifyPartition` 기본 `true`(바이트코드) · `setMaxRecoveryFailures` 3.3.16 에 없음 · `setBackOffFunction` 존재 · `Consumer.pause/resume` 가 `poll` 과 별개 · pause 가 **컨테이너 단위** · `verifyPartition` 은 **세 인자 `accept` 에서만** 돈다 등 ([`research.md`](research.md) 5.7)
+- **구현 중 버그 1건을 수동 검증이 잡았다** : 카운터 래퍼가 `consumer` 를 떨어뜨려 `verifyPartition` 을 꺼 버렸다. 테스트는 토폴로지가 달라(테스트 `raw` 가 파티션 1개) 못 잡았다. 자세한 것은 [`decision.md`](decision.md)
 
 ## 읽는 순서
 
@@ -81,4 +90,4 @@ C · D · E 의 "유실 없음" 은 **`raw` 보관 7일 안에 복구했을 때*
 
 - 문서(`30-failure-modes.md`)를 쓰다가 **일부러 깨뜨려 보고** 유실을 찾았다. 코드만 읽었으면 "10번 재시도" 를 안전하다고 읽었을 것이다
 - ADR 이 정해 둔 것(`#34` DLQ)을 **글자대로 구현하면 더 나빠질 수 있다.** 기각 사유에 적힌 "독성 메시지" 라는 단어가 범위를 정하고 있었다
-- 조사 결과를 그대로 쓰지 않고 **jar 를 열어 봤더니 3건이 틀렸거나 우리 버전에 없었다**
+- **테스트가 통과해도 토폴로지가 실제와 다르면 거짓 안심이다.** 컨테이너 테스트 5건이 통과한 채로 `verifyPartition` 경로가 깨져 있었고, compose(`raw` 파티션 3개)에서 손으로 넣어 보고 잡았다. 그래서 테스트 Kafka 의 토픽을 compose 와 같게 미리 만들도록 바꿨다

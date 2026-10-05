@@ -28,10 +28,18 @@
 
 `FailedRecordTracker` 가 **오프셋마다** 재시도 예산을 센다(jar 확인). 그래서 ClickHouse 가 1시간 죽어 있어도 **DLQ 로 가는 것은 10분에 한 건씩**이고 나머지는 Kafka 에 남는다. "DLQ 가 원본 복제가 된다" 는 위험은 기각안 ② 에만 해당한다.
 
-## 검증 (구현 시 채울 것)
+## 검증 (2026-10-06, 로컬 compose + 테스트)
 
-- [ ] 독성 메시지는 재시도 없이 `raw.dlq` 로 간다
-- [ ] 일시 장애는 유실 없이 복구된다 (ClickHouse 를 멈췄다 되살려 `spans` 줄 수로 확인)
-- [ ] 10분을 넘기면 DLQ 로 가고, 그 사이 리밸런스가 **나지 않는다**
-- [ ] DLQ 레코드에 `x-dlq-attempt` 와 `kafka_dlt-original-*` 헤더가 붙는다
-- [ ] `raw` 파티션 1 · 2 에서 실패한 것도 `raw.dlq`(파티션 1개)에 들어간다
+- [x] **독성 메시지는 재시도 없이 `raw.dlq` 로 간다** : 키 `logs` 로 바이트 `0x0F`(없는 wire type) 를 넣자 `raw.dlq:0:0 → 0:1`, 카운터 `poison=1`, 로그 `raw-1@39 → raw.dlq (reason=poison, cause=Protocol message tag had invalid wire type.)`. 재시도 로그 없음
+- [x] **일시 장애는 유실 없이 복구된다** : ClickHouse 정지 → 스팬 4개 전송 → 되살림 → `spans` **226,421 → 226,425 (+4)**. 같은 조건에서 고치기 전에는 그대로였다. 정지 중 로그에 `exhausted` 0건, 재시도 WARN 3건(0초 · 2초 · 6초 = 지수 백오프 2 → 4 → 8)
+- [x] **리밸런스가 나지 않는다** : 정지 · 복구 구간의 새 로그에 `rebalance` · `revoked` · `partitions assigned` **0건.** 컨슈머 그룹 LAG 전부 0. 10분을 넘기는 시험은 하지 않았다(ClickHouse 를 10분 넘게 멈추지 않음 : 「확인 못 한 것」)
+- [x] **헤더가 붙는다** : compose 의 DLQ 레코드에서 `x-dlq-attempt:1` · `x-dlq-reason:poison` · `kafka_dlt-original-topic:raw` · `kafka_dlt-exception-fqcn:...ListenerExecutionFailedException` 확인. 테스트(`RawErrorHandlerTest`)도 같은 것을 단언
+- [x] **`raw` 파티션 1 에서 실패한 것도 `raw.dlq`(파티션 1개)에 들어간다** : DLQ 레코드 `Partition:0`, 원본 파티션 헤더 `1`. 로그 `Destination resolver returned non-existent partition raw.dlq-1, KafkaProducer will determine partition` = `verifyPartition` 이 번호를 비운 증거. **첫 구현은 이게 깨져 있었다**(아래)
+- [x] 뒤가 막히지 않는다 : 독성 다음에 넣은 정상 로그가 `consumed 0 → 1`. `check-pipeline.sh` 통과(traces 6 · metrics 3 · logs 3)
+- [x] 테스트 : `FailureClassifierTest` 11건 · `RawErrorHandlerTest` 6건(파티션 1 시나리오 포함) · 적재 처리기 전체 **104건** 통과
+
+### 구현 중 잡은 버그 하나
+
+`verifyPartition` 이 어긋남을 막아 준다는 것은 맞았지만, **카운터를 세려고 감싼 래퍼가 그 검사를 꺼 버렸다.** `ConsumerRecordRecoverer { record, failure -> dlq.accept(record, failure) }` 두 인자 판은 `consumer = null` 을 넘기고, 파티션 검사는 `consumer` 가 있어야 돈다. 결과 : `raw` 파티션 1 의 독성 메시지가 `raw.dlq` 파티션 1(없음)로 가려다 60초 타임아웃 → `failIfSendResultIsError` 가 세움 → 그 레코드에서 영원히 멈춤(`lag=1`).
+
+**컨테이너 테스트 5건은 통과한 채였다.** 테스트 Kafka 의 `raw` 가 자동 생성되어 파티션 1개라 어긋남이 없었다. compose(`raw` 3개)에서 키 `logs` 로 수동 검증하다 잡았다. 고친 것 : `ConsumerAwareRecordRecoverer`, 그리고 `TestInfraConfig` 가 토픽을 compose 와 같게(`raw` 3 · `raw.dlq` 1) 미리 만들어 테스트가 그 경로를 밟게 했다. **테스트 토폴로지가 실제와 다르면 통과한 테스트가 거짓 안심을 준다.**

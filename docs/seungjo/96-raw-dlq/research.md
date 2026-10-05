@@ -508,6 +508,8 @@ Caused by: java.net.UnknownHostException: clickhouse
 - 조사 A 가 "기본 리졸버는 원본 파티션을 그대로 쓰므로 DLQ 파티션이 적으면 **실패한다**" 고 경고했다. 반은 맞지만 **`verifyPartition` 기본값이 `true` 라 실제로는 막아 준다.** 바이트코드(`iconst_1`)로 확인
 - 조사 A 가 `FailedRecordProcessor.setMaxRecoveryFailures` 함정을 "반드시 의식해야 한다" 고 했는데 **우리 spring-kafka 3.3.16 에 없는 API** 였다. A 도 "미확인" 으로 표시해 둔 항목
 - 조사 A 의 `ConsumerHealthIndicator` 코드는 **A 가 조합한 것**이고 출처 원문이 아니다. API 존재만 확인됐다
+- **나(메인 대화)** 가 결정 프롬프트 초안을 다듬으며 되돌림 ③ 에 "pause 가 **파티션 단위로** 동작해서" 라고 썼다. **거꾸로다.** `FailedRecordTracker` 는 컨테이너 변형 `onNextBackOff(container, Exception, long)` 을 부르고, 그게 `pause(컨테이너, Duration)` 으로 이어져 **컨테이너 전체가 멈춘다**(바이트코드 확인, 구현 직전). 결론(`pausePartition` 으로 좁힌다)은 맞아서 ADR `#51` 에 정정 줄을 달았다
+- **나(메인 대화)** 가 "`verifyPartition` 기본값 `true` 가 `raw`(3) → `raw.dlq`(1) 어긋남을 막아 준다" 고 했고 그건 맞았지만, **내가 쓴 래퍼가 그 검사를 꺼 버렸다.** 카운터를 세려고 `ConsumerRecordRecoverer { record, failure -> dlq.accept(record, failure) }` 로 감쌌는데, 파티션 검사는 `consumer` 를 받는 **세 인자 판**에서만 돈다. 두 인자 판은 `consumer = null` 을 넘겨 검사를 건너뛴다. 결과 : `raw` 파티션 1 의 독성 메시지가 `raw.dlq` 파티션 1(없음)로 가려다 `TimeoutException: Partition 1 of topic raw.dlq with partition count 1 is not present` → `failIfSendResultIsError` 가 세움 → **그 레코드에서 영원히 멈춤.** 컨테이너 테스트(5건 통과)는 **못 잡았다** : 테스트 Kafka 의 `raw` 가 자동 생성되어 파티션 1개라 어긋남이 없었다. compose(`raw` 3개)에서 키 `logs` 로 수동 검증하다 `lag=1` 로 잡았다. 고친 것 : `ConsumerAwareRecordRecoverer` 로 바꿔 `consumer` 를 넘기고, `TestInfraConfig` 가 토픽을 compose 와 같게(`raw` 3 · `raw.dlq` 1) 미리 만들고, 테스트가 파티션 1 로 보내 원본 파티션 헤더 `1` · 목적지 파티션 `0` 을 확인한다. **테스트 토폴로지가 실제와 다르면 통과한 테스트가 거짓 안심을 준다**
 
 ### 5.7 라이브러리 jar 를 직접 열어 확인한 것
 
@@ -531,6 +533,11 @@ Caused by: java.net.UnknownHostException: clickhouse
 | `pause` 중에 왜 poll 이 되나 | Kafka `Consumer` 에 `pause(파티션들)` · `resume(파티션들)` · `paused()` 가 **`poll()` 과 별개로** 있다. `pause` 는 연결을 끊지 않고 "이 파티션은 데이터를 주지 마" 라고 표시만 한다 |
 | pause 가 스스로 깨나 | **깬다.** `ListenerContainerPauseService.pause(컨테이너, Duration)` 가 `Duration` 을 받고 그 시간 뒤 자동 `resume` 한다 |
 | 컨슈머 타임아웃 실제 값 | 적재 처리기 로그에서 : `heartbeat.interval.ms=3000` · `session.timeout.ms=45000` · `max.poll.interval.ms=300000` · `max.poll.records=500`. 우리가 설정한 것은 **하나도 없다**(전부 기본값) |
+| pause 가 파티션 단위인가 컨테이너 단위인가 | **컨테이너 단위.** `FailedRecordTracker` → `BackOffHandler.onNextBackOff(container, Exception, long)` → `ContainerPausingBackOffHandler` → `ListenerContainerPauseService.pause(container, Duration)`. 파티션 변형(`pausePartition`)도 있지만 트래커가 안 부른다 |
+| `verifyPartition` 이 실제로 도는 조건 | `DeadLetterPublishingRecoverer.accept(record, **consumer**, failure)` 세 인자 판에서만. 두 인자 판은 `consumer=null` → 검사 건너뜀. 래퍼를 쓸 때 **`ConsumerAwareRecordRecoverer`** 여야 한다 (실제로 걸려 넘어진 지점) |
+| Boot 가 `CommonErrorHandler` 빈을 자동으로 꽂나 | **꽂는다.** `ConcurrentKafkaListenerContainerFactoryConfigurer.setCommonErrorHandler` 가 있다. 리스너 팩토리를 직접 만들 필요 없음 |
+| `TaskScheduler` 가 자동으로 있나 | **없다.** `TaskSchedulingAutoConfiguration` 이 `@EnableScheduling`(`internalScheduledAnnotationProcessor` 빈)을 조건으로 건다. `ListenerContainerPauseService` 에 넘길 스케줄러를 직접 만들었다 |
+| `ServerException` 생성자 순서 | `(code, message, transportProtocolCode, queryId)`. 바이트코드 `iload_1 → putfield code` · `iload_3 → putfield transportProtocolCode`. `isRetryable` 은 생성자에서 코드로 계산된다 |
 
 ### 5.8 결정 전에 봐야 하는 함정
 
