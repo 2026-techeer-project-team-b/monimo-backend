@@ -97,10 +97,12 @@ FN-29: AGENT_DOWN 규칙이 "CH 에 해당 에이전트 데이터가 **90초** �
 
 ## 6. 확인 필요
 
+`agents.status` 갱신은 이미 탐지 몫으로 정해져 있다 (`db/postgres/ingest` agents 마이그레이션 주석 "탐지(생존 상태 갱신) — ADR #39"). D13 은 이번 구현에 필요 없고, 승조 할 일(쇼핑몰 `service.instance.id` 설정)과 같이 처리되면 된다.
+
+
 | 누구 | 무엇 |
 |---|---|
 | 팀 | FN-29 의 "AGENT_DOWN 은 파드마다 알린다"를 "서비스에 살아 있는 파드가 없을 때 1건"으로 읽는 것(D10 · D11) |
-| 승조 | 탐지가 `agents.status` 를 UPDATE 하는 것 (ERD 에는 "탐지가 status 갱신"으로 적혀 있음) · D13 `service.instance.id` 를 파드 이름으로 |
 | 팀 | AGENT_DOWN 만 N=1 (D14) |
 
 ## 7. 테스트 계획
