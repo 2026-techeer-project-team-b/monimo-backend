@@ -117,6 +117,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#67`** `#52` 가 주석을 고친 알림 마이그레이션 2개(`V202609281821` · `1822`)를 처음 들어갔을 때 내용으로 되돌림. Flyway 는 주석까지 체크섬에 넣어, 고친 채로 두면 `#52` 이전에 만든 DB 가 `checksum mismatch` 로 멈춘다 (ADR `#49`). SQL 변화 없음
 - **`#72`** 채널 시험 발송 (api-server `POST /alert-channels/{uuid}/test` → 알림 서비스 내부 문 `POST /internal/channels/test`). 저장된 실제 config 로 한 번 보내고 결과만 돌려준다(비밀값 미노출). outbox · 재시도 · 서킷을 거치지 않고 `notification_history` 에도 남기지 않는다. 공급자가 응답했으면(2xx SUCCESS, 4xx · 429 · 5xx FAILED) 200, 닿지 않으면 FAILED("채널 서버가 응답하지 않습니다"), 알림 서비스가 죽었으면 503. 같은 채널은 10초에 한 번(인스턴스 메모리 기준). 꺼진 채널도 시험 가능. **알림 서비스도 이제 `MONIMO_INTERNAL_TOKEN` 이 필요하다**
 - **`#81`** 탐지 · 알림 헬스체크. `/actuator/health/liveness` · `/actuator/health/readiness` 를 관리 포트 **8081** 로 연다(local 프로필은 서비스 포트 8083 · 8084 그대로 — 로컬에서 수집기 8081 과 겹쳐서). readiness = `readinessState` + `db`(PostgreSQL), liveness 는 자기 자신만. 응답은 `{"status":"UP"}` 하나(운영은 세부 항목 미노출). PG 를 끄면 readiness 503 · liveness 200 — 단 **503 까지 약 30초**(Hikari 연결 대기 기본값)
+- **AGENT_DOWN 판정** (탐지). 매 주기 `agents/active`(조회, 명세 40번)를 한 번 불러 ① 90초 넘게 데이터가 없는 키는 `agents.status = DOWN`, 돌아오면 `UP` ② 경보는 **서비스 단위** — 그 서비스에 살아 있는 키가 0 이면 위반, AGENT_DOWN 만 N=1. 파드 키가 재시작마다 바뀌어 배포와 크래시를 가를 수 없어서다(`docs/alert/40-agent-down.md`). 어느 서비스에서도 데이터가 없으면 파이프라인 의심으로 판정 불가, DOWN 된 지 24시간 지난 키는 감시에서 뺀다. **조회 `agents/active` 가 머지되기 전에는 탐지 로그에 조회 실패가 찍히고 판정 불가로 남는다**
 
 ### 인증 설정 파트 (재범)
 

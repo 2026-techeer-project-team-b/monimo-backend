@@ -74,4 +74,16 @@ class SlackWebhookSenderTest : BehaviorSpec({
             sender.send(message, emptyMap()).shouldBeInstanceOf<SendResult.Permanent>()
         }
     }
+
+    Given("AGENT_DOWN 발화") {
+        val agentDown = OutboundMessage(
+            mapOf(
+                "transition" to "FIRING", "severity" to "CRITICAL", "rule_name" to "주문 파드 없음", "service_name" to "shop-order",
+                "metric_kind" to "AGENT_DOWN", "observed_value" to 0, "operator" to "GT", "threshold" to 0, "fired_at" to "2026-10-05T10:06:00Z",
+            ),
+        )
+        Then("기준값 비교(0 GT 0) 대신 '데이터를 보내는 파드가 없음'으로 쓴다") {
+            agentDown.summary() shouldBe "[FIRING][CRITICAL] 주문 파드 없음 — shop-order 데이터를 보내는 파드가 없음 (발화 2026-10-05T10:06:00Z)"
+        }
+    }
 })

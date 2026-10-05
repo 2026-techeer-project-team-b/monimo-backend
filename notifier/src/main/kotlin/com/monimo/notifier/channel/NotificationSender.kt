@@ -35,8 +35,13 @@ data class OutboundMessage(val payload: Map<String, Any?>) {
         return when (transition) {
             "TEST" -> "[TEST] monimo 시험 발송입니다. 이 메시지가 보이면 채널 설정이 맞습니다."
             "RESOLVED" -> "[RESOLVED] ${p["rule_name"]} — ${p["service_name"]} 복구 (발화 ${p["fired_at"]}, 복구 ${p["resolved_at"]})"
-            else -> "[FIRING][${p["severity"]}] ${p["rule_name"]} — ${p["service_name"]} ${p["metric_kind"]} " +
-                "${p["observed_value"]} ${p["operator"]} ${p["threshold"]} (발화 ${p["fired_at"]})"
+            // AGENT_DOWN 은 기준값 비교가 아니라 "살아 있는 파드가 없다"는 판정이다 (operator · threshold 를 쓰지 않는다)
+            else -> if (p["metric_kind"] == "AGENT_DOWN") {
+                "[FIRING][${p["severity"]}] ${p["rule_name"]} — ${p["service_name"]} 데이터를 보내는 파드가 없음 (발화 ${p["fired_at"]})"
+            } else {
+                "[FIRING][${p["severity"]}] ${p["rule_name"]} — ${p["service_name"]} ${p["metric_kind"]} " +
+                    "${p["observed_value"]} ${p["operator"]} ${p["threshold"]} (발화 ${p["fired_at"]})"
+            }
         }
     }
 }

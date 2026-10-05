@@ -19,6 +19,14 @@ class EvaluationConfig {
         @Value("\${monimo.internal-token:}") internalToken: String,
         objectMapper: ObjectMapper,
     ): ServiceHealthClient = HttpServiceHealthClient(props.query, internalToken, objectMapper)
+
+    // agents/active 도 같은 API 서버 · 같은 내부 토큰
+    @Bean
+    fun agentActivityClient(
+        props: EvaluationProperties,
+        @Value("\${monimo.internal-token:}") internalToken: String,
+        objectMapper: ObjectMapper,
+    ): AgentActivityClient = HttpAgentActivityClient(props.query, internalToken, objectMapper)
 }
 
 // 스케줄러는 따로 켜고 끈다. 테스트는 enabled=false 로 두고 runOnce 를 직접 부른다
@@ -27,5 +35,5 @@ class EvaluationConfig {
 @ConditionalOnProperty(prefix = "monimo.alert.schedule", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 class EvaluationSchedulingConfig {
     @Bean
-    fun evaluationScheduler(runner: EvaluationRunner) = EvaluationScheduler(runner)
+    fun evaluationScheduler(runner: EvaluationRunner, agentDown: AgentDownRunner) = EvaluationScheduler(runner, agentDown)
 }
