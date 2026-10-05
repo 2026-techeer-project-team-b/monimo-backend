@@ -13,11 +13,29 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+    # raw.dlq 로 보낼 때 쓴다 (RawErrorHandlerConfig). 꺼낸 그대로(String 키 · ByteArray 값) 다시 넣는다
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
 
 server:
   port: 8082
 
-# /actuator/metrics 로 소비 건수(monimo.ingester.raw.consumed)를 본다. 연결 점검 · 관통 확인 스크립트가 읽는다
+# 적재 실패 때 얼마나 기다리나 (ADR #51). 실패 종류마다 다르다 : 확실한 일시 장애 10분 · 모르는 실패 1분 · 독성 0.
+# 지금까지는 이 설정이 없어 스프링 기본값(간격 0초 × 10회 = 약 4초)이 쓰였고 그 뒤 메시지를 버렸다.
+# 환경변수로 덮어쓴다 : MONIMO_INGESTER_RETRY_TRANSIENT_MAX_ELAPSED=20m 같은 식
+monimo:
+  ingester:
+    retry:
+      initial-interval: 2s
+      multiplier: 2.0
+      max-interval: 30s
+      transient-max-elapsed: 10m
+      unknown-max-elapsed: 1m
+      dlq-topic: raw.dlq
+
+# /actuator/metrics 로 소비 건수(monimo.ingester.raw.consumed)와 DLQ 건수(monimo.ingester.dlq)를 본다. 연결 점검 · 관통 확인 스크립트가 읽는다
 management:
   endpoints:
     web:

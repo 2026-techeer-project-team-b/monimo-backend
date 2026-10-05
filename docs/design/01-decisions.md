@@ -493,3 +493,132 @@ compose.yaml 이 레포 파일이라 바꾼 기록이 git 에 남아 리뷰를 �
 ```
 
 **이 프롬프트가 결정의 4요소를 그대로 담고 있다.** 채택(수집기 · `url.path` · env)과 기각 세 가지(호출자 · 에이전트 · PG 앱별)가 각각 사유와 함께 있고, 마지막 두 문단이 되돌리는 조건이다. 그래서 이 글이 곧 `#50` 이고, 구현은 이 글을 코드로 옮긴 것이다.
+
+## `#51` [확정] 적재 실패를 세 단으로 갈라 다룬다 : 멈춰 기다리기(pause) + DLQ 는 독성 전용 + 분류 뒤집기
+
+2026-10-06 | 사용자 결정 (아래 "이 결정을 만든 프롬프트" 가 원문) | ClickHouse 가 잠깐 죽어 있는 동안 들어온 메시지를 적재 처리기가 조용히 버린다. `ingester/application.yml` 에 에러 핸들러 설정이 없어 스프링 기본값(`SeekUtils.DEFAULT_BACK_OFF = FixedBackOff(0, 9)`)이 적용되고, **간격 0초로 10번(약 4초) 시도한 뒤 오프셋을 넘긴다.** 직접 재현했다 : 정지 중 스팬 4개를 보내고 되살린 뒤 `spans` 가 226,417줄 그대로(대조군 +4). Kafka 에는 남아 있다(`raw:0:271`, 건너뛴 오프셋 `raw-0@266` · `@267`). `raw.dlq` 는 `compose.yaml` 이 이미 만들어 뒀고 비어 있다(`raw.dlq:0:0`)
+- **채택**: ① **일시 장애에는 `ContainerPausingBackOffHandler`(pause)로 기다린다.** pause 중에도 `poll()` 이 계속 돌아 생존 신고가 나가므로 `max.poll.interval.ms`(실측 300000) 천장이 걸리지 않는다 ② **대기를 세 단으로** : 확실한 일시 장애 `ExponentialBackOff(2초, 2.0배, 최대 30초, 총 10분)` · 모르는 실패 같은 모양에 **총 1분** · 확실한 독성 `FixedBackOff(0, 0)` = 재시도 없이 바로 DLQ. 갈라 주는 수단은 `setBackOffFunction` ③ **`319 UNKNOWN_STATUS_OF_INSERT` 를 재시도 대상에서 뺀다**(중복 적재 방지) ④ **분류를 뒤집는다** : "재시도할 것 목록"(라이브러리 화이트리스트 15개) 대신 **"DLQ 로 보낼 것 목록"(파싱 · 타입 오류 계열 `117` · `27` · `53` · `41` · `72` + `319`)만 들고 목록에 없으면 재시도.** 거기에 `243` NOT_ENOUGH_SPACE · `745` SERVER_OVERLOADED · `439` CANNOT_SCHEDULE_TASK · `565` TOO_MANY_PARTITIONS 를 긴 쪽(10분)으로 올린다 ⑤ `setFailIfSendResultIsError` **켠다** ⑥ DLQ 레코드에 **자체 헤더 `x-dlq-attempt`** 를 심어 DLQ 를 거친 횟수를 센다(`setHeadersFunction`) ⑦ `verifyPartition` 은 **건드리지 않는다**(기본 `true`)
+- **기각**: ① **지금 그대로**(설정 없음) : 사유: 4초 만에 포기하고 버린다. 재배포 중 ClickHouse 가 10초만 안 떠 있어도 그 사이 신호가 영구 유실된다 ② **실패하면 전부 DLQ** : 사유: **일시 장애에 DLQ 를 쓰면 DLQ 가 원본 토픽의 복사본이 된다.** 조사한 다섯 파이프라인(Kafka Connect · OTel Collector · SigNoz · Debezium · Flink) 중 **sink 장애를 DLQ 로 보내는 곳이 하나도 없다.** Kafka Connect 는 DLQ 범위를 converter · SMT 로 한정해 sink `put()` 실패를 구조적으로 제외했다. OTel OpenSearch exporter 가 DNS 실패를 영구 실패로 분류해 배치를 폐기한 것이 "silent data loss" 버그로 수정된 사례가 있다(contrib #49208 · PR #49605) ③ **무한 또는 긴 `FixedBackOff`(C)** : 사유: 기본 `BackOffHandler` 가 리스너 스레드를 재우므로 **대기 총시간이 5분을 넘으면 리밸런스**가 난다. 그 동안 적재가 멈추고 마지막 커밋 지점부터 다시 처리하며, 적재 처리기가 여러 대가 되면 남의 파티션까지 흔들린다 ④ **`CommonContainerStoppingErrorHandler`(E)** : 사유: **스스로 다시 시작하지 않는다.** 그리고 파드는 `Running` · HTTP 는 200 인데 리스너만 멈춘 상태가 되어 **"파드가 죽으면 K8s 가 살려 준다" 는 안전망이 작동하지 않는다.** 드러내려면 스프링이 기본 제공하지 않는 Kafka 컨슈머 헬스 지표를 직접 만들어야 해서 이슈가 커진다 ⑤ **`@RetryableTopic`(non-blocking)** : 사유: 배치 리스너 미지원 · **파티션 내 순서가 깨짐** · 일시 장애 때 트래픽 전량이 재시도 토픽으로 복제되어 ② 와 같은 문제 ⑥ **`ReplacingMergeTree` 로 중복 적재를 막기** : 사유: `spans` 중복은 merge 때 합쳐지지만 **집계 MV 4개는 insert 시점에 이미 세었고 merge 를 보지 않는다.** 집계에 영향 가는 수정은 insert 전이어야 한다(`#83` · `#92` 와 같은 교훈) ⑦ **`insert_deduplication_token` 으로 멱등성 만들기** : 사유: `spans` 가 `ENGINE = MergeTree`(비복제)라 이 엔진에서 어느 버전부터 · 어떤 설정과 함께 동작하는지 **확인하지 못했다.** 되는지 모르는 기능에 기대지 않는다 ⑧ **빠진 코드를 화이트리스트에 추가하는 것만으로 끝내기** : 사유: 들어야 하는 목록이 "서버가 지금 못 받는 이유" 쪽이라 **서버가 복잡해질수록 늘어나고, 빠뜨리면 그 코드가 바로 DLQ 로 가서 조용히 쌓인다**
+- **되돌림**: ① **10분 넘는 ClickHouse 장애가 반복돼 DLQ 에 쌓이는 양이 사람이 처리할 수 없게 되면** 대기 시간을 늘리거나 재처리 잡(이슈 범위 밖)을 앞당긴다 ② **모르는 실패로 분류된 독성 메시지 때문에 1분 멈춤이 자주 관찰되면** 그 코드를 DLQ 목록에 추가한다 ③ **적재 처리기를 여러 대로 늘렸을 때 pause 가 파티션 단위로 동작해 한 파티션의 장애가 다른 파티션까지 멈추는 것이 확인되면** `pausePartition` 으로 좁힌다
+- **근거(조사 · 실측)**: 선택지 비교 · 출처 · AI 가 틀린 것 · 함정 6개 · 확인 못 한 것은 [`../seungjo/96-raw-dlq/research.md`](../seungjo/96-raw-dlq/research.md). 라이브러리를 직접 열어 확인한 것 12건(`ClickHouseException.isRetryable()` public · `retryOnFailures` 가 DNS 실패를 대상에 넣지 않음 · 기본 DLQ 접미사는 `-dlt` · `verifyPartition` 기본 `true`(바이트코드 `iconst_1`) · `setMaxRecoveryFailures` 가 3.3.16 에 없음 · `setBackOffFunction` 존재 · `Consumer.pause/resume` 가 `poll` 과 별개 · `ListenerContainerPauseService.pause(컨테이너, Duration)` 가 스스로 `resume` · `FailedRecordTracker` 가 오프셋마다 예산을 따로 셈 등)
+- **중요한 성질**: `FailedRecordTracker` 가 **오프셋마다** 재시도 예산을 세므로, ClickHouse 가 1시간 죽어 있어도 **DLQ 로 가는 것은 10분에 한 건씩**이고 나머지는 Kafka 에 남는다. "DLQ 가 원본 복제가 된다" 는 위험은 기각안 ② 에만 해당한다
+- **범위 밖**: DLQ **재처리 잡**(ADR `#34` : 같은 이미지 · K8s Job · `group-id` 를 `ingester` 가 아닌 다른 이름으로) · ClickHouse 디스크 포화 실제 재현 · Kafka 복제 수 1 → 3
+- **정정(2026-10-06, 구현 중 확인)**: 되돌림 ③ 의 전제 "pause 가 **파티션 단위로** 동작해서" 는 거꾸로다. `FailedRecordTracker` 가 `BackOffHandler.onNextBackOff(container, Exception, long)` 을 부르고 `ContainerPausingBackOffHandler` 가 그걸 `pause(컨테이너, Duration)` 으로 넘기므로 **컨테이너 전체(파티션 3개 모두)가 멈춘다**(바이트코드 확인). 즉 한 파티션의 장애가 다른 파티션까지 멈추는 것은 "확인되면" 이 아니라 **지금 그렇다.** 다만 지금은 적재 처리기 1대 · ClickHouse 1대라 어느 파티션이든 같은 저장소로 가므로 전체가 멈추는 것이 맞는 동작이고, 결론(여러 대 · 여러 저장소가 되면 `pausePartition` 으로 좁힌다)은 그대로 맞다. 틀린 전제는 AI 가 다듬은 초안에서 들어갔다. 프롬프트 원문은 사용자 글이라 고치지 않고 이 줄로 바로잡는다
+- **검증(2026-10-06, 로컬 compose)**: ClickHouse 정지 → 스팬 4개 전송 → 되살림 → `spans` **226,421 → 226,425 (+4)**(고치기 전 같은 조건 : 그대로). 정지 중 `exhausted` 0건 · 재시도 WARN 3건(0 · 2 · 6초) · 리밸런스 로그 0건 · 컨슈머 LAG 0. 독성(`0x0F`, 키 `logs` = `raw` 파티션 1) → 재시도 없이 `raw.dlq` 파티션 0, 헤더 `x-dlq-attempt:1` · `x-dlq-reason:poison` · `kafka_dlt-original-topic:raw`, 로그 `Destination resolver returned non-existent partition raw.dlq-1, KafkaProducer will determine partition`(= `verifyPartition` 작동). 독성 뒤 정상 메시지 `consumed 0 → 1`(뒤가 안 막힘). `check-pipeline.sh` 통과. 테스트 `FailureClassifierTest` 12 · `RawErrorHandlerTest` 7(파티션 1 · 2차 통과 시나리오 포함) · `BackOffMappingTest` 7 · 적재 처리기 전체 **113건**. 10분 넘는 장애는 시험하지 않음
+- **구현**: PR `#97` (이슈 `#96`). `ingester/.../inbound/kafka/{RetryProperties, FailureClassifier, DlqCounter, RawErrorHandlerConfig}.kt` 신설, `common/kafka/RawSignal.kt` 에 `UnknownRawKeyException`, `application.yml` · `compose.yaml` · `.env.example` · `scripts/check-pipeline.sh` 수정. `RawConsumer.onMessage` 는 손대지 않음(에러 핸들러는 리스너 밖에서 동작). 코드 리뷰(만든 쪽과 다른 자리)에서 9건을 고쳤다 : 화이트리스트 15개 · `fromKey` 예외를 전용 타입으로 POISON · 스크립트 `\|\| true` · `SingleRecordHeader` · 테스트 대기 단축 · 상대값 단정 · `BackOffMappingTest` · `rootMessage` 깊이 제한 · 틀린 주석 5곳 (목록은 `docs/seungjo/96-raw-dlq/decision.md`)
+- **구현 중 잡은 것(2026-10-06)**: 채택 ⑦ "`verifyPartition` 이 `raw`(3) → `raw.dlq`(1) 어긋남을 막아 준다" 는 라이브러리 차원에서 맞았지만, **첫 구현의 래퍼가 그 검사를 꺼 버렸다.** 카운터를 세려고 `ConsumerRecordRecoverer` 로 감싸며 두 인자 `accept(record, failure)` 를 불렀는데, 파티션 검사는 `consumer` 를 받는 세 인자 판에서만 돈다. 결과 : `raw` 파티션 1 에서 실패한 레코드가 `raw.dlq` 파티션 1(없음)로 가려다 60초 메타데이터 대기 뒤 실패 → `failIfSendResultIsError` 가 막아 세움 → 그 레코드에서 영원히 멈춤(`lag=1`). **컨테이너 테스트는 못 잡았다** : 테스트 Kafka 의 `raw` 가 자동 생성되어 파티션 1개라 이 경로를 안 밟았다. compose(`raw` 3개)에서 키 `logs` 로 수동 검증하다 잡았다. 고친 것 : 래퍼를 `ConsumerAwareRecordRecoverer` 로, 테스트 토폴로지를 compose 와 같게(`raw` 3 · `raw.dlq` 1), 테스트가 파티션 1 로 보내 `kafka_dlt-original-partition=1` · 목적지 파티션 0 을 확인
+
+### 이 결정을 만든 프롬프트
+
+> 회사가 프롬프트에서 보는 것은 글솜씨가 아니라 **문제를 어떻게 해석했고, 범위를 어떻게 잘랐고, 끝났다는 것을 무엇으로 판단하는가** 다.
+> 아래는 조사 결과와 선택지를 다 읽고 **질문 31개를 거친 뒤** 사용자가 결정을 내리며 쓴 원문이다. 그 질문과 답은
+> [`../seungjo/96-raw-dlq/research.md`](../seungjo/96-raw-dlq/research.md) 의 3절 · 6절에 있고, **그 과정에서 사용자의 이해 10건과 AI 설명의 허점 6건이 바로잡혔다.**
+
+```
+선택은 D로 가자.
+
+재시도가 발생했을 때 5분 천장 없이 우리가 정한 만큼 기다릴 수 있고 방법 E와 다르게 자동
+복구도 되며 따로 헬스 지표를 만들 필요 없이 DLQ 문제를 해결할 수 있기 때문이다.
+
+방법 C 같은 경우 방법 D 대비 추가로 만들 것이 없지만 재시도가 발생하면 그동안 poll 호출
+자체가 안되어서(적재 처리기에 있는 리스너 스레드가 잠들어있어서) 5분 동안
+(max.poll.interval.ms가 300000인데 우리가 설정한 게 아니라 기본값이다) 응답이 없으면
+카프카가 해당 컨슈머를 그룹에서 빼고 리밸런싱하고 시간이 지나 다시 돌아오면 또
+리밸런싱하게 되니까 리밸런싱하는 동안 적재 처리기로 가는 업무가 멈추고 마지막 커밋
+지점부터 다시 처리하게 되니까 컨슈머 랙도 발생하게 되는 거고 나중에 적재 처리기가 여러
+대로 늘어나면 남의 파티션까지 흔들려서 그만큼 더 커지니까 C는 안 하는 방향이 맞는 거
+같다.
+
+방법 E는 헬스 지표를 만드는 것이 빈을 하나 추가하는 것보다 시간적으로 문제가 있고 헬스
+지표가 없으면 파드는 Running이고 HTTP도 200을 돌려주는데 리스너만 멈춘 상태가 되니까
+아무도 모르는 일이 발생할 수 있다. 파드가 아예 죽으면 쿠버네티스가 새로 띄워주는데
+리스너만 멈추면 그 안전망이 작동을 안 하는 거라서 더 위험하다. 그러니 리스크가 조금 더
+적은 D로 하는 것으로 정하자.
+
+재시도 상한과 간격은 실패 종류마다 버티는 시간을 다르게 줘서 세 단으로 나누자.
+setBackOffFunction으로 예외마다 다른 BackOff를 줄 수 있으니까 가능하다.
+
+확실한 일시 장애는 2초로 시작해서 2배씩 늘리고 한 번 대기는 최대 30초, 전체 10분까지
+기다린다. ConnectionInitiationException이랑 ServerException 중 isRetryable()이 true인
+것들이 여기 들어가고, 거기에 243 NOT_ENOUGH_SPACE랑 745 SERVER_OVERLOADED,
+439 CANNOT_SCHEDULE_TASK, 565 TOO_MANY_PARTITIONS를 우리가 올려서 넣는다. 이 네 개는
+라이브러리 목록에 없는데 성격상 일시 장애라서 그렇다.
+
+모르는 실패는 같은 모양으로 전체 1분까지만 기다린다.
+
+확실한 독성은 FixedBackOff(0, 0)으로 재시도 없이 바로 DLQ로 보낸다.
+
+10분으로 잡은 이유는 컨테이너 재시작이 10초에서 30초고 파드 재배치가 1분에서 2분,
+노드 장애로 재스케줄되는 게 3분에서 5분이라 그걸 다 견디는 선이기 때문이다. 그보다 긴
+장애는 대개 사람이 손을 써야 하는 일이라서 그 선에서 DLQ로 넘기고 쌓이게 해서 신호로
+쓰는 게 낫다. OTel Collector도 같은 모양으로 5초 시작에 30초 상한, 전체 5분을 쓰는데
+우리는 Kafka가 디스크에 들고 있으니까 더 길게 가도 된다.
+
+그리고 FailedRecordTracker가 레코드마다, 정확히는 오프셋마다 예산을 따로 세기 때문에
+ClickHouse가 1시간 죽어 있어도 DLQ로 가는 건 10분에 한 건씩이고 나머지는 Kafka에 그냥
+남아 있다. DLQ가 원본 복제가 되는 일은 바로 DLQ로 보내는 B 방식에서만 생기는 거라서
+이것도 D를 고른 이유다.
+
+319 UNKNOWN_STATUS_OF_INSERT는 화이트리스트에서 제거하는 방향으로 가자. 재시도하면
+중복 문제가 발생하고 MV 입장에서도 중복이 insert되는 순간 이미 집계에 더해지니까 나중에
+집계가 이상해진다. ReplacingMergeTree로 spans 중복을 합쳐도 MV는 merge를 안 보니까
+집계는 안 고쳐진다. 결국 #83이랑 #92에서 배운 거랑 같은 얘기인데 집계에 영향 가는 수정은
+insert 전에 해야 한다는 거다. 멱등하게 만드는 insert_deduplication_token도 있지만 우리
+spans는 ENGINE = MergeTree라서 복제가 아니고, 그러면 그 기능이 이 엔진에서 어느 버전부터
+어떤 설정과 같이 동작하는지 확인이 안 되기 때문에 되는지 모르는 기능에 기대지 않고
+간단하면서 확실한 방법으로 하는 게 좋을 거 같다. 확인 안 한 건 「확인 못 한 것」에 남긴다.
+
+디스크가 꽉 차게 되었을 때는 그 때 나오는 243을 화이트리스트에 추가하는 것보다 분류
+자체를 뒤집는 방법으로 가보자. 지금은 재시도할 것 목록을 들고 목록에 없는 걸 DLQ로
+보내는데 이걸 DLQ로 보낼 것 목록만 들고 목록에 없으면 재시도하는 쪽으로 바꾸는 거다.
+
+이유가 두 가지인데 하나는 들어야 하는 목록이 짧고 안정적이라서다. 우리가 하는 일이
+JSON 한 줄을 받아서 표에 꽂는 거니까 데이터가 틀릴 수 있는 방식이 정해져 있는데
+117 INCORRECT_DATA, 27 CANNOT_PARSE_INPUT_ASSERTION_FAILED, 53 TYPE_MISMATCH,
+41 CANNOT_PARSE_DATETIME, 72 CANNOT_PARSE_NUMBER 정도고 ClickHouse가 새 기능을 추가해도
+이 목록은 거의 안 늘어난다. 반대로 서버가 지금 못 받는 이유는 서버가 복잡해질수록
+늘어나니까 지금 방식대로 가면 다른 이유로 생기는 오류마다 우리가 알아채서 화이트리스트를
+건드려야 하는 일이 발생하고 빠뜨리면 그 코드가 바로 DLQ로 가서 조용히 쌓인다.
+
+다른 하나는 모를 때 틀리는 방향이 안전하다는 거다. 독성인데 일시 장애로 보면 1분 막히고
+그 뒤에 DLQ로 가니까 데이터는 하나도 안 잃는데, 반대로 일시 장애인데 독성으로 보면
+DLQ로 쌓이고 재처리 잡이 아직 없으니까 사람이 손으로 되돌려야 한다. 한쪽 실수는 시간만
+잃고 다른 쪽은 데이터를 잃으니까 모를 때는 시간을 잃는 쪽으로 틀리는 게 맞다.
+ADR #50에서 접두 일치 버리고 정확 일치만 쓴 것도 같은 이유였다.
+
+그리고 뒤집기를 바닥에 깔면 위에서 243 같은 네 개 코드를 긴 쪽으로 올리는 일의 성격도
+바뀐다. 목록을 빠뜨려도 바로 DLQ로 가는 게 아니라 모르는 실패 쪽으로 떨어져서 1분은
+재시도하니까 목록이 없으면 유실되는 게 아니라 있으면 더 좋은 정도가 된다.
+
+setFailIfSendResultIsError는 켠다. 안 켜면 DLQ 발행 자체가 실패했을 때 스프링이 보낸
+것으로 치고 넘어가서 조용히 유실되는데 켜면 예외가 올라와서 오프셋이 안 넘어가고 다시
+시도한다. 스프링에 setMaxRecoveryFailures라고 상한 넘기면 버린 걸로 치고 커밋하는 설정이
+있는데 우리 spring-kafka 3.3.16에는 없으니까 몰래 버려질 길도 없다.
+
+DLQ 레코드에는 x-dlq-attempt 같은 자체 헤더를 심어서 이 레코드가 DLQ를 몇 번 거쳤는지
+센다. DeadLetterPublishingRecoverer의 setHeadersFunction으로 하면 되는데 자체 헤더를
+써야 하는 이유는 stripPreviousExceptionHeaders 기본값이 true라서 kafka_dlt-exception-*
+헤더는 매번 덮어써져서 카운터로 쓸 수 없기 때문이다. 이번 이슈에서는 헤더를 심어두는
+것까지만 하고 몇 번이면 포기할지는 재처리 잡 만들 때 정하자. 보통 3번에서 5번 정도
+쓴다고 한다. 적재 재시도 횟수는 메모리에서 BackOff가 세는 거고 DLQ를 거친 횟수는 헤더에
+남는 거라서 둘은 다른 카운터다.
+
+verifyPartition은 건드리지 않는다. 기본값이 true라서 보내기 전에 목적지 토픽의 파티션
+수를 확인하고 그 번호가 없으면 파티션 번호를 비워서 Kafka가 알아서 고르게 한다.
+raw가 3개고 raw.dlq가 1개라 파티션 1이랑 2에서 실패한 것도 문제없이 들어간다.
+바이트코드에서 iconst_1로 초기화되는 걸 확인했다.
+
+DLQ 재처리 잡은 이번 이슈 범위 밖이다. ADR #34가 같은 이미지에 K8s Job으로 돌리기로
+정했고 group-id만 ingester가 아닌 다른 이름을 써야 하는데 같은 이름을 쓰면 책갈피를
+공유해서 서로 남의 자리를 밀어버린다. 이번 이슈는 raw.dlq에 넣는 것까지만 한다.
+
+되돌리는 조건은 세 가지다. 10분 넘는 ClickHouse 장애가 반복돼서 DLQ에 쌓이는 양이 사람이
+처리할 수 없게 되면 대기 시간을 늘리거나 재처리 잡을 앞당긴다. 모르는 실패로 분류된 독성
+메시지 때문에 1분 멈추는 일이 자주 보이면 그 코드를 DLQ 목록에 추가한다. 적재 처리기를
+여러 대로 늘렸을 때 pause가 파티션 단위로 동작해서 한 파티션 장애가 다른 파티션까지
+멈추는 게 확인되면 pausePartition으로 좁힌다.
+
+그러니 그렇게 구현해줘.
+```
+
+**이 프롬프트가 결정의 4요소를 그대로 담고 있다.** 채택(D + 3단 + `319` 제거 + 뒤집기)과 기각 둘(C 는 리밸런스, E 는 안전망이 안 걸림)이 각각 사유와 함께 있고, 마지막 문단이 되돌리는 조건 셋이다.

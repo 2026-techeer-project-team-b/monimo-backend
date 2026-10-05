@@ -1,5 +1,7 @@
 package com.monimo.ingester.support
 
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.admin.NewTopic
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.test.context.DynamicPropertyRegistrar
@@ -18,8 +20,16 @@ class TestInfraConfig {
     fun postgres(): PostgreSQLContainer<*> = PostgreSQLContainer("postgres:17.11-alpine").apply { start() }
 
 
+    // compose.yaml 과 같은 모양으로 토픽을 미리 만든다 : raw 파티션 3 · raw.dlq 파티션 1.
+    // 자동 생성에 맡기면 둘 다 파티션 1개가 되어, "raw 파티션 1 에서 실패한 것이 raw.dlq(파티션 1개)로 가나" (ADR #51 의
+    // verifyPartition 경로)를 테스트가 못 밟는다. 실제로 그 경로에 버그가 있었는데 테스트가 못 잡고 수동 검증에서 잡았다
     @Bean
-    fun kafka(): KafkaContainer = KafkaContainer("apache/kafka:3.9.2").apply { start() }
+    fun kafka(): KafkaContainer = KafkaContainer("apache/kafka:3.9.2").apply {
+        start()
+        AdminClient.create(mapOf("bootstrap.servers" to bootstrapServers)).use { admin ->
+            admin.createTopics(listOf(NewTopic("raw", 3, 1.toShort()), NewTopic("raw.dlq", 1, 1.toShort()))).all().get()
+        }
+    }
 
 
     // db/clickhouse 의 DDL(표 11개 · MV 7개)을 처음 켤 때 적용한다. 테스트 작업 디렉터리는 ingester 모듈이다.
