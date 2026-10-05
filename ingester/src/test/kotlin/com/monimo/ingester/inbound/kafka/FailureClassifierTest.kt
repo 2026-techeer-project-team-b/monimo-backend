@@ -24,6 +24,13 @@ class FailureClassifierTest : BehaviorSpec({
             }
         }
 
+        When("키가 traces · metrics · logs 어느 것도 아니라 RawSignal.fromKey 가 IllegalArgumentException 을 던지면") {
+            val failure = runCatching { com.monimo.common.kafka.RawSignal.fromKey("??") }.exceptionOrNull()!!
+            Then("독성이다 : 메시지 자체가 약속을 어겼다. 재시도 1분 쓰고 DLQ 로 가는 것보다 바로 가는 게 맞다") {
+                FailureClassifier.classify(failure) shouldBe FailureClass.POISON
+            }
+        }
+
         When("ClickHouse 에 닿지 못해 ConnectionInitiationException 이 나면") {
             val failure = ConnectionInitiationException("Insert request failed", UnknownHostException("clickhouse"))
             Then("일시 장애다 : 기다리면 된다") {

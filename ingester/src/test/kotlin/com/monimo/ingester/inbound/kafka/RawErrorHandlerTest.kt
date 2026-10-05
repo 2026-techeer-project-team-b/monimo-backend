@@ -27,7 +27,7 @@ import java.nio.ByteBuffer
 import java.time.Duration
 
 // 진짜 Kafka 로 "독성 메시지는 재시도 없이 raw.dlq 로 가고, 뒤가 막히지 않는다" 를 본다 (ADR #51).
-// 일시 장애(ClickHouse 정지 → 10분 대기 → 복구) 는 컨테이너를 멈춰야 해서 여기서 안 하고 가이드의 수동 확인 2번에서 본다.
+// 일시 장애(ClickHouse 정지 → 대기 → 복구) 는 컨테이너를 멈춰야 해서 여기서 안 한다. 그 기록은 ADR #51 「검증(2026-10-06, 로컬 compose)」 에 있다.
 @SpringBootTest
 @Import(TestInfraConfig::class)
 class RawErrorHandlerTest(
@@ -75,6 +75,7 @@ class RawErrorHandlerTest(
     }
 
     fun header(record: ConsumerRecord<*, *>, key: String): String? = record.headers().lastHeader(key)?.value()?.let { String(it) }
+    var awaitDlqSeen: ConsumerRecord<String, ByteArray>? = null // 첫 When 이 받은 DLQ 레코드. 둘째 When 이 되돌려 넣는다
 
     Given("에러 핸들러가 붙은 적재 처리기") {
 
@@ -86,6 +87,7 @@ class RawErrorHandlerTest(
             val before = dlqCounter.count(FailureClass.POISON)
             producer.send(ProducerRecord(RawSignal.TOPIC, 1, RawSignal.TRACES.key, poison)).get()
             val dlqRecord = awaitDlq()
+            awaitDlqSeen = dlqRecord // 다음 When(재처리 흉내)이 쓴다
 
             Then("재시도 없이 raw.dlq 로 간다") {
                 dlqRecord.shouldNotBeNull()
@@ -111,6 +113,22 @@ class RawErrorHandlerTest(
             }
 
             Then("DLQ 카운터가 poison 으로 1 오른다") {
+                dlqCounter.count(FailureClass.POISON) shouldBe before + 1
+            }
+        }
+
+        When("raw.dlq 에 들어간 레코드를 헤더째 raw 로 되돌려 넣으면 (재처리 잡이 할 일을 흉내)") {
+            // 재처리 잡은 범위 밖이지만, "DLQ 를 몇 번 거쳤나" 를 세는 헤더가 두 번째 통과에 2 가 되는지는 지금 고정해 둔다
+            val first = awaitDlqSeen.shouldNotBeNull()
+            val before = dlqCounter.count(FailureClass.POISON)
+            producer.send(ProducerRecord(RawSignal.TOPIC, 1, first.key(), first.value(), first.headers())).get()
+            val second = awaitDlq()
+
+            Then("x-dlq-attempt 가 2 가 되고, 같은 이름 헤더가 쌓이지 않고 하나만 남는다") {
+                second.shouldNotBeNull()
+                header(second, RawErrorHandlerConfig.HEADER_ATTEMPT) shouldBe "2"
+                second.headers().headers(RawErrorHandlerConfig.HEADER_ATTEMPT).count() shouldBe 1
+                second.headers().headers(RawErrorHandlerConfig.HEADER_REASON).count() shouldBe 1
                 dlqCounter.count(FailureClass.POISON) shouldBe before + 1
             }
         }

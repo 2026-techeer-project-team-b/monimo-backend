@@ -2,6 +2,7 @@ package com.monimo.ingester.inbound.kafka
 
 import com.clickhouse.client.api.ConnectionInitiationException // 서버에 닿지 못함 (DNS · 연결 거부 · 연결 타임아웃)
 import com.clickhouse.client.api.ServerException // 서버가 응답했고 거절함. getCode() 에 ClickHouse 에러코드
+import com.monimo.common.kafka.UnknownRawKeyException // 키가 traces · metrics · logs 어느 것도 아님
 import com.google.protobuf.InvalidProtocolBufferException // Kafka 에서 꺼낸 바이트가 protobuf 가 아님
 
 // 적재 실패 한 건이 세 종류 중 무엇인지 가른다 (ADR #51). 분류가 곧 "얼마나 기다리나" 를 정한다.
@@ -14,7 +15,7 @@ enum class FailureClass {
 // 예외를 받아 FailureClass 를 돌려준다. 상태가 없어 object 다.
 //
 // 분류를 "뒤집어" 둔 것이 핵심이다 (ADR #51 채택 ④):
-//   라이브러리(client-v2)는 "재시도해도 되는 코드 14개" 를 들고 있고 그 밖은 전부 false 를 준다.
+//   라이브러리(client-v2)는 "재시도해도 되는 코드 15개" 를 들고 있고 그 밖은 전부 false 를 준다.
 //   그걸 그대로 쓰면 모르는 코드가 전부 DLQ 로 가서, ClickHouse 가 새 장애 코드를 추가할 때마다 우리가 알아채서 목록을 고쳐야 한다.
 //   그래서 우리는 반대로 "DLQ 로 보낼 코드" 만 들고(POISON_CODES), 거기 없으면 재시도 쪽으로 보낸다.
 //   들어야 하는 목록이 "JSON 한 줄을 표에 꽂다가 틀리는 방식" 이라 짧고 잘 안 바뀐다.
@@ -40,6 +41,7 @@ object FailureClassifier {
         while (current != null && depth < MAX_DEPTH) { // 원인 사슬을 따라 내려간다. 순환 방지로 깊이를 제한
             when (current) {
                 is InvalidProtocolBufferException -> return FailureClass.POISON // 바이트가 protobuf 가 아니다
+                is UnknownRawKeyException -> return FailureClass.POISON // 키가 약속에 없다. 다시 넣어도 똑같다. IllegalArgumentException 전체가 아니라 이 타입만 (변환기의 다른 IAE 는 UNKNOWN 으로)
                 is ConnectionInitiationException -> return FailureClass.TRANSIENT // 서버에 닿지 못했다 (우리가 재현한 바로 그 예외)
                 is ServerException -> return classifyServer(current)
             }
@@ -53,7 +55,7 @@ object FailureClassifier {
     private fun classifyServer(e: ServerException): FailureClass = when {
         e.code in POISON_CODES -> FailureClass.POISON
         e.code in TRANSIENT_CODES -> FailureClass.TRANSIENT
-        e.isRetryable -> FailureClass.TRANSIENT // 라이브러리가 "재시도해도 됨" 이라 한 나머지 (3 · 107 · 164 · 202 · 203 · 209 · 210 · 241 · 242 · 252 · 285 · 425 · 999)
+        e.isRetryable -> FailureClass.TRANSIENT // 라이브러리가 "재시도해도 됨" 이라 한 나머지 14개 (3 · 107 · 159 · 164 · 202 · 203 · 209 · 210 · 241 · 242 · 252 · 285 · 425 · 999. 바이트코드 확인. 15개 중 319 는 위에서 먼저 잡힌다)
         else -> FailureClass.UNKNOWN // 모르는 코드. DLQ 가 아니라 재시도 쪽으로 (뒤집기)
     }
 

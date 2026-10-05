@@ -36,7 +36,23 @@
 - [x] **헤더가 붙는다** : compose 의 DLQ 레코드에서 `x-dlq-attempt:1` · `x-dlq-reason:poison` · `kafka_dlt-original-topic:raw` · `kafka_dlt-exception-fqcn:...ListenerExecutionFailedException` 확인. 테스트(`RawErrorHandlerTest`)도 같은 것을 단언
 - [x] **`raw` 파티션 1 에서 실패한 것도 `raw.dlq`(파티션 1개)에 들어간다** : DLQ 레코드 `Partition:0`, 원본 파티션 헤더 `1`. 로그 `Destination resolver returned non-existent partition raw.dlq-1, KafkaProducer will determine partition` = `verifyPartition` 이 번호를 비운 증거. **첫 구현은 이게 깨져 있었다**(아래)
 - [x] 뒤가 막히지 않는다 : 독성 다음에 넣은 정상 로그가 `consumed 0 → 1`. `check-pipeline.sh` 통과(traces 6 · metrics 3 · logs 3)
-- [x] 테스트 : `FailureClassifierTest` 11건 · `RawErrorHandlerTest` 6건(파티션 1 시나리오 포함) · 적재 처리기 전체 **104건** 통과
+- [x] 테스트 : `FailureClassifierTest` 12건 · `RawErrorHandlerTest` 7건(파티션 1 · 2차 통과 `x-dlq-attempt=2` 시나리오 포함) · `BackOffMappingTest` 7건(세 단 대응을 컨테이너 없이 고정) · 적재 처리기 전체 **113건** 통과
+
+### 코드 리뷰(만든 쪽과 다른 자리)에서 나온 것
+
+리뷰어가 spring-kafka 3.3.16 · client-v2 0.10.0 소스를 직접 열어 봤다. **물어본 설계 판단 다섯 개는 전부 맞다고 확인**(`setCommitRecovered` 안 켠 것 · BackOff 상태가 레코드별인 것 · 헤더가 덧붙여지는 것 · `failIfSendResultIsError` 가 전송 완료를 기다리는 것 · 스케줄러 충돌 없음). 그 위에 고친 것 :
+
+| 지적 | 한 것 |
+|---|---|
+| 라이브러리 화이트리스트가 14개가 아니라 **15개**(`159 TIMEOUT_EXCEEDED` 누락) | 바이트코드로 재확인. 주석 · ADR · 리서치 숫자 수정. 조사 B 의 오류로 등재 |
+| `RawSignal.fromKey` 의 예외가 UNKNOWN(1분, 컨테이너 전체 멈춤)으로 떨어짐 | `common` 에 `UnknownRawKeyException` 을 두고 그 타입만 POISON. `IllegalArgumentException` 전체를 잡으면 변환기 IAE 까지 걸린다는 지적대로 |
+| `check-pipeline.sh` 의 `${x:-0}` 가 `set -e` 때문에 **죽은 코드** | 두 함수 끝에 `\|\| true`. 가짜 주소로 돌려 `x=0` 확인. `#92` 의 `metric_value` 도 같은 결함이었다 |
+| `x-dlq-attempt` 가 재처리마다 **쌓인다** | `SingleRecordHeader` 로 교체. 테스트가 2차 통과에 값 `2` · 개수 `1` 을 단언 |
+| 컨테이너 테스트가 main 의 10분 · 1분을 그대로 써서 실패 하나가 **다음 스펙까지 멈춤** | 테스트 리소스에 2초 · 1초 |
+| `RawConsumerTest` 절대값 단정이 **스펙 순서 의존**이 됨 | `before + n` 상대값으로 |
+| 세 단 대응을 **아무 테스트도 안 고정** | `BackOffMappingTest` : POISON 은 첫 실패에 STOP · TRANSIENT 는 2 → 4 → 8 → 16 → 30 · UNKNOWN 은 60초 뒤 STOP · 인스턴스 비공유 |
+| `rootMessage` 에 깊이 제한 없음(A→B→A 순환이면 무한 루프) | `ROOT_MAX_DEPTH = 10` |
+| 틀린 주석 5곳 | "총 maxElapsed 까지" → 간격의 합이고 벽시계는 더 길다 · "가이드의 수동 확인" → ADR 검증 절 · 스케줄러 지뢰 한 줄 등 |
 
 ### 구현 중 잡은 버그 하나
 

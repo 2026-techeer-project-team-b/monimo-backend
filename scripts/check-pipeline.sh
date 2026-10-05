@@ -42,9 +42,10 @@ consumed() { counter "$INGESTER" monimo.ingester.raw.consumed "$1"; }
 # 버리는 자리가 둘이다: 헬스체크 거르기(#92)와 트레이스 샘플링(#46).
 # 두 지표에는 signal 태그가 없고 트레이스에만 해당하므로, traces 검사에서만 쓴다.
 # 거르기가 꺼져 있거나(목록이 빔) 샘플링이 1.0 이면 카운터가 없거나 0 이라 조회 실패를 0 으로 본다
+# 끝의 || true 가 없으면 set -e · pipefail 때문에 조회 실패가 스크립트 전체를 멈춰서, 부르는 쪽의 ${x:-0} 에 닿지 못한다
 metric_value() {
   curl -fs "http://$COLLECTOR/actuator/metrics/$1?tag=$2" 2>/dev/null \
-    | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 | cut -d. -f1
+    | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 | cut -d. -f1 || true
 }
 
 # 적재 처리기가 raw.dlq 로 보낸 메시지 수 (ADR #51). reason 태그(poison · transient · unknown)를 합친 총합.
@@ -53,7 +54,7 @@ metric_value() {
 # 대신 숫자가 안 맞을 때 "DLQ 에 N건 들어갔다" 고 원인을 말해 준다
 dlq_total() {
   curl -fs "http://$INGESTER/actuator/metrics/monimo.ingester.dlq" 2>/dev/null \
-    | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 | cut -d. -f1
+    | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 | cut -d. -f1 || true
 }
 dropped_total() {
   case "$1" in

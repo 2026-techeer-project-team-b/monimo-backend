@@ -52,8 +52,11 @@ class RawConsumerTest(
     )
     afterSpec { producer.close() } // 테스트 다 끝나면 닫기
 
-    // 소비는 다른 스레드에서 일어나므로 넣자마자 확인되지 않는다. 카운터가 목표만큼 오를 때까지 최대 10초 기다린다
-    fun awaitCount(signal: RawSignal, expected: Double) {
+    // 소비는 다른 스레드에서 일어나므로 넣자마자 확인되지 않는다. 카운터가 목표만큼 오를 때까지 최대 10초 기다린다.
+    // 절대값이 아니라 "보내기 전 값 + 늘어난 수" 로 본다 : 스프링 컨텍스트(= 카운터)가 다른 스펙(RawErrorHandlerTest)과 공유되어
+    // 그쪽이 먼저 돌면 절대값이 어긋난다
+    fun awaitDelta(signal: RawSignal, before: Double, delta: Double) {
+        val expected = before + delta
         val deadline = System.currentTimeMillis() + 10_000
         while (System.currentTimeMillis() < deadline && counter.count(signal) < expected) {
             Thread.sleep(200)
@@ -88,10 +91,11 @@ class RawConsumerTest(
                     ),
                 )
                 .build()
+            val before = counter.count(RawSignal.TRACES)
             sendToRaw(RawSignal.TRACES, request.toByteArray())
 
             Then("풀어서 스팬 2건으로 센다") {
-                awaitCount(RawSignal.TRACES, 2.0)
+                awaitDelta(RawSignal.TRACES, before, 2.0)
             }
         }
 
@@ -104,10 +108,11 @@ class RawConsumerTest(
                     ),
                 )
                 .build()
+            val before = counter.count(RawSignal.METRICS)
             sendToRaw(RawSignal.METRICS, request.toByteArray())
 
             Then("풀어서 메트릭 1건으로 센다") {
-                awaitCount(RawSignal.METRICS, 1.0)
+                awaitDelta(RawSignal.METRICS, before, 1.0)
             }
         }
 
@@ -122,10 +127,11 @@ class RawConsumerTest(
                     ),
                 )
                 .build()
+            val before = counter.count(RawSignal.LOGS)
             sendToRaw(RawSignal.LOGS, request.toByteArray())
 
             Then("풀어서 로그 레코드 3건으로 센다") {
-                awaitCount(RawSignal.LOGS, 3.0)
+                awaitDelta(RawSignal.LOGS, before, 3.0)
             }
         }
     }

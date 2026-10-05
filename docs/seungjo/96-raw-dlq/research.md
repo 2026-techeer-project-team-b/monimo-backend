@@ -392,7 +392,7 @@ ADR `#34` 가 "파싱 실패 · CH 거절 · 스키마 위반을 `raw.dlq` 로" 
 | `TransportException` | SSL 문제 | false | 설정 오류 |
 | `ClientException` · `ClientMisconfigurationException` | 클라이언트 코드 · 설정 | false | 재시도 무의미 |
 
-`ServerException.discoverIsRetryable()` 이 재시도 대상 코드를 이미 들고 있다 : `3` · `107` · `164` · `202` · `203` · `209` · `210` · `241` · `242` · `252` · `285` · `319` · `425` · `999` → `true`, **그 외 전부 false.** 권장은 `if (e.isRetryable()) 재시도 else DLQ` 이고 **이 목록을 다시 구현하지 말라**는 것이다.
+`ServerException.discoverIsRetryable()` 이 재시도 대상 코드를 이미 들고 있다 : `3` · `107` · `159` · `164` · `202` · `203` · `209` · `210` · `241` · `242` · `252` · `285` · `319` · `425` · `999` **(15개, 바이트코드 확인)** → `true`, **그 외 전부 false.** 권장은 `if (e.isRetryable()) 재시도 else DLQ` 이고 **이 목록을 다시 구현하지 말라**는 것이다.
 
 JSONEachRow insert 에서 실제로 자주 보는 거절 코드 : `117` INCORRECT_DATA · `27` CANNOT_PARSE_INPUT_ASSERTION_FAILED · `53` TYPE_MISMATCH · `41` CANNOT_PARSE_DATETIME · `72` CANNOT_PARSE_NUMBER. 우리 `spans` 의 `events` Nested 배열 세 개(`events.ts` · `events.name` · `events.attributes`) 길이가 어긋나면 `27` 이 날 자리다.
 
@@ -508,6 +508,8 @@ Caused by: java.net.UnknownHostException: clickhouse
 - 조사 A 가 "기본 리졸버는 원본 파티션을 그대로 쓰므로 DLQ 파티션이 적으면 **실패한다**" 고 경고했다. 반은 맞지만 **`verifyPartition` 기본값이 `true` 라 실제로는 막아 준다.** 바이트코드(`iconst_1`)로 확인
 - 조사 A 가 `FailedRecordProcessor.setMaxRecoveryFailures` 함정을 "반드시 의식해야 한다" 고 했는데 **우리 spring-kafka 3.3.16 에 없는 API** 였다. A 도 "미확인" 으로 표시해 둔 항목
 - 조사 A 의 `ConsumerHealthIndicator` 코드는 **A 가 조합한 것**이고 출처 원문이 아니다. API 존재만 확인됐다
+- **조사 B** 가 라이브러리 화이트리스트를 **14개**라 했고 `159 TIMEOUT_EXCEEDED` 를 "재시도도 DLQ 도 아닌 설정 · 쿼리 문제" 로 분류했다. **코드 리뷰어가 바이트코드로 15개임을 짚었고 내가 다시 확인했다** : `discoverIsRetryable` 의 switch 케이스가 `3 107 159 164 202 203 209 210 241 242 252 285 319 425 999`. 동작에는 영향 없었다(`isRetryable()` 을 그대로 쓰므로 `159` 도 재시도 쪽으로 간다). 주석 · 문서의 숫자만 틀려 있었다. **같은 목록을 세 사람(조사 · 나 · 리뷰어)이 봤는데 세 번째에야 맞았다**
+- **나(메인 대화)** 가 쓴 코드 주석 5곳이 코드와 다른 말을 했다(리뷰가 잡음) : "총 maxElapsed 까지"(간격의 합이고 벽시계는 더 길다) · "조회 실패를 0 으로 본다"(`set -e` 로 종료였다) · "가이드의 수동 확인 2번"(레포 밖 파일을 가리켰다) 등. 그리고 `IllegalArgumentException` 을 통째로 POISON 으로 잡으려 했는데 변환기 IAE 까지 걸린다는 지적을 받아 `common` 에 전용 예외를 뒀다
 - **나(메인 대화)** 가 결정 프롬프트 초안을 다듬으며 되돌림 ③ 에 "pause 가 **파티션 단위로** 동작해서" 라고 썼다. **거꾸로다.** `FailedRecordTracker` 는 컨테이너 변형 `onNextBackOff(container, Exception, long)` 을 부르고, 그게 `pause(컨테이너, Duration)` 으로 이어져 **컨테이너 전체가 멈춘다**(바이트코드 확인, 구현 직전). 결론(`pausePartition` 으로 좁힌다)은 맞아서 ADR `#51` 에 정정 줄을 달았다
 - **나(메인 대화)** 가 "`verifyPartition` 기본값 `true` 가 `raw`(3) → `raw.dlq`(1) 어긋남을 막아 준다" 고 했고 그건 맞았지만, **내가 쓴 래퍼가 그 검사를 꺼 버렸다.** 카운터를 세려고 `ConsumerRecordRecoverer { record, failure -> dlq.accept(record, failure) }` 로 감쌌는데, 파티션 검사는 `consumer` 를 받는 **세 인자 판**에서만 돈다. 두 인자 판은 `consumer = null` 을 넘겨 검사를 건너뛴다. 결과 : `raw` 파티션 1 의 독성 메시지가 `raw.dlq` 파티션 1(없음)로 가려다 `TimeoutException: Partition 1 of topic raw.dlq with partition count 1 is not present` → `failIfSendResultIsError` 가 세움 → **그 레코드에서 영원히 멈춤.** 컨테이너 테스트(5건 통과)는 **못 잡았다** : 테스트 Kafka 의 `raw` 가 자동 생성되어 파티션 1개라 어긋남이 없었다. compose(`raw` 3개)에서 키 `logs` 로 수동 검증하다 `lag=1` 로 잡았다. 고친 것 : `ConsumerAwareRecordRecoverer` 로 바꿔 `consumer` 를 넘기고, `TestInfraConfig` 가 토픽을 compose 와 같게(`raw` 3 · `raw.dlq` 1) 미리 만들고, 테스트가 파티션 1 로 보내 원본 파티션 헤더 `1` · 목적지 파티션 `0` 을 확인한다. **테스트 토폴로지가 실제와 다르면 통과한 테스트가 거짓 안심을 준다**
 
@@ -614,7 +616,7 @@ Caused by: java.net.UnknownHostException: clickhouse
 
 > 라이브러리 = **`com.clickhouse:client-v2`.** ClickHouse 를 만든 회사가 직접 만든 자바 라이브러리고, 우리가 적재에 쓴다.
 >
-> 화이트리스트 = 그 안에 하드코딩된 **"이 에러코드들은 재시도해도 된다" 는 목록**(`ServerException.discoverIsRetryable()`, 14개). ClickHouse 에러코드가 1000개가 넘어 우리가 다 분류할 수 없으니 라이브러리가 골라 준 것이고, `e.isRetryable()` 만 부르면 된다.
+> 화이트리스트 = 그 안에 하드코딩된 **"이 에러코드들은 재시도해도 된다" 는 목록**(`ServerException.discoverIsRetryable()`, 15개). ClickHouse 에러코드가 1000개가 넘어 우리가 다 분류할 수 없으니 라이브러리가 골라 준 것이고, `e.isRetryable()` 만 부르면 된다.
 >
 > **문제는 그 목록이 우리 상황을 다 반영하지 못한다는 것이다** : `319` 는 들어 있는데 들어가면 안 되고, `243` 은 빠져 있는데 들어가야 한다.
 

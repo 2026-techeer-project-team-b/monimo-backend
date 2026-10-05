@@ -72,7 +72,7 @@ C · D · E 의 "유실 없음" 은 **`raw` 보관 7일 안에 복구했을 때*
 | 리밸런스 | : | **0건** (pause 라 `poll` 이 계속 돈다) |
 | 독성 메시지(`0x0F`, 키 `logs` = 파티션 1) | 10번 재시도 뒤 버림 | **재시도 없이** `raw.dlq` 파티션 0 으로. 헤더 `x-dlq-attempt:1` · `x-dlq-reason:poison` · `kafka_dlt-original-topic:raw` |
 | 독성 뒤의 정상 메시지 | : | 막히지 않고 `consumed 0 → 1` |
-| 테스트 | 87건 | **104건** (분류기 11 · 에러 핸들러 6 포함) |
+| 테스트 | 87건 | **113건** (분류기 12 · 에러 핸들러 7 · BackOff 대응 7 포함) |
 | `check-pipeline.sh` | 통과 | 통과 (traces 6 · metrics 3 · logs 3) |
 
 - **라이브러리 jar 직접 확인 17건** : `isRetryable()` public · `retryOnFailures` 가 DNS 실패를 대상에 안 넣음 · 기본 접미사 `-dlt` · `verifyPartition` 기본 `true`(바이트코드) · `setMaxRecoveryFailures` 3.3.16 에 없음 · `setBackOffFunction` 존재 · `Consumer.pause/resume` 가 `poll` 과 별개 · pause 가 **컨테이너 단위** · `verifyPartition` 은 **세 인자 `accept` 에서만** 돈다 등 ([`research.md`](research.md) 5.7)

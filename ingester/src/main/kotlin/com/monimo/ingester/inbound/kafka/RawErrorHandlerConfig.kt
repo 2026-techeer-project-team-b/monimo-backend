@@ -2,6 +2,7 @@ package com.monimo.ingester.inbound.kafka
 
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.header.internals.RecordHeaders
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer.SingleRecordHeader // 같은 이름 헤더를 쌓지 않고 바꿔 치운다
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -38,7 +39,9 @@ import java.time.Duration
 class RawErrorHandlerConfig {
 
     // pause 를 풀어 주는 타이머. Boot 는 @EnableScheduling 이 없으면 TaskScheduler 를 안 만들어 줘서 직접 둔다.
-    // pause/resume 예약만 하므로 스레드 하나로 충분하다
+    // pause/resume 예약만 하므로 스레드 하나로 충분하다.
+    // 주의 : 나중에 이 모듈에 @Scheduled 가 들어오면 Boot 의 taskScheduler 가 이 빈을 보고 물러나서(@ConditionalOnMissingBean)
+    // 모든 @Scheduled 가 이 1스레드 풀에서 돌고 spring.task.scheduling.* 가 무시된다. 그때는 @Bean(defaultCandidate = false) 를 붙인다
     @Bean
     fun pauseScheduler(): ThreadPoolTaskScheduler = ThreadPoolTaskScheduler().apply {
         poolSize = 1
@@ -71,11 +74,13 @@ class RawErrorHandlerConfig {
         //   x-dlq-attempt : 이 레코드가 DLQ 를 몇 번 거쳤나. 재처리 잡(범위 밖)이 "N번 넘으면 포기" 를 판단할 때 쓴다.
         //                   자동 헤더(kafka_dlt-exception-*)는 stripPreviousExceptionHeaders 기본값 때문에 매번 덮어써져 카운터로 못 쓴다
         //   x-dlq-reason  : 어느 분류로 왔나 (poison · transient · unknown). 재처리 잡이 독성은 건너뛰게
+        // SingleRecordHeader 로 주는 이유 : 보통 헤더는 원본 복사본에 add 만 되어 재처리 N번이면 N개가 쌓인다.
+        // SingleRecordHeader 는 같은 이름을 remove 한 뒤 add 하므로 항상 하나만 남는다 (읽는 쪽은 lastHeader 라 어느 쪽이든 맞지만, 쌓이지 않게)
         dlq.setHeadersFunction { record, failure ->
             val attempt = record.headers().lastHeader(HEADER_ATTEMPT)?.value()?.let { String(it).toIntOrNull() } ?: 0
             RecordHeaders().apply {
-                add(HEADER_ATTEMPT, (attempt + 1).toString().toByteArray())
-                add(HEADER_REASON, FailureClassifier.classify(failure).name.lowercase().toByteArray())
+                add(SingleRecordHeader(HEADER_ATTEMPT, (attempt + 1).toString().toByteArray()))
+                add(SingleRecordHeader(HEADER_REASON, FailureClassifier.classify(failure).name.lowercase().toByteArray()))
             }
         }
 
@@ -96,38 +101,44 @@ class RawErrorHandlerConfig {
         }
 
         // 세 번째 인자가 pause 방식. 안 주면 기본 핸들러가 스레드를 재워 5분 천장에 걸린다
-        return DefaultErrorHandler(recoverer, exponential(properties, properties.unknownMaxElapsed), ContainerPausingBackOffHandler(pauseService)).apply {
+        return DefaultErrorHandler(recoverer, backOffFor(FailureClass.UNKNOWN, properties), ContainerPausingBackOffHandler(pauseService)).apply {
             // 예외마다 다른 대기 규칙. 분류가 여기서 "얼마나 기다리나" 로 바뀐다.
-            // 데이터 오류와 서버 과부하가 같은 타입(ServerException)이고 코드만 달라서, 타입으로 가르는 addNotRetryableExceptions 는 못 쓴다
-            setBackOffFunction { _, failure ->
-                when (FailureClassifier.classify(failure)) {
-                    FailureClass.POISON -> NO_RETRY // 재시도 0회 = 바로 복구 담당(DLQ)
-                    FailureClass.TRANSIENT -> exponential(properties, properties.transientMaxElapsed) // 10분
-                    FailureClass.UNKNOWN -> exponential(properties, properties.unknownMaxElapsed) // 1분
-                }
-            }
+            // 데이터 오류와 서버 과부하가 같은 타입(ServerException)이고 코드만 달라서, 타입으로 가르는 addNotRetryableExceptions 는 못 쓴다.
+            // 이 함수는 레코드의 첫 실패 때(와 예외 타입이 바뀔 때)만 불리고, 돌려준 BackOff 의 예산은 그 레코드(오프셋)에만 묶인다
+            setBackOffFunction { _, failure -> backOffFor(FailureClassifier.classify(failure), properties) }
         }
-    }
-
-    // 2초 → 4초 → 8초 → 16초 → 30초 → 30초 ... 총 maxElapsed 까지. FailedRecordTracker 가 레코드(오프셋)마다 따로 세므로
-    // ClickHouse 가 1시간 죽어 있어도 DLQ 로 가는 것은 10분에 한 건씩이다 (홍수가 아니다)
-    private fun exponential(p: RetryProperties, maxElapsed: Duration): BackOff =
-        ExponentialBackOff(p.initialInterval.toMillis(), p.multiplier).apply {
-            maxInterval = p.maxInterval.toMillis()
-            maxElapsedTime = maxElapsed.toMillis()
-        }
-
-    // 로그용. 원인 사슬의 맨 안쪽 메시지 (예: "clickhouse" 라는 UnknownHostException 메시지)
-    private fun rootMessage(t: Throwable): String? {
-        var cur = t
-        while (cur.cause != null && cur.cause !== cur) cur = cur.cause!!
-        return cur.message ?: cur::class.simpleName
     }
 
     companion object {
         const val HEADER_ATTEMPT = "x-dlq-attempt"
         const val HEADER_REASON = "x-dlq-reason"
-        private val NO_RETRY: BackOff = FixedBackOff(0L, 0L) // maxAttempts 0 = 첫 실패에 바로 STOP
+        private val NO_RETRY: BackOff = FixedBackOff(0L, 0L) // maxAttempts 0 = 첫 실패에 바로 STOP. 상태는 start() 가 만드는 실행 객체에 있어 공유해도 된다
         private val log = LoggerFactory.getLogger(RawErrorHandlerConfig::class.java)
+
+        // 분류 → 대기 규칙. 빈 밖으로 꺼내 둔 이유 : 컨테이너 없이 이 대응을 테스트로 고정한다 (BackOffMappingTest)
+        fun backOffFor(reason: FailureClass, p: RetryProperties): BackOff = when (reason) {
+            FailureClass.POISON -> NO_RETRY // 재시도 0회 = 바로 복구 담당(DLQ)
+            FailureClass.TRANSIENT -> exponential(p, p.transientMaxElapsed) // 10분
+            FailureClass.UNKNOWN -> exponential(p, p.unknownMaxElapsed) // 1분
+        }
+
+        // 2초 → 4초 → 8초 → 16초 → 30초 → 30초 ... 대기 간격의 합이 maxElapsed 에 닿으면 멈춘다.
+        // 벽시계로는 그보다 길다 : 매 시도에서 ClickHouse 가 실패를 돌려주는 시간(연결 타임아웃 등)이 더해진다. 안전한 쪽으로 치우친 것이다.
+        // FailedRecordTracker 가 레코드(오프셋)마다 따로 세므로 ClickHouse 가 1시간 죽어 있어도 DLQ 로 가는 것은 10분에 한 건씩이다 (홍수가 아니다)
+        private fun exponential(p: RetryProperties, maxElapsed: Duration): BackOff =
+            ExponentialBackOff(p.initialInterval.toMillis(), p.multiplier).apply {
+                maxInterval = p.maxInterval.toMillis()
+                maxElapsedTime = maxElapsed.toMillis()
+            }
+
+        // 로그용. 원인 사슬의 맨 안쪽 메시지 (예: "clickhouse" 라는 UnknownHostException 메시지).
+        // 깊이를 제한한다 : A→B→A 처럼 두 예외가 서로를 원인으로 가리키면 자기참조 검사만으로는 무한 루프다. DLQ 로그를 찍는 자리라 제일 나쁜 자리다
+        private fun rootMessage(t: Throwable): String? {
+            var cur = t
+            var depth = 0
+            while (cur.cause != null && cur.cause !== cur && depth < ROOT_MAX_DEPTH) { cur = cur.cause!!; depth++ }
+            return cur.message ?: cur::class.simpleName
+        }
+        private const val ROOT_MAX_DEPTH = 10
     }
 }
