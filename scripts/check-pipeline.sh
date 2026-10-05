@@ -46,6 +46,15 @@ metric_value() {
   curl -fs "http://$COLLECTOR/actuator/metrics/$1?tag=$2" 2>/dev/null \
     | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 | cut -d. -f1
 }
+
+# 적재 처리기가 raw.dlq 로 보낸 메시지 수 (ADR #51). reason 태그(poison · transient · unknown)를 합친 총합.
+# DLQ 로 간 것은 소비 카운터에 안 오르므로 수신 ≠ 소비 가 된다. #92 의 "버린 수" 와 달리 여기서 빼서 맞추지 않는다 :
+# 헬스체크는 의도해서 버린 것이지만 DLQ 는 의도하지 않은 실패라, 숫자를 맞추면 실패를 숨기는 꼴이 된다.
+# 대신 숫자가 안 맞을 때 "DLQ 에 N건 들어갔다" 고 원인을 말해 준다
+dlq_total() {
+  curl -fs "http://$INGESTER/actuator/metrics/monimo.ingester.dlq" 2>/dev/null \
+    | grep -o '"value":[0-9.]*' | head -1 | cut -d: -f2 | cut -d. -f1
+}
 dropped_total() {
   case "$1" in
     traces)
@@ -69,6 +78,7 @@ for signal in traces metrics logs; do
   before_in=$(received "$signal")  || fail "수집기 카운터($signal) 조회 실패: http://$COLLECTOR/actuator/metrics"
   before_out=$(consumed "$signal") || fail "적재 처리기 카운터($signal) 조회 실패: http://$INGESTER/actuator/metrics"
   before_dropped=$(dropped_total "$signal")
+  before_dlq=$(dlq_total); before_dlq=${before_dlq:-0}
   table=$(table_of "$signal")
   if [ -n "$table" ]; then
     before_rows=$(rows "$table") || fail "ClickHouse $table 조회 실패 (docker compose ps clickhouse)"
@@ -98,8 +108,13 @@ for signal in traces metrics logs; do
   [ "$received_delta" -gt 0 ] || fail "$signal 을 보냈지만 수집기가 못 받았다 ($before_in -> $cur_in)"
   [ "$sent" -gt 0 ] \
     || fail "$signal 을 보냈지만 수집기가 전부 버렸다 (받은 수 $received_delta · 버린 수 $dropped_delta). MONIMO_COLLECTOR_HEALTH_CHECK_PATHS 와 MONIMO_COLLECTOR_SAMPLING_RATIO 를 확인하라"
-  [ "$got" -eq "$sent" ] \
-    || fail "$signal 이 중간에서 끊겼다: 수집기가 ${sent}건 넘겼는데(받은 수 $received_delta · 버린 수 $dropped_delta) 적재 처리기는 ${got}건만 풀었다 (${WAIT_SECONDS}초 대기). Kafka 토픽 raw 와 적재 처리기 로그를 확인하라"
+  if [ "$got" -ne "$sent" ]; then
+    cur_dlq=$(dlq_total); cur_dlq=${cur_dlq:-0}
+    dlq_delta=$((cur_dlq - before_dlq))
+    [ "$dlq_delta" -gt 0 ] \
+      && fail "$signal 중 ${dlq_delta}건이 적재에 실패해 raw.dlq 로 갔다 (수집기가 ${sent}건 넘김 · 적재 처리기는 ${got}건 풂). 숫자를 맞추지 않는다 : DLQ 는 실패다. 적재 처리기 로그의 'raw-N@M → raw.dlq (reason=...)' 줄과 FailureClassifier 의 분류를 확인하라"
+    fail "$signal 이 중간에서 끊겼다: 수집기가 ${sent}건 넘겼는데(받은 수 $received_delta · 버린 수 $dropped_delta) 적재 처리기는 ${got}건만 풀었다 (${WAIT_SECONDS}초 대기). raw.dlq 에도 안 갔다. Kafka 토픽 raw 와 적재 처리기 로그를 확인하라"
+  fi
 
   # 적재할 표가 없는 신호는 여기서 끝
   if [ -z "$table" ]; then

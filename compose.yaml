@@ -215,6 +215,9 @@ services:
       CLICKHOUSE_HTTP_PORT: "8123"
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-monimo}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 적재 실패 때 버티는 시간 (ADR #51). 기본값은 application.yml(10m · 1m). 빈 값이면 기본값으로 돌아간다
+      MONIMO_INGESTER_RETRY_TRANSIENT_MAX_ELAPSED: ${INGESTER_RETRY_TRANSIENT_MAX_ELAPSED:-10m}
+      MONIMO_INGESTER_RETRY_UNKNOWN_MAX_ELAPSED: ${INGESTER_RETRY_UNKNOWN_MAX_ELAPSED:-1m}
     depends_on:
       infra-ready:
         condition: service_healthy
