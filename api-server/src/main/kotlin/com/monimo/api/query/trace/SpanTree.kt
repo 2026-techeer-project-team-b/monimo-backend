@@ -2,18 +2,14 @@ package com.monimo.api.query.trace
 
 import com.monimo.api.query.trace.dto.SpanEventResponse
 import com.monimo.api.query.trace.dto.SpanResponse
+import com.monimo.api.query.support.NanoTime
 import com.monimo.api.query.trace.dto.TraceResponse
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 
 // 평면 스팬 목록을 부모-자식 트리로 조립한다. ClickHouse 에는 트리 조회가 없어 서버 코드에서 쌓는다
 object SpanTree {
 
     // 부모 스팬이 없는 스팬이 2개 이상일 때 루트로 세우는 자리. 실제 스팬이 아니라 span_id 가 비어 있다 (#50 B안)
     const val MISSING_SPAN_NAME = "(누락된 구간)"
-
-    private val TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS'Z'").withZone(ZoneOffset.UTC)
 
     fun assemble(traceId: String, records: List<SpanRecord>): TraceResponse {
         require(records.isNotEmpty()) { "스팬이 없는 트레이스는 조립할 수 없다" }
@@ -75,6 +71,5 @@ object SpanTree {
         children = children,
     )
 
-    fun format(epochNanos: Long): String =
-        TIME_FORMAT.format(Instant.ofEpochSecond(0, epochNanos))
+    fun format(epochNanos: Long): String = NanoTime.format(epochNanos)
 }
