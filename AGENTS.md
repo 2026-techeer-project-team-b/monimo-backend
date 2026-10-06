@@ -137,6 +137,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#104`** 내부 문 `GET /internal/agents/active`. `spans` · `metrics_raw` 에서 파드별 가장 최근 시각을 뽑아 더 최근 쪽을 `last_signal_at` · `source` 로 준다. 파드당 한 줄, `agent_id` 가 빈 데이터는 뺀다. 탐지 AGENT_DOWN(`#100`)이 읽는다
 - **`#106`** 에러 목록 `GET /errors`. `spans` 의 `status_code = ERROR` 스팬을 시간 역순 · 커서 페이징으로. 예외 type · message 는 이름이 `exception` 인 첫 이벤트에서 꺼낸다. `service_name` 이 등록된 서비스가 아니면 404 — 확인은 `query/support/MonitoredServices` 가 하고 다른 조회 API 도 같이 쓴다
 - **`#108`** 에러 타임라인 `GET /errors/timeline`. 에러 목록(`#106`)과 같은 스팬을 `step` 칸 × 상태코드 대역(5xx · 4xx · other) × 예외 타입으로 센다. 합계가 목록 줄 수와 같다. `step` 은 60 이상 · 60의 배수, 0건 칸은 행 없음
+- **`#110`** 스캐터 `GET /traces/scatter`. `transactions` 의 요청을 점으로. 요청 수가 `limit`(기본 5000) 이하면 전부(`raw`), 넘으면 (시간 × 응답시간(로그 간격) × 성공/실패) 격자마다 가장 느린 실제 요청 하나를 대표로(`bucketed`) — 점 모양이 같아 눌러서 트레이스 상세로 간다
 
 ## 6. 지금 막혀 있는 것
 
@@ -152,6 +153,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | `#52` 머지 후 ~ `#67` 머지 전에 만든 로컬 DB 는 `postgres-migrate` 가 `checksum mismatch` 로 멈춘다 | 해당하는 사람 각자 | `docker compose run --rm postgres-migrate repair` 를 한 번 돌리면 풀린다. 주석만 바뀐 것이라 표 구조는 같다. 그 전이나 그 후에 만든 DB 는 해당 없음 |
 | 헬스체크 probe 가 API 서버 · 수집기 · 적재 처리기에 아직 없다 | 인증 설정 · 수집 (규격은 재범 헬스체크 정리) | 탐지 · 알림은 켰다(`#81`). 경로는 `/healthz` · `/readyz` 가 아니라 `/actuator/health/liveness` · `/readiness`, 관리 포트 8081. 로컬에서는 8081 이 수집기 포트와 겹치므로 local 프로필은 서비스 포트를 그대로 쓴다(포트는 나중에 한 번에 정리). DB 가 응답하지 않으면 readiness 가 Hikari 연결 대기(기본 30초)만큼 걸리니 probe `timeoutSeconds` 를 정할 때 감안 |
 | 헬스체크가 쿼리 · HTTP 호출을 하게 되면 고아 스팬이 생긴다 | 수집 | `#92` 가 헬스체크 SERVER 스팬만 버리므로, 그 요청 안에 자식(CLIENT) 스팬이 생기면 부모 없이 남아 트레이스 상세에서 `(누락된 구간)` 아래에 매달린다. **지금은 안 생긴다** : 쇼핑몰 actuator 의 `db` 지표가 쿼리를 보내는 대신 `Connection.isValid()` 로 확인해서 OTel 이 스팬을 만들지 않는다(로컬 실데이터 헬스체크 트레이스 57개 = 스팬 57개, SERVER 아닌 것 0개). 뒤집히는 조건은 `spring.datasource.validation-query` 지정 · 헬스체크에 Redis · 외부 API 확인 추가 · gateway 의 `/health` 가 order 의 `/health` 를 확인. 그때 트레이스 단위 제거(trace_id 기억 = 버퍼 비용)와 호출자 표시(`traceparent sampled=0`) 중에서 고른다. 현재 동작("자식은 남는다")은 `HealthCheckFilterTest` 가 고정해 둔다. 남은 CLIENT 스팬은 트레이스 상세에서 `(누락된 구간)` 아래에 매달리는 것 말고도 `mv_server_map_1m`(CLIENT 전용)에 들어가 **서버맵에 헬스체크 발 DB · EXTERNAL 간선**을 만든다. `mv_transactions` 는 `parent_span_id = ''` 조건이라 히트맵은 영향 없다 |
+| 스캐터 · 트랜잭션 목록이 진입 서비스에서만 나온다 | 팀 (ERD · MV) | `transactions` 는 부모가 없는 루트 스팬만 모은다(`mv_transactions`). 그래서 요청이 처음 들어오는 서비스(seed 는 `shop-gateway`)만 점이 있고, 중간 서비스(`shop-order` · `shop-payment` 등)는 `GET /traces/scatter`(`#110`)가 0건이다. 서비스마다 보려면 MV 를 "그 서비스의 SERVER 스팬" 기준으로 바꾸거나 조회가 `spans` 를 직접 읽어야 한다 |
 
 **이 과정에서 정한 것**
 
@@ -177,6 +179,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 에러 목록(`#106`)은 종류(SERVER · CLIENT · INTERNAL)를 가리지 않고 `status_code = ERROR` 인 스팬을 전부 보여 준다. 그래서 다른 서비스를 부르다 실패한 요청은 받은 쪽(SERVER) · 부른 쪽(CLIENT) 두 줄로 나온다. 부른 쪽 스팬은 예외 이벤트가 없어 `exception_type` 이 `null` 인 경우가 많다
 
 - api-server 스프링 테스트는 설정이 같으면 ClickHouse · PG 컨테이너 하나를 같이 쓴다(`#108` 에서 서버맵 테스트가 다른 테스트의 서비스를 읽어 깨졌다). 조회 테스트는 **테스트마다 다른 서비스 이름 접두**(`map-` · `err-` · `tl-`)를 쓰고, 서비스 필터가 없는 API 는 자기 접두만 골라 검사한다
+
+- 스캐터 · 트랜잭션의 `is_error` 는 `true` / `false` 로 준다(`#110`). 명세 예시는 `0` / `1` 이었지만 화면(`monimo-web src/api/traces.ts`)이 boolean 으로 읽는다
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
