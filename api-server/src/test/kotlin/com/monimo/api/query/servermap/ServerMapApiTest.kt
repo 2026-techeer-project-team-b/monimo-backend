@@ -77,29 +77,35 @@ class ServerMapApiTest(
     }
 
     // 요청을 받은 쪽(SERVER) — 노드
-    span("shop-gateway", 1, "SERVER", 100)
-    span("shop-gateway", 2, "SERVER", 100, error = true)
-    span("shop-order", 3, "SERVER", 80)
-    span("shop-order", 4, "SERVER", 80, error = true)
-    span("shop-inventory", 5, "SERVER", 20)
+    span("map-gateway", 1, "SERVER", 100)
+    span("map-gateway", 2, "SERVER", 100, error = true)
+    span("map-order", 3, "SERVER", 80)
+    span("map-order", 4, "SERVER", 80, error = true)
+    span("map-inventory", 5, "SERVER", 20)
     // 부른 쪽(CLIENT) — 간선. gateway → order 는 두 분에 걸쳐 3번 (40 · 60 · 50ms, 에러 1)
-    span("shop-gateway", 6, "CLIENT", 40, peerService = "shop-order")
-    span("shop-gateway", 7, "CLIENT", 60, error = true, peerService = "shop-order")
-    span("shop-gateway", 61, "CLIENT", 50, peerService = "shop-order")
-    span("shop-order", 8, "CLIENT", 10, peerAddress = "mysql:3306", dbSystem = "mysql")
-    span("shop-order", 9, "CLIENT", 300, error = true, peerAddress = "pg.example.com:443")
-    span("shop-inventory", 10, "CLIENT", 5, peerAddress = "mysql:3306", dbSystem = "mysql")
+    span("map-gateway", 6, "CLIENT", 40, peerService = "map-order")
+    span("map-gateway", 7, "CLIENT", 60, error = true, peerService = "map-order")
+    span("map-gateway", 61, "CLIENT", 50, peerService = "map-order")
+    span("map-order", 8, "CLIENT", 10, peerAddress = "mysql:3306", dbSystem = "mysql")
+    span("map-order", 9, "CLIENT", 300, error = true, peerAddress = "pg.example.com:443")
+    span("map-inventory", 10, "CLIENT", 5, peerAddress = "mysql:3306", dbSystem = "mysql")
 
     val range = "from=$t0&to=${t0.plusSeconds(300)}"
+
+    // 테스트들이 ClickHouse 하나를 같이 써서 다른 테스트의 서비스가 섞일 수 있다. 이 테스트가 넣은 map-* 만 본다
+    fun own(data: JsonNode): JsonNode = objectMapper.createObjectNode().apply {
+        set<JsonNode>("nodes", objectMapper.valueToTree(data["nodes"].filter { it["service_name"].asText().startsWith("map-") }))
+        set<JsonNode>("edges", objectMapper.valueToTree(data["edges"].filter { it["caller_service"].asText().startsWith("map-") }))
+    }
 
     Given("화면이 서버맵을 열 때") {
         When("시간 범위만 주면") {
             val response = get(range)
-            val data = json(response)["data"]
+            val data = own(json(response)["data"])
 
             Then("요청을 받은 서비스가 이름 순으로 노드가 된다") {
                 response.statusCode.value() shouldBe 200
-                data["nodes"].map { it["service_name"].asText() } shouldBe listOf("shop-gateway", "shop-inventory", "shop-order")
+                data["nodes"].map { it["service_name"].asText() } shouldBe listOf("map-gateway", "map-inventory", "map-order")
                 val gateway = data["nodes"][0]
                 gateway["cnt"].asLong() shouldBe 2
                 gateway["err_cnt"].asLong() shouldBe 1
@@ -107,10 +113,10 @@ class ServerMapApiTest(
 
             Then("간선은 부른 쪽 → 불린 쪽 순서이고 callee_kind 로 서비스 · DB · 외부를 가른다") {
                 data["edges"].map { "${it["caller_service"].asText()}>${it["callee_service"].asText()}:${it["callee_kind"].asText()}" } shouldBe listOf(
-                    "shop-gateway>shop-order:SERVICE",
-                    "shop-inventory>mysql:3306:DB",
-                    "shop-order>mysql:3306:DB",
-                    "shop-order>pg.example.com:443:EXTERNAL",
+                    "map-gateway>map-order:SERVICE",
+                    "map-inventory>mysql:3306:DB",
+                    "map-order>mysql:3306:DB",
+                    "map-order>pg.example.com:443:EXTERNAL",
                 )
             }
 
@@ -123,15 +129,15 @@ class ServerMapApiTest(
         }
 
         When("service_name 을 주면") {
-            val data = json(get("$range&service_name=shop-order"))["data"]
+            val data = json(get("$range&service_name=map-order"))["data"]
 
             Then("그 서비스가 부르거나 불리는 간선과, 거기 나오는 서비스 노드만 온다") {
                 data["edges"].map { "${it["caller_service"].asText()}>${it["callee_service"].asText()}" } shouldBe listOf(
-                    "shop-gateway>shop-order",
-                    "shop-order>mysql:3306",
-                    "shop-order>pg.example.com:443",
+                    "map-gateway>map-order",
+                    "map-order>mysql:3306",
+                    "map-order>pg.example.com:443",
                 )
-                data["nodes"].map { it["service_name"].asText() } shouldBe listOf("shop-gateway", "shop-order")
+                data["nodes"].map { it["service_name"].asText() } shouldBe listOf("map-gateway", "map-order")
             }
         }
 
