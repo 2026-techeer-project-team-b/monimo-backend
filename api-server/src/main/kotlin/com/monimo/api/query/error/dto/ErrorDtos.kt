@@ -1,5 +1,7 @@
 package com.monimo.api.query.error.dto
 
+import java.time.Instant
+
 // 실패한 스팬 한 줄 (API 명세 #3). 스택트레이스는 싣지 않는다 — 트레이스 상세에서 본다
 data class ErrorSpanResponse(
     val traceId: String,
@@ -28,4 +30,17 @@ data class ErrorSearch(
 data class ErrorCursor(
     val ts: Long,
     val id: String,
+)
+
+// 시간대별 에러 건수 (API 명세 #36). 건수가 0인 칸은 series 에 없다
+data class ErrorTimelineResponse(
+    val step: Int,
+    val series: List<ErrorTimelinePoint>,
+)
+
+data class ErrorTimelinePoint(
+    val tsMin: Instant,
+    val httpStatusClass: String, // 5xx · 4xx · other(HTTP 가 아니거나 400 미만)
+    val exceptionType: String?, // 예외 이벤트가 없으면 null
+    val cnt: Long,
 )
