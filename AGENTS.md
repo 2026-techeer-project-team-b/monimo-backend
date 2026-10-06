@@ -134,6 +134,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#50`** 트레이스 상세 `GET /traces/{traceId}`. `trace_id` 로 `spans` 를 평면 조회해 서버 코드(`SpanTree`)에서 부모-자식 트리로 조립한다. 루트 `parent_span_id` · HTTP 아닌 스팬 `http_status` 는 `null`, 부모 스팬 없는 스팬이 2개 이상이면 "(누락된 구간)" 자리 아래 나란히 둔다. 같은 스팬이 두 번 적재돼도 한 번만 나온다
 - **`#77`** 서버맵 `GET /server-map`. 간선은 `server_map_1m` 을 `sum` 으로 다시 합치고(SummingMergeTree), 노드는 요청을 받은 서비스만 `service_health_1m` 에서. `service_name` 을 주면 그 서비스가 부르거나 불리는 간선과 거기 나오는 노드만
 - **`#104`** 내부 문 `GET /internal/agents/active`. `spans` · `metrics_raw` 에서 파드별 가장 최근 시각을 뽑아 더 최근 쪽을 `last_signal_at` · `source` 로 준다. 파드당 한 줄, `agent_id` 가 빈 데이터는 뺀다. 탐지 AGENT_DOWN(`#100`)이 읽는다
+- **`#106`** 에러 목록 `GET /errors`. `spans` 의 `status_code = ERROR` 스팬을 시간 역순 · 커서 페이징으로. 예외 type · message 는 이름이 `exception` 인 첫 이벤트에서 꺼낸다. `service_name` 이 등록된 서비스가 아니면 404 — 확인은 `query/support/MonitoredServices` 가 하고 다른 조회 API 도 같이 쓴다
 
 ## 6. 지금 막혀 있는 것
 
@@ -144,7 +145,6 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | `agents.ip` 가 비어 있다 | 수집 | 등록은 시작됐지만(`#66`) `ip` 는 못 채운다. ERD 는 수집기가 gRPC 연결 통로에서 알아내 메시지에 붙이고 적재 처리기가 적는 것으로 정했는데, 수집기 쪽 코드가 없다. 파드 이름이 비슷할 때 구분하는 단서라 화면에만 영향 |
 | 카나리 조회 문이 없다 | 조회 · 파수꾼 | 적재가 표식을 `attributes['monimo.canary']` 로 남기기 시작했다(`#58`). `GET /internal/canary/freshness` 를 `mapContains(attributes, 'monimo.canary')` 기준으로 만들면 된다. 명세의 `service_name=canary-probe` 기준은 0건이 나오므로 고쳐야 한다 |
 | 가짜 데이터와 실데이터의 메트릭 모양이 다르다 | 조회 · 알림 | 가짜 데이터(`db/clickhouse/seed`)는 `jvm.gc.duration` 을 한 값으로 넣지만, 실데이터는 OTel 히스토그램이라 `jvm.gc.duration.count` · `.sum` · `.min` · `.max` 네 이름으로 들어온다(`#64`). GC_TIME 경보와 인스펙터 GC 그래프는 `.sum` 기준으로 짜야 한다. `series_hash` 도 가짜(`cityHash64`)와 실데이터(SHA-256 앞 8바이트)가 다른 식이지만 같은 지표 안에서 갈래를 나누는 용도라 섞이지 않으면 문제 없다 |
-| `service-health` 의 `step` 규칙이 노션 명세와 다르다 | 조회 | 레포 사본(`api-spec.md` 2번)은 `step≥60 · 60의 배수` 로 고쳤다(`#50`). 노션 「API 명세」 반영만 남았다 |
 | 재발급 토큰이 명세는 본문, 코드는 쿠키 | 인증 설정 | 명세대로 만든 화면이 재발급에서 401 을 받는다 |
 | 에이전트 mTLS 인증이 없다 | 수집 | OTLP 문이 평문이라 4317 에 닿는 누구나 가짜 스팬을 넣을 수 있고, 카나리 표식을 붙이면 샘플링까지 우회한다 (ADR `#21` ④ 가 기각 사유로 적은 상태) |
 | `#52` 머지 후 ~ `#67` 머지 전에 만든 로컬 DB 는 `postgres-migrate` 가 `checksum mismatch` 로 멈춘다 | 해당하는 사람 각자 | `docker compose run --rm postgres-migrate repair` 를 한 번 돌리면 풀린다. 주석만 바뀐 것이라 표 구조는 같다. 그 전이나 그 후에 만든 DB 는 해당 없음 |
@@ -170,6 +170,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 서버맵 `err_cnt`(`#77`): 간선은 부른 쪽(CLIENT) 스팬이라 OTel 규칙상 4xx 도 에러로 세고, 노드는 받은 쪽(SERVER) 스팬이라 5xx 만 센다. 그래서 같은 호출이라도 간선 에러 수가 노드보다 클 수 있다(seed 1시간: gateway → order 간선 942 · order 노드 745). 버그가 아니라 계측 규칙이다
 
 - `agents/active` 계약(`#104`, 알림 파트와 2026-10-04 합의): 응답은 명세 4필드 그대로. 응답에 없는 파드 = 구간에 데이터를 하나도 안 보낸 파드. 정상 종료와 크래시는 CH 에서 구분되지 않아(OTel 에이전트가 종료 신호를 보내지 않는다) 필드를 더하지 않는다. `logs` 는 보지 않는다. 파이프라인(수집 · 적재)이 멈추면 모든 파드가 응답에서 빠진다
+
+- 에러 목록(`#106`)은 종류(SERVER · CLIENT · INTERNAL)를 가리지 않고 `status_code = ERROR` 인 스팬을 전부 보여 준다. 그래서 다른 서비스를 부르다 실패한 요청은 받은 쪽(SERVER) · 부른 쪽(CLIENT) 두 줄로 나온다. 부른 쪽 스팬은 예외 이벤트가 없어 `exception_type` 이 `null` 인 경우가 많다
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
