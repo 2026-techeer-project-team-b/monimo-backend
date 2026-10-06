@@ -3,9 +3,11 @@ package com.monimo.api.query.error
 import com.monimo.api.common.web.TimeRange
 import com.monimo.api.query.error.dto.ErrorCursor
 import com.monimo.api.query.error.dto.ErrorSearch
+import com.monimo.api.query.error.dto.ErrorTimelinePoint
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Repository
+import java.time.Instant
 
 // spans 에서 실패한(status_code = ERROR) 스팬을 시간 역순으로 읽는다. 예외는 이름이 exception 인 첫 이벤트에서 꺼낸다
 @Repository
@@ -73,6 +75,39 @@ class ErrorRepository(
                 httpStatus = rs.getInt("http_status").takeIf { it != 0 },
                 exceptionType = rs.getString("ex_type").ifEmpty { null },
                 exceptionMessage = rs.getString("ex_message").ifEmpty { null },
+            )
+        }
+    }
+
+    // 목록(find)과 같은 스팬을 step 칸 × 상태코드 대역 × 예외 타입으로 센다. 중복 적재된 스팬은 한 번만 센다
+    fun timeline(serviceName: String, range: TimeRange, step: Int): List<ErrorTimelinePoint> {
+        val sql = """
+            WITH arrayFirstIndex(n -> n = 'exception', events.name)    AS ex_idx,
+                 events.attributes[ex_idx]['exception.type']            AS ex_type
+            SELECT
+                intDiv(toUnixTimestamp(start_time), :step) * :step                          AS bucket,
+                multiIf(http_status >= 500, '5xx', http_status >= 400, '4xx', 'other')      AS status_class,
+                ex_type,
+                uniqExact(trace_id, span_id)                                                AS error_cnt
+            FROM spans
+            WHERE service_name = :serviceName
+              AND status_code = 'ERROR'
+              AND start_time >= fromUnixTimestamp64Milli(:fromMs) AND start_time < fromUnixTimestamp64Milli(:toMs)
+            GROUP BY bucket, status_class, ex_type
+            ORDER BY bucket, status_class, ex_type
+        """.trimIndent()
+        val params = mapOf(
+            "serviceName" to serviceName,
+            "step" to step,
+            "fromMs" to range.from.toEpochMilli(),
+            "toMs" to range.to.toEpochMilli(),
+        )
+        return jdbc.query(sql, params) { rs, _ ->
+            ErrorTimelinePoint(
+                tsMin = Instant.ofEpochSecond(rs.getLong("bucket")),
+                httpStatusClass = rs.getString("status_class"),
+                exceptionType = rs.getString("ex_type").ifEmpty { null },
+                cnt = rs.getLong("error_cnt"),
             )
         }
     }
