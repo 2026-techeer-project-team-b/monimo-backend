@@ -154,6 +154,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 **이 과정에서 정한 것**
 
 - `spans.agent_id`(파드 식별자)는 resource 속성에서 `service.instance.id` → `k8s.pod.name` → `host.name` 순서로 고른다. 셋 다 없으면 빈 글자(`#58`). 쇼핑몰 에이전트가 첫 번째를 채워 주는 것이 맞다 — `monimo-shop` 후속 작업
+  - **실측(2026-10-05, 알림)**: 쇼핑몰은 지금 `service.instance.id` 를 직접 안 넣어 OTel 에이전트가 기동 때 만든 **UUID** 가 들어간다. `shop-order` 컨테이너를 재시작하니 `agent_id` 가 새 UUID 로 바뀌었다 → 재시작 한 번마다 `agents` 줄이 하나 늘고, 배포 교체와 크래시 재시작이 똑같이 "옛 키 끊김 + 새 키"로 보인다. 가짜 데이터는 파드 이름(`shop-order-7c9d5f-2xk8p`)이라 이 차이가 안 보인다. AGENT_DOWN 은 이걸 전제로 서비스 단위로 설계했다(`docs/alert/40-agent-down.md`). `service.instance.id` 를 파드 이름(Downward API)으로 채우면 재시작해도 키가 유지된다 — 값을 정할 때 같이 확인
 - 카나리 표식은 CH `spans.attributes` 의 `monimo.canary` 키로 남긴다. `trace_state` 컬럼을 새로 만들지 않았다(`#58`)
 - 메트릭 변환 규칙(`#64`): Gauge · Sum 은 포인트 1개 = 1줄, 값은 Double. Histogram · ExponentialHistogram · Summary 는 `<이름>.count` · `.sum`(+ 있으면 `.min` · `.max`) 로 펴고 버킷은 버린다. Sum 의 누적/델타는 바꾸지 않고 그대로 넣는다(ADR `#38`) — 누적 → 델타는 조회가 `runningDifference` 로. `series_hash` = attributes 를 키 정렬해 `k=v` 줄로 이은 글자의 SHA-256 앞 8바이트
 - 로그 변환 규칙(`#64`): `logger` = scope 이름(OTel Java 로그 appender 가 로거 이름을 넣는 자리), `thread` = 꼬리표 `thread.name`, `level` = `severity_text` 대문자, 없으면 `severity_number` 구간(1~4 TRACE … 21~24 FATAL), `ts` = `time_unix_nano`, 0 이면 `observed_time_unix_nano`
