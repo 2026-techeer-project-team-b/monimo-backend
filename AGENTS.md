@@ -133,6 +133,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#48`** 내부 문 `GET /internal/service-health`. 실제 ClickHouse 에 스팬을 넣어 검증
 - **`#50`** 트레이스 상세 `GET /traces/{traceId}`. `trace_id` 로 `spans` 를 평면 조회해 서버 코드(`SpanTree`)에서 부모-자식 트리로 조립한다. 루트 `parent_span_id` · HTTP 아닌 스팬 `http_status` 는 `null`, 부모 스팬 없는 스팬이 2개 이상이면 "(누락된 구간)" 자리 아래 나란히 둔다. 같은 스팬이 두 번 적재돼도 한 번만 나온다
 - **`#77`** 서버맵 `GET /server-map`. 간선은 `server_map_1m` 을 `sum` 으로 다시 합치고(SummingMergeTree), 노드는 요청을 받은 서비스만 `service_health_1m` 에서. `service_name` 을 주면 그 서비스가 부르거나 불리는 간선과 거기 나오는 노드만
+- **`#104`** 내부 문 `GET /internal/agents/active`. `spans` · `metrics_raw` 에서 파드별 가장 최근 시각을 뽑아 더 최근 쪽을 `last_signal_at` · `source` 로 준다. 파드당 한 줄, `agent_id` 가 빈 데이터는 뺀다. 탐지 AGENT_DOWN(`#100`)이 읽는다
 
 ## 6. 지금 막혀 있는 것
 
@@ -167,6 +168,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 트레이스 상세 응답(`#50`, 2026-09-29 회의): 루트 `parent_span_id` = `null`, HTTP 아닌 스팬 `http_status` = `null`(CH 는 0), 시각은 나노초 9자리 고정. 부모 스팬 없는 스팬이 1개면 그대로 루트, 2개 이상이면 `span_id` 가 빈 "(누락된 구간)" 자리를 루트로 두고 그 아래에 나란히 둔다(실제로 없는 호출 관계를 만들지 않기 위해). 샘플링으로는 트리가 끊기지 않는다(`#46`) — 남는 원인은 요청 직후 조회(루트 스팬이 가장 늦게 도착) · 적재 실패 · 에이전트 버퍼 초과
 
 - 서버맵 `err_cnt`(`#77`): 간선은 부른 쪽(CLIENT) 스팬이라 OTel 규칙상 4xx 도 에러로 세고, 노드는 받은 쪽(SERVER) 스팬이라 5xx 만 센다. 그래서 같은 호출이라도 간선 에러 수가 노드보다 클 수 있다(seed 1시간: gateway → order 간선 942 · order 노드 745). 버그가 아니라 계측 규칙이다
+
+- `agents/active` 계약(`#104`, 알림 파트와 2026-10-04 합의): 응답은 명세 4필드 그대로. 응답에 없는 파드 = 구간에 데이터를 하나도 안 보낸 파드. 정상 종료와 크래시는 CH 에서 구분되지 않아(OTel 에이전트가 종료 신호를 보내지 않는다) 필드를 더하지 않는다. `logs` 는 보지 않는다. 파이프라인(수집 · 적재)이 멈추면 모든 파드가 응답에서 빠진다
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
