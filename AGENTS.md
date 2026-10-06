@@ -135,6 +135,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#77`** 서버맵 `GET /server-map`. 간선은 `server_map_1m` 을 `sum` 으로 다시 합치고(SummingMergeTree), 노드는 요청을 받은 서비스만 `service_health_1m` 에서. `service_name` 을 주면 그 서비스가 부르거나 불리는 간선과 거기 나오는 노드만
 - **`#104`** 내부 문 `GET /internal/agents/active`. `spans` · `metrics_raw` 에서 파드별 가장 최근 시각을 뽑아 더 최근 쪽을 `last_signal_at` · `source` 로 준다. 파드당 한 줄, `agent_id` 가 빈 데이터는 뺀다. 탐지 AGENT_DOWN(`#100`)이 읽는다
 - **`#106`** 에러 목록 `GET /errors`. `spans` 의 `status_code = ERROR` 스팬을 시간 역순 · 커서 페이징으로. 예외 type · message 는 이름이 `exception` 인 첫 이벤트에서 꺼낸다. `service_name` 이 등록된 서비스가 아니면 404 — 확인은 `query/support/MonitoredServices` 가 하고 다른 조회 API 도 같이 쓴다
+- **`#108`** 에러 타임라인 `GET /errors/timeline`. 에러 목록(`#106`)과 같은 스팬을 `step` 칸 × 상태코드 대역(5xx · 4xx · other) × 예외 타입으로 센다. 합계가 목록 줄 수와 같다. `step` 은 60 이상 · 60의 배수, 0건 칸은 행 없음
 
 ## 6. 지금 막혀 있는 것
 
@@ -172,6 +173,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - `agents/active` 계약(`#104`, 알림 파트와 2026-10-04 합의): 응답은 명세 4필드 그대로. 응답에 없는 파드 = 구간에 데이터를 하나도 안 보낸 파드. 정상 종료와 크래시는 CH 에서 구분되지 않아(OTel 에이전트가 종료 신호를 보내지 않는다) 필드를 더하지 않는다. `logs` 는 보지 않는다. 파이프라인(수집 · 적재)이 멈추면 모든 파드가 응답에서 빠진다
 
 - 에러 목록(`#106`)은 종류(SERVER · CLIENT · INTERNAL)를 가리지 않고 `status_code = ERROR` 인 스팬을 전부 보여 준다. 그래서 다른 서비스를 부르다 실패한 요청은 받은 쪽(SERVER) · 부른 쪽(CLIENT) 두 줄로 나온다. 부른 쪽 스팬은 예외 이벤트가 없어 `exception_type` 이 `null` 인 경우가 많다
+
+- api-server 스프링 테스트는 설정이 같으면 ClickHouse · PG 컨테이너 하나를 같이 쓴다(`#108` 에서 서버맵 테스트가 다른 테스트의 서비스를 읽어 깨졌다). 조회 테스트는 **테스트마다 다른 서비스 이름 접두**(`map-` · `err-` · `tl-`)를 쓰고, 서비스 필터가 없는 API 는 자기 접두만 골라 검사한다
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
