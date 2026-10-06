@@ -82,7 +82,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 공용 네트워크 `monimo-dev`, 수집기 컨테이너 프로필, `check-wiring.sh` (`#13`)
 - api-server 에 springdoc — REST 명세와 Swagger UI 를 local 프로필에서만 (`#12`)
 - CODEOWNERS 파트별 담당자 (`#15`)
-- `docs/seungjo/`(승조가 AI 와 일한 기록 : `harness.md` 구성 · 흐름 · 토큰 기준값 · AI 가 틀린 것, 이슈 폴더마다 `research.md` · `prompts.md` · `decision.md` · `tables.md`. 코드와 같은 PR 에) · README 「AI 와 일한 방법」 절. 2026-10-04 에 `docs/harness` · `docs/research` · `docs/prompts` 를 이 한 폴더로 합쳤고 옛 자리에는 포인터만 남았다(다른 레포가 링크함). **승조 담당 파트에만 해당**, 다른 파트의 방식은 적지 않는다
+- `docs/seungjo/`(승조가 AI 와 일한 기록 : `harness.md` 구성 · 흐름 · 토큰 기준값 · AI 가 틀린 것, 이슈 폴더마다 `research.md` · `prompts.md` · `decision.md` · `tables.md`. 코드와 같은 PR 에) · README 「AI 와 일한 방법」 절. 2026-10-04 에 `docs/harness` · `docs/research` · `docs/prompts` 를 이 한 폴더로 합쳤다. 옛 자리에 남겨 둔 안내용 포인터는 다른 네 레포의 링크를 다 돌린 뒤 지웠다(`#102`). **승조 담당 파트에만 해당**, 다른 파트의 방식은 적지 않는다
 
 ### 수집 파트 (승조)
 
