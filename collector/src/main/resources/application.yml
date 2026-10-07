@@ -36,6 +36,13 @@ monimo:
     # 환경변수 MONIMO_COLLECTOR_HEALTH_CHECK_PATHS 로 덮어쓴다 (쉼표 구분)
     health-check:
       paths: /actuator/health
+    # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 이 GET /agent/commands 로 명령을 받으러 오고(최대 25초 대기),
+    # API 서버 팬아웃이 POST /internal/thread-dump 로 덤프를 시킨다. 토큰이 비면 그 문이 닫힌다
+    agent:
+      token: ${MONIMO_AGENT_TOKEN:}
+      internal-token: ${MONIMO_INTERNAL_TOKEN:}
+      # 명령의 reply_to. Extension 이 결과를 이 주소로 보낸다. K8s 에서는 헤드리스 서비스 파드 주소를 넣는다
+      advertised-url: ${MONIMO_COLLECTOR_ADVERTISED_URL:http://collector:8081}
 
 # /actuator/metrics 로 받은 건수(monimo.collector.otlp.received)를 본다. 연결 점검 스크립트가 읽는다
 management:
