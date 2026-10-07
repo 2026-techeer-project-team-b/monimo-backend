@@ -3,7 +3,10 @@
 -- AggregateFunction 컬럼은 결과가 아니라 "계산 중간 상태"다. 읽을 때 countMerge · sumMerge · quantilesTDigestMerge 등으로 펼친다.
 -- TTL: 002 머리말과 같은 이유로 최종 삭제 시점만 둔다.
 
--- 트랜잭션(루트 스팬): 스캐터 차트의 점 하나 = 한 줄.
+-- 트랜잭션(서비스가 받은 요청): 스캐터 차트의 점 하나 = 한 줄 (ADR #52).
+-- 요청 하나가 서비스 4개를 지나면 4줄이 된다. 서비스를 골라 보는 화면이라 그 기준이어야 한다.
+-- 그래서 이 표의 count() 는 "서비스가 처리한 일의 수" 이고 "고객 요청 수" 가 아니다.
+-- 고객 요청 수를 세려면 is_root = 1 로 거른다.
 CREATE TABLE IF NOT EXISTS monimo.transactions
 (
     trace_id      String,
@@ -13,7 +16,13 @@ CREATE TABLE IF NOT EXISTS monimo.transactions
     agent_id      LowCardinality(String),
     span_name     LowCardinality(String),
     is_error      UInt8,
-    http_status   UInt16
+    http_status   UInt16,
+    -- 이 줄이 그 요청이 시작된 지점(루트)이었나. 004 의 MV 가 parent_span_id 가 비었는지로 계산한다.
+    -- 조건을 "서비스가 받은 요청" 으로 넓히면서 "루트였다" 는 정보가 조건에서 사라지므로 컬럼으로 옮겼다.
+    -- Elastic APM 의 transaction.root 와 같은 용도다. 985바이트(표의 0.04%)이고 ClickHouse 가
+    -- 자동으로 PREWHERE 로 옮겨 주므로 이걸 조건에 넣으면 조회가 오히려 빨라진다.
+    -- 정렬 키에 넣지 않는다: 첫 칸에 두면 service_name 등호로 걸리는 binary search 가 깨진다.
+    is_root       UInt8
 )
 ENGINE = MergeTree
 PARTITION BY toDate(start_time)
