@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet
 
-// transactions(루트 스팬 = 요청 하나)에서 스캐터 점을 읽는다
+// transactions(서비스가 받은 요청 = 1줄, ADR #52)에서 스캐터 점을 읽는다. 요청 하나가 서비스 4개를 지나면 4줄이다
 @Repository
 class ScatterRepository(
     @Qualifier("clickHouseJdbcTemplate") private val jdbc: NamedParameterJdbcTemplate,

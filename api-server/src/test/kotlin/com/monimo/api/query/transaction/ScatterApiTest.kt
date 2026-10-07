@@ -25,7 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.Instant
 import java.util.UUID
 
-// spans 에 루트 스팬을 넣으면 MV 가 transactions 를 채우고, 그걸 GET /traces/scatter 로 읽는다
+// spans 에 SERVER 스팬을 넣으면 MV 가 transactions 를 채우고(서비스가 받은 요청마다 1줄, ADR #52), 그걸 GET /traces/scatter 로 읽는다
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestInfraConfig::class)
 class ScatterApiTest(
@@ -40,6 +40,7 @@ class ScatterApiTest(
     val now = Instant.now()
     users.save(User(UUID.randomUUID(), "viewer@scatter.io", passwordEncoder.encode("pw"), "보는사람", UserRole.VIEWER, now, now))
     applications.save(Application(UUID.randomUUID(), "sc-gateway", null, null, now, now))
+    applications.save(Application(UUID.randomUUID(), "sc-order", null, null, now, now))
 
     fun json(response: ResponseEntity<String>): JsonNode = objectMapper.readTree(response.body)
 
@@ -56,24 +57,30 @@ class ScatterApiTest(
 
     val t0 = Instant.ofEpochSecond(now.epochSecond - 600)
 
-    fun span(id: String, offsetSec: Long, durationMs: Long, httpStatus: Int, agent: String = "pod-a", parent: String = "") {
+    fun span(
+        id: String, offsetSec: Long, durationMs: Long, httpStatus: Int, agent: String = "pod-a", parent: String = "",
+        trace: String = id, service: String = "sc-gateway", kind: String = "SERVER",
+    ) {
         clickHouse.jdbcTemplate.update(
             """
             INSERT INTO spans (trace_id, span_id, parent_span_id, start_time, duration_ns, service_name, agent_id, span_name, span_kind, status_code, http_status)
-            VALUES ('sc-$id', 's-$id', '$parent', fromUnixTimestamp64Milli(${t0.plusSeconds(offsetSec).toEpochMilli()}, 'UTC'), ${durationMs * 1_000_000},
-                    'sc-gateway', '$agent', 'POST /api/orders', 'SERVER', '${if (httpStatus >= 500) "ERROR" else "UNSET"}', $httpStatus)
+            VALUES ('sc-$trace', 's-$id', '$parent', fromUnixTimestamp64Milli(${t0.plusSeconds(offsetSec).toEpochMilli()}, 'UTC'), ${durationMs * 1_000_000},
+                    '$service', '$agent', 'POST /api/orders', '$kind', '${if (httpStatus >= 500) "ERROR" else "UNSET"}', $httpStatus)
             """.trimIndent(),
         )
     }
 
-    // 요청 6건: 빠른 성공 2 · 느린 성공 1 · 실패 2 · HTTP 아닌 요청 1. 마지막 줄은 자식 스팬이라 요청이 아니다
+    // sc-gateway 가 받은 요청 6건: 빠른 성공 2 · 느린 성공 1 · 실패 2 · HTTP 아닌 요청 1
     span("r1", 1, 50, 200)
     span("r2", 2, 60, 200, agent = "pod-b")
     span("r3", 3, 2000, 200)
     span("r4", 4, 70, 500)
     span("r5", 5, 900, 500, agent = "pod-b")
     span("r6", 6, 10, 0)
-    span("child", 7, 5, 200, parent = "s-r1")
+    // r1 이 안에서 order 를 부른다. gateway 쪽의 CLIENT 스팬은 "보낸" 기록이라 요청이 아니고,
+    // order 쪽의 SERVER 스팬은 order 가 "받은" 요청이라 sc-order 스캐터에 점으로 찍힌다 (ADR #52, 전에는 루트만 모아 0건이었다)
+    span("r1-out", 7, 8, 200, parent = "s-r1", trace = "r1", kind = "CLIENT")
+    span("r1-in", 7, 5, 200, parent = "s-r1-out", trace = "r1", service = "sc-order")
 
     val base = "service_name=sc-gateway&from=$t0&to=${t0.plusSeconds(60)}"
 
@@ -84,7 +91,7 @@ class ScatterApiTest(
             val response = get(base)
             val data = json(response)["data"]
 
-            Then("mode raw 로 요청을 전부 시간 순으로 준다 (자식 스팬은 요청이 아니다)") {
+            Then("mode raw 로 그 서비스가 받은 요청을 전부 시간 순으로 준다 (보낸 CLIENT 스팬은 요청이 아니다)") {
                 response.statusCode.value() shouldBe 200
                 data["mode"].asText() shouldBe "raw"
                 data["total_count"].asLong() shouldBe 6
@@ -120,6 +127,16 @@ class ScatterApiTest(
                 ids(data) shouldBe listOf("r3", "r5")
                 data["points"][0]["duration_ms"].asLong() shouldBe 2000
                 data["points"][1]["is_error"].asBoolean() shouldBe true
+            }
+        }
+
+        When("요청을 처음 받은 서비스가 아니라 중간 서비스를 고르면") {
+            val data = json(get("service_name=sc-order&from=$t0&to=${t0.plusSeconds(60)}"))["data"]
+
+            Then("그 서비스가 받은 요청이 점으로 나온다. 루트가 아니어도 (#118)") {
+                data["total_count"].asLong() shouldBe 1
+                ids(data) shouldBe listOf("r1")
+                data["points"][0]["duration_ms"].asLong() shouldBe 5
             }
         }
 

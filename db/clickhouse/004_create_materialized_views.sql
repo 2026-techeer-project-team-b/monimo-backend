@@ -1,6 +1,6 @@
 -- MV 7개: 원본에 INSERT 가 들어오는 순간 집계 표를 자동으로 채운다. 정본: 노션 ERD「MV 흐름」.
 --
---   spans ──mv_transactions──▶ transactions ──mv_heatmap_1m──▶ heatmap_1m
+--   spans ──mv_transactions──▶ transactions ──mv_heatmap_1m──▶ heatmap_1m  (SERVER · CONSUMER 스팬)
 --   spans ──mv_url_stats_1m──▶ url_stats_1m          (SERVER 스팬만)
 --   spans ──mv_server_map_1m──▶ server_map_1m        (CLIENT 스팬만)
 --   spans ──mv_service_health_1m──▶ service_health_1m (SERVER 스팬만)
@@ -8,7 +8,22 @@
 --
 -- MV는 만든 뒤에 들어온 줄만 계산한다. 과거 데이터는 채워 주지 않는다.
 
--- 부모가 없는 스팬 = 요청의 첫 구간
+-- 서비스가 받은 요청 = 일이 그 서비스로 들어온 지점 (ADR #52)
+--
+-- SERVER 는 HTTP 로 받은 것, CONSUMER 는 큐에서 받은 것이다. 둘 다 "일이 들어온 지점" 이다.
+-- 전에는 parent_span_id = '' (루트만)이었는데, 그러면 요청이 처음 닿는 서비스에만 줄이 생겨
+-- 중간 서비스(order · payment · inventory) 스캐터가 비었다. 화면은 서비스를 골라 보는 구조다.
+-- 루트는 SERVER 의 부분집합이라 넓혀도 전에 들어오던 줄은 그대로 들어온다.
+--
+-- CONSUMER 는 지금 0건이다(쇼핑몰이 동기 MVC 단일 조합, ADR #25). 미리 넣어 두는 이유는
+-- 남의 앱에 에이전트를 붙였을 때 그 앱이 큐를 쓰면 같은 문제가 또 생기기 때문이다.
+--
+-- OR parent_span_id = '' 는 일부러 안 넣었다. 그러면 아무도 안 부른 일(앱 시작 DDL · 배치)까지
+-- 들어와 CREATE TABLE 이 스캐터 점으로 찍힌다. 진짜 배치를 만들 때 넓힌다(ADR #52 되돌림 ①).
+--
+-- SELECT 의 컬럼 수와 순서는 transactions 표와 정확히 맞아야 한다. ALTER ... MODIFY QUERY 로
+-- 이 정의를 바꿀 때 ClickHouse 가 타깃 스키마를 검사하지 않아서, 빠뜨리면 그 컬럼이 조용히
+-- 타입 기본값으로 채워진다(빈 문자열 · 0). 고친 뒤에는 각 컬럼에 값이 들어오는지 확인한다.
 CREATE MATERIALIZED VIEW IF NOT EXISTS monimo.mv_transactions TO monimo.transactions AS
 SELECT
     trace_id,
@@ -18,9 +33,10 @@ SELECT
     agent_id,
     span_name,
     toUInt8(status_code = 'ERROR')         AS is_error,
-    http_status
+    http_status,
+    toUInt8(parent_span_id = '')           AS is_root
 FROM monimo.spans
-WHERE parent_span_id = '';
+WHERE span_kind IN ('SERVER', 'CONSUMER');
 
 -- 1분 × 50ms 칸으로 세기
 CREATE MATERIALIZED VIEW IF NOT EXISTS monimo.mv_heatmap_1m TO monimo.heatmap_1m AS
