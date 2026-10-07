@@ -35,6 +35,7 @@
 |---|---|---|---|
 | [`92-health-check-filter/`](92-health-check-filter/README.md) | `#92` · PR `#93` | README(설계 한 장) · research · prompts · decision · tables | **이 방식의 첫 이슈.** 결정 프롬프트 원문이 ADR `#50` 안에 있다 |
 | [`96-raw-dlq/`](96-raw-dlq/README.md) | `#96` · ADR `#51` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **8단계 꼴을 처음 쓴 이슈.** 질문 31개로 이해 10건과 AI 설명의 허점 6건을 바로잡았다 |
+| [`118-transactions-server-span/`](118-transactions-server-span/README.md) | `#118` · ADR `#52` · 후속 `#119` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **다른 파트가 발견해 넘어온 첫 건.** 질문 스무 번이 2절보다 먼저 왔고, 조사 2건이 조건 한 줄을 선택지 셋으로 늘렸다. 운영 CH 마이그레이션 수단이 없다는 것이 드러났다 |
 | [`83-peer-service/`](83-peer-service/README.md) | `#83` · PR `#84` | README · prompts | 소급. 이 방식 전이라 프롬프트 로그만 있다 |
 
 ## 규칙
