@@ -6,7 +6,8 @@
 -- 트랜잭션(서비스가 받은 요청): 스캐터 차트의 점 하나 = 한 줄 (ADR #52).
 -- 요청 하나가 서비스 4개를 지나면 4줄이 된다. 서비스를 골라 보는 화면이라 그 기준이어야 한다.
 -- 그래서 이 표의 count() 는 "서비스가 처리한 일의 수" 이고 "고객 요청 수" 가 아니다.
--- 고객 요청 수를 세려면 is_root = 1 로 거른다.
+-- 고객 요청 수를 세려면 is_root = 1 로 거른다. 단 루트가 SERVER · CONSUMER 인 요청만 센다 :
+-- 루트가 CLIENT 인 트레이스(앱 시작 DDL · 시험 도구)는 이 표에 is_root = 1 줄이 없다 (ADR #52 기각 ②).
 CREATE TABLE IF NOT EXISTS monimo.transactions
 (
     trace_id      String,
