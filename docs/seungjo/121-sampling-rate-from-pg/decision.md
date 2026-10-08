@@ -40,7 +40,7 @@
 - [x] `SamplingRatesTest` 6건 : 최댓값 적용 · 원본 유지 · 빈 값이면 기본값 · 전부 `0.0` 이면 적용값도 `0.0` · 넘긴 `Map` 을 고쳐도 스냅샷 불변
 - [x] `PostgresSamplingRateSourceTest` 9건 : 한 번도 안 읽었으면 yml `0.01` 로 돌면서 PG 를 치지 않는다 · 주기 작업이 한 번 돌면 최댓값이 적용되고 서비스별 원본도 남는다 · 그 뒤 백 번 물어도 PG 를 다시 치지 않는다 · 읽다 터지면 마지막 값이고 PG 가 돌아오면 새 값으로 바뀐다 · 첫 차례부터 터지면 yml `0.01` 이고 등록 서비스 0
 - [x] `TraceSamplerTest` 15건 : 가짜 공급자로 갈아끼운 뒤 기존 단언 유지 · 공급자 비율이 중간에 바뀌면 판정도 바뀐다 · 미등록 서비스 카운터 2건 · 등록된 이름은 카운터 안 늘어남
-- [x] `:collector:test` 62건 전부 통과 (실패 0 · 건너뜀 0)
+- [x] `:collector:test` 78건 전부 통과 (실패 0 · 건너뜀 0). 그중 이 이슈가 쓴 것이 30건이다 : `SamplingRatesTest` 6 · `PostgresSamplingRateSourceTest` 9 · `TraceSamplerTest` 15. 나머지 48건은 기존 것이고 `#122`(에이전트 명령 문) 16건이 develop 머지로 같이 들어왔다
 - [x] 로컬 PG 실조회 : 네 줄 전부 `0.0100`, `version` 전부 `1`(seed 이후 변경 0)
 - [x] seed 를 `1.0000` 으로 바꿨다 (`scripts/seed/postgres-applications.sql`)
 - [x] ADR `#53` 신설 (`docs/design/01-decisions.md`, append-only)

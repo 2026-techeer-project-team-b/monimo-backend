@@ -69,7 +69,7 @@
 
 ## 어떻게 확인했나
 
-- **단위 테스트 `:collector:test` 62건 전부 통과** (실패 0 · 건너뜀 0). 새로 쓴 것이 `SamplingRatesTest` 6건 · `PostgresSamplingRateSourceTest` 9건이고 `TraceSamplerTest` 는 15건으로 늘었다
+- **단위 테스트 `:collector:test` 78건 전부 통과 (실패 0 · 건너뜀 0). 그중 이 이슈가 쓴 것이 30건이다 : `SamplingRatesTest` 6 · `PostgresSamplingRateSourceTest` 9 · `TraceSamplerTest` 15. 나머지 48건은 기존 것이고 `#122`(에이전트 명령 문) 16건이 develop 머지로 같이 들어왔다
 
 | 테스트 | 건수 | 무엇을 고정하나 |
 |---|---|---|
