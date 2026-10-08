@@ -12,6 +12,8 @@ spring:
     bootstrap-servers: ${KAFKA_HOST:localhost}:${KAFKA_PORT:19092}
 
 # 로컬에서는 보낸 것이 그대로 보여야 흐름을 확인할 수 있으므로 샘플링을 끈다(전부 통과).
+# 단 아래 값은 PG 를 못 읽었을 때 쓰는 기본값이고 실제로는 PG 가 이긴다 (ADR #53).
+# 로컬 PG 는 scripts/seed/postgres-applications.sql 이 1.0000 을 넣어 두므로 양쪽이 같다.
 # 샘플링 자체의 동작은 단위 테스트(TraceSamplerTest)가 확인한다
 monimo:
   collector:
