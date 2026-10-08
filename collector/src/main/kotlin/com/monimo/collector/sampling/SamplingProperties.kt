@@ -12,6 +12,9 @@ import java.time.Duration
 //   환경변수 MONIMO_COLLECTOR_SAMPLING_RATIO 로 덮어쓸 수 있는데 그것도 이 기본값 자리를 바꾸는 것뿐이다.
 // ttl = PG 를 다시 읽는 주기. 화면에서 비율을 바꾸면 최대 이만큼 뒤에 반영된다 (ADR #37).
 //   테스트에서 짧게 쓰려고 설정으로 뺐다. Jaeger · OTel 은 60초, Elastic APM 서버 기본값은 30초다.
+//   주의: 주기를 실제로 정하는 것은 PostgresSamplingRateSource 의 @Scheduled 플레이스홀더가 읽는
+//   같은 키다. 이 칸의 기본값만 바꾸면 아무 일도 안 일어나므로 두 곳을 같이 바꾼다
+//   (notifier DeliveryProperties.pollInterval · detector EvaluationProperties.interval 도 같은 모양이다).
 // canaryMarker = 파수꾼이 붙이는 표시. span 의 trace_state 에 이 항목이 있으면 비율과 무관하게 통과시킨다 (ADR #41)
 @ConfigurationProperties("monimo.collector.sampling")
 data class SamplingProperties(

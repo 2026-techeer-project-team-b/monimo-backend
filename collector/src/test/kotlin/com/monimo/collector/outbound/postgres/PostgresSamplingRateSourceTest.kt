@@ -3,6 +3,7 @@ package com.monimo.collector.outbound.postgres
 import com.monimo.collector.sampling.SamplingProperties
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.springframework.jdbc.core.JdbcTemplate
 import java.math.BigDecimal
 
@@ -23,7 +24,11 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
         }
     }
 
-    fun sourceOf(jdbc: JdbcTemplate) = PostgresSamplingRateSource(jdbc, SamplingProperties(ratio = 0.01))
+    fun sourceOf(jdbc: JdbcTemplate, registry: SimpleMeterRegistry = SimpleMeterRegistry()) =
+        PostgresSamplingRateSource(jdbc, SamplingProperties(ratio = 0.01), registry)
+
+    fun refreshCount(registry: SimpleMeterRegistry, outcome: String): Double =
+        registry.find("monimo.collector.sampling.refresh").tag("outcome", outcome).counter()?.count() ?: 0.0
 
     Given("아직 한 번도 안 읽었으면") {
         val jdbc = FakeJdbc(mapOf("shop-order" to 0.1))
@@ -38,6 +43,28 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
             Then("PG 를 치지 않는다 : 읽기는 주기 작업이 하고 요청 경로는 들고 있는 값만 준다") {
                 jdbc.calls shouldBe 0
+            }
+
+            Then("읽은 적 없다는 것을 들고 있다 (0줄 성공과 구분된다)") {
+                rates.loaded shouldBe false
+            }
+        }
+    }
+
+    Given("조회는 됐는데 줄이 0개면") {
+        val registry = SimpleMeterRegistry()
+        val source = sourceOf(FakeJdbc(emptyMap()), registry)
+
+        When("주기 작업이 돌면") {
+            source.refresh()
+
+            Then("기본값으로 돌지만 읽었다는 것은 참이다 : 그래야 미등록 집계가 켜진다") {
+                source.rates().applied shouldBe 0.01
+                source.rates().loaded shouldBe true
+            }
+
+            Then("성공으로 센다") {
+                refreshCount(registry, "success") shouldBe 1.0
             }
         }
     }
@@ -67,7 +94,8 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
     Given("읽다가 PG 가 죽으면") {
         val jdbc = FakeJdbc(mapOf("shop-order" to 0.1))
-        val source = sourceOf(jdbc)
+        val registry = SimpleMeterRegistry()
+        val source = sourceOf(jdbc, registry)
         source.refresh() // 한 번은 성공시켜 둔다
 
         When("다음 차례가 터지면") {
@@ -76,6 +104,10 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
             Then("마지막으로 읽은 값을 그대로 쓴다") {
                 source.rates().applied shouldBe 0.1
+            }
+
+            Then("실패로 센다 : 로그 한 줄로만 알 수 있으면 아무도 모른다") {
+                refreshCount(registry, "failure") shouldBe 1.0
             }
         }
 

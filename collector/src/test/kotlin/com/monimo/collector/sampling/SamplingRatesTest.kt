@@ -22,8 +22,8 @@ class SamplingRatesTest : BehaviorSpec({
         }
     }
 
-    Given("한 줄도 못 읽었으면") {
-        val rates = SamplingRates.of(emptyMap(), fallback = 0.01)
+    Given("아직 PG 를 못 읽었으면") {
+        val rates = SamplingRates.unread(fallback = 0.01)
 
         Then("기본값이 적용된다 (빈 값은 0 이나 1 이 되어 둘 다 사고다)") {
             rates.applied shouldBe 0.01
@@ -31,6 +31,22 @@ class SamplingRatesTest : BehaviorSpec({
 
         Then("등록된 서비스가 없다") {
             rates.registered("shop-gateway") shouldBe false
+        }
+
+        Then("읽은 적 없다고 표시된다") {
+            rates.loaded shouldBe false
+        }
+    }
+
+    Given("읽었는데 줄이 0개면") {
+        val rates = SamplingRates.of(emptyMap(), fallback = 0.01)
+
+        Then("기본값이 적용되는 것은 같다") {
+            rates.applied shouldBe 0.01
+        }
+
+        Then("그래도 읽었다고 표시된다 : 못 읽은 것과 구분해야 미등록 집계가 켜진다") {
+            rates.loaded shouldBe true
         }
     }
 

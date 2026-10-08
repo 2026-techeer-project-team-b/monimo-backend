@@ -109,7 +109,9 @@ class TraceSampler(
 
     // resource 는 3겹 중 맨 바깥에 한 번만 있고 서비스 이름이 거기 적혀 있다. 스팬에는 없다
     private fun countUnknownServices(request: ExportTraceServiceRequest, rates: SamplingRates) {
-        if (rates.byService.isEmpty()) return // PG 를 아직 못 읽었다. 전부 미등록으로 세면 뜻이 없다
+        // PG 를 아직 못 읽었으면 센다는 뜻이 없다(들어오는 전부가 미등록으로 잡힌다).
+        // byService 가 비었는지로 보지 않는 이유: 읽었는데 0줄인 경우가 섞인다. 그때는 세는 쪽이 맞다
+        if (!rates.loaded) return
         for (resourceSpans in request.resourceSpansList) {
             val serviceName = serviceNameOf(resourceSpans.resource)
             if (serviceName.isNotEmpty() && !rates.registered(serviceName)) {
