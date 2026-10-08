@@ -182,6 +182,13 @@ services:
       # 비우면 필터가 꺼져 헬스체크도 그대로 적재된다. .env 에 COLLECTOR_HEALTH_CHECK_PATHS= 로 빈 값을 넣으면 된다.
       # :- 가 아니라 - 를 쓴다: :- 는 빈 값일 때도 기본값을 되살려서 끌 수가 없다
       MONIMO_COLLECTOR_HEALTH_CHECK_PATHS: "${COLLECTOR_HEALTH_CHECK_PATHS-/actuator/health}"
+      # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 은 /agent/** 에 에이전트 토큰을, API 서버 팬아웃은 /internal/** 에 내부 토큰을 붙인다.
+      # 로컬 전용 기본값이다. 에이전트 토큰은 monimo-shop compose 의 MONIMO_AGENT_TOKEN 과 같아야 한다.
+      # :- 라서 .env 에 빈 값을 넣어도 기본값이 되살아난다. 문을 닫아 보려면 컨테이너 env 를 직접 비운다 (수집기는 빈 값이면 문을 닫는다)
+      MONIMO_AGENT_TOKEN: ${MONIMO_AGENT_TOKEN:-local-agent-token}
+      MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
+      # 명령의 reply_to (Extension 이 결과를 보낼 이 수집기 주소). 수집기가 한 대라 compose 서비스 이름 그대로
+      MONIMO_COLLECTOR_ADVERTISED_URL: http://collector:8081
     depends_on:
       infra-ready:
         condition: service_healthy
