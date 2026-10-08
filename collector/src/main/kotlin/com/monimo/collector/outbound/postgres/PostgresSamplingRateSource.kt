@@ -4,9 +4,9 @@ import com.monimo.collector.sampling.SamplingProperties
 import com.monimo.collector.sampling.SamplingRateSource
 import com.monimo.collector.sampling.SamplingRates
 import org.slf4j.LoggerFactory
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 // SamplingRateSource 의 PostgreSQL 구현(어댑터). application_configs 를 읽기만 한다.
@@ -14,40 +14,38 @@ import java.util.concurrent.atomic.AtomicReference
 // 이 모듈에 Entity 를 두지 않는다: 표 주인이 API 서버이고(ADR #36), 수집기는
 // ddl-auto: validate 라 Entity 가 생기면 그 검증까지 걸린다. JdbcTemplate 으로 SQL 한 줄을 친다.
 //
-// 캐시: 서비스는 몇 개 안 되므로 한 벌을 통째로 들고 30초마다 바꾼다 (ADR #37).
-// 화면에서 비율을 바꾸면 최대 30초 안에 반영된다. 적재 처리기의 PostgresServiceCatalog 와 같은 모양이고
-// 다른 점은 첫 조회 실패다: 그쪽은 빈 집합이 안전한 쪽("모르는 주소는 EXTERNAL")이었지만
-// 비율은 빈 값이 0(전부 버림)이나 1(전부 통과)이 되어 둘 다 사고라 yml 기본값으로 떨어진다.
+// **읽기를 OTLP 요청 경로에서 하지 않는다.** 적재 처리기의 PostgresServiceCatalog 는 물어볼 때
+// 낡았으면 그 자리에서 읽는데, 그걸 그대로 베끼면 PG 가 죽었을 때 그 요청이 커넥션 풀 대기만큼
+// 멈춘다 (로컬 실측 : OTLP 요청 하나가 10초). 적재 처리기는 Kafka 컨슈머라 견디지만 수집기는
+// 에이전트가 응답을 기다리고 있고 수집 경로 가용성 목표가 조회보다 높다(99.9% 대 99.5%).
+// 그래서 @Scheduled 가 주기로 읽어 스냅샷만 갈아끼우고, rates() 는 들고 있는 값을 바로 준다.
+// PG 가 죽으면 비율이 낡기만 하고 수집은 한 번도 멈추지 않는다 (ADR #53).
 @Component
 class PostgresSamplingRateSource(
-    private val jdbc: org.springframework.jdbc.core.JdbcTemplate,
+    private val jdbc: JdbcTemplate,
     private val properties: SamplingProperties,
 ) : SamplingRateSource {
 
-    private class Snapshot(val rates: SamplingRates, val loadedAt: Instant)
+    // 여러 스레드가 동시에 읽고 갈아끼워도 안전한 참조 하나.
+    // 처음엔 PG 를 안 읽은 상태라 yml 기본값으로 둔다: 빈 값을 쓰면 비율이 0(전부 버림)이나
+    // 1(전부 통과)이 되는데 둘 다 사고다
+    private val snapshot = AtomicReference(SamplingRates.of(emptyMap(), properties.ratio))
 
-    // 처음엔 PG 를 안 읽은 상태라 yml 기본값으로 둔다. 시각이 아주 과거라 첫 호출에 바로 읽는다
-    private val snapshot = AtomicReference(
-        Snapshot(SamplingRates.of(emptyMap(), properties.ratio), Instant.EPOCH),
-    )
+    override fun rates(): SamplingRates = snapshot.get()
 
-    override fun rates(): SamplingRates {
+    // fixedDelay 라 앱이 뜬 직후 한 번 돌고 그다음부터 ttl 간격으로 돈다.
+    // 갱신에 실패하면 들고 있던 값을 그대로 두고 다음 차례에 다시 시도한다
+    @Scheduled(fixedDelayString = "\${monimo.collector.sampling.ttl:30s}")
+    fun refresh() {
         val current = snapshot.get()
-        val now = Instant.now()
-        if (Duration.between(current.loadedAt, now) < properties.ttl) return current.rates
-
-        // 갱신에 실패하면 들고 있던 값을 그대로 쓴다. PG 가 잠깐 죽어도 수집은 계속 돈다
         val fresh = runCatching { load() }.getOrElse { error ->
-            log.warn("샘플링 비율 갱신 실패 : 비율 {} 유지 ({})", current.rates.applied, error.message)
-            // 실패 시각으로 갱신해 두어 요청마다 PG 를 다시 치지 않게 한다 (다음 TTL 뒤 재시도)
-            snapshot.set(Snapshot(current.rates, now))
-            return current.rates
+            log.warn("샘플링 비율 갱신 실패 : 비율 {} 유지 ({})", current.applied, error.message)
+            return
         }
-        snapshot.set(Snapshot(fresh, now))
-        if (fresh.byService != current.rates.byService) {
+        snapshot.set(fresh)
+        if (fresh.byService != current.byService) {
             log.info("샘플링 비율 갱신 : 적용 {} (서비스별 {})", fresh.applied, fresh.byService.toSortedMap())
         }
-        return fresh
     }
 
     // 제외된(deleted_at) 서비스는 감시 대상이 아니므로 비율에 넣지 않는다.
