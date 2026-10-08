@@ -26,9 +26,15 @@ monimo:
         port: 4317
     # 트레이스 샘플링. 에이전트는 100% 보내고(always_on) 고르는 일은 수집기가 한다 (ADR #33).
     # 카나리 표시(trace_state 의 monimon=canary)가 붙은 것은 비율과 무관하게 통과한다 (ADR #41).
-    # 다음 이슈에서 이 비율을 PG(application_configs)에서 읽어 재배포 없이 바꾼다
+    #
+    # 비율의 정본은 PG application_configs.sampling_rate 이고 수집기가 ttl 마다 읽는다 (ADR #53).
+    # 서비스별로 한 줄이지만 그중 최댓값 하나만 쓴다 : 서비스마다 다른 선을 쓰면 같은 트레이스의
+    # 위아래가 다른 선으로 재어져 고아 스팬이 생긴다.
+    # 아래 ratio 는 PG 를 한 번도 못 읽었을 때 쓸 값이다. 환경변수
+    # MONIMO_COLLECTOR_SAMPLING_RATIO 로 덮어써도 그 기본값 자리를 바꾸는 것뿐이고 PG 가 이긴다
     sampling:
       ratio: 0.01
+      ttl: 30s
     # 헬스체크 스팬 거르기. 도커 · 쿠버네티스가 쇼핑몰의 이 주소를 몇 초마다 찌르는데, 에이전트가 그걸
     # 진짜 요청과 똑같이 기록해 보내 집계(호출 수 · 에러율 · P95 · 히트맵)를 틀리게 만든다.
     # SERVER 스팬의 url.path 가 이 목록과 정확히 같을 때만 버린다. CLIENT 는 진짜 호출이라 남긴다.

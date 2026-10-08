@@ -37,6 +37,7 @@
 | [`96-raw-dlq/`](96-raw-dlq/README.md) | `#96` · ADR `#51` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **8단계 꼴을 처음 쓴 이슈.** 질문 31개로 이해 10건과 AI 설명의 허점 6건을 바로잡았다 |
 | [`118-transactions-server-span/`](118-transactions-server-span/README.md) | `#118` · ADR `#52` · 후속 `#119` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **다른 파트가 발견해 넘어온 첫 건.** 질문 스무 번이 2절보다 먼저 왔고, 조사 2건이 조건 한 줄을 선택지 셋으로 늘렸다. 운영 CH 마이그레이션 수단이 없다는 것이 드러났다 |
 | [`122-agent-command/`](122-agent-command/README.md) | `#122` | README (조사 · 결정은 monimo-shop `34-thread-dump-extension/`) | 수집기 쪽 문. 짝 = shop `#34` |
+| [`121-sampling-rate-from-pg/`](121-sampling-rate-from-pg/README.md) | `#121` · ADR `#53` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **설계가 못 본 구멍을 드러낸 이슈.** ADR 문구를 구현하려다 "설정 단위는 앱 단위만"(`#38`)이 샘플링에 적용되면 요청 하나가 쪼개진다는 것을 찾았다. 조사가 선택지를 하나 더 만들었다(우리 공식이 단조라서 `상류 >= 하류` 면 고아가 0) |
 | [`83-peer-service/`](83-peer-service/README.md) | `#83` · PR `#84` | README · prompts | 소급. 이 방식 전이라 프롬프트 로그만 있다 |
 
 ## 규칙
