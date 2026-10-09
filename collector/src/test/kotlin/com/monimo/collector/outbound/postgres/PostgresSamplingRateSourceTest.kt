@@ -3,9 +3,12 @@ package com.monimo.collector.outbound.postgres
 import com.monimo.collector.sampling.SamplingProperties
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.micrometer.core.instrument.MockClock
+import io.micrometer.core.instrument.simple.SimpleConfig
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.springframework.jdbc.core.JdbcTemplate
 import java.math.BigDecimal
+import java.time.Duration
 
 // PG 조회 쪽 동작만 본다. 컨테이너를 띄우지 않고 JdbcTemplate 을 가짜로 바꿔 끼운다:
 // 확인하려는 것이 SQL 결과가 아니라 "언제 읽나" 와 "실패하면 무엇을 쓰나" 이기 때문이다 (ADR #53)
@@ -133,6 +136,88 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
             Then("등록된 서비스가 없는 상태다") {
                 source.rates().byService.isEmpty() shouldBe true
+            }
+        }
+    }
+
+    // 여기부터는 "마지막 성공 이후 몇 초" 게이지다 (ADR #54). 카운터와 달리 읽는 순간 계산되므로
+    // 주기 작업 스레드가 JDBC 에서 막혀 refresh() 가 아예 안 끝나는 상황에서도 값이 커진다.
+    // 시계를 손으로 돌려야 하므로 레지스트리에 MockClock 을 꽂는다
+    Given("게이지를 보는데") {
+        // 레지스트리는 위 sourceOf 가 받는다. 여기서는 시계만 갈아끼운 것을 넘긴다
+        fun registryWith(clock: MockClock) = SimpleMeterRegistry(SimpleConfig.DEFAULT, clock)
+
+        fun age(registry: SimpleMeterRegistry): Double =
+            registry.get("monimo.collector.sampling.refresh.age").gauge().value()
+
+        When("갱신에 막 성공했으면") {
+            val clock = MockClock()
+            val registry = registryWith(clock)
+            val source = sourceOf(FakeJdbc(mapOf("shop-order" to 0.1)), registry)
+            clock.add(Duration.ofSeconds(70))
+            source.refresh()
+
+            Then("0 으로 떨어진다") {
+                age(registry) shouldBe 0.0
+            }
+
+            Then("초 단위다") {
+                registry.get("monimo.collector.sampling.refresh.age").gauge().id.baseUnit shouldBe "seconds"
+            }
+        }
+
+        When("성공한 뒤로 시간이 흐르면") {
+            val clock = MockClock()
+            val registry = registryWith(clock)
+            val source = sourceOf(FakeJdbc(mapOf("shop-order" to 0.1)), registry)
+            source.refresh()
+            clock.add(Duration.ofSeconds(90))
+
+            Then("refresh() 를 다시 부르지 않아도 값이 커진다 : 이것이 카운터로 안 되는 이유다") {
+                age(registry) shouldBe 90.0
+            }
+        }
+
+        When("갱신이 실패하면") {
+            val clock = MockClock()
+            val jdbc = FakeJdbc(mapOf("shop-order" to 0.1))
+            val registry = registryWith(clock)
+            val source = sourceOf(jdbc, registry)
+            source.refresh()
+            clock.add(Duration.ofSeconds(30))
+            jdbc.rows = null
+            source.refresh()
+
+            Then("0 으로 떨어지지 않는다 : 성공만 기준을 다시 잡는다") {
+                age(registry) shouldBe 30.0
+            }
+
+            Then("그 뒤로도 계속 커진다") {
+                clock.add(Duration.ofSeconds(30))
+                age(registry) shouldBe 60.0
+            }
+        }
+
+        When("한 번도 성공하지 못했으면") {
+            val clock = MockClock()
+            val registry = registryWith(clock)
+            sourceOf(FakeJdbc(null), registry)
+            clock.add(Duration.ofSeconds(45))
+
+            Then("기동 시각부터 센다 : 처음부터 못 읽는 것도 같은 값이 커지는 것으로 보인다") {
+                age(registry) shouldBe 45.0
+            }
+        }
+
+        When("조회는 됐는데 줄이 0개면") {
+            val clock = MockClock()
+            val registry = registryWith(clock)
+            val source = sourceOf(FakeJdbc(emptyMap()), registry)
+            clock.add(Duration.ofSeconds(20))
+            source.refresh()
+
+            Then("성공이라 0 으로 떨어진다 : 비율이 낡은 것은 아니다") {
+                age(registry) shouldBe 0.0
             }
         }
     }

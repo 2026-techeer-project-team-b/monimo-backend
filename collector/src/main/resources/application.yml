@@ -1,6 +1,19 @@
 spring:
   application:
     name: collector
+  # PG 가 커넥션은 주고 응답은 안 하는 경우에 영구히 기다리지 않게 한다 (ADR #54).
+  # 끊긴 PG 는 Hikari connectionTimeout(기본 30초)이 이미 막는다. 이 값은 그 다음 구간이다.
+  # 단위는 밀리초가 아니라 초다. 10000 을 넣으면 2.8시간이 되어 조용히 안 듣는다.
+  datasource:
+    hikari:
+      data-source-properties:
+        socketTimeout: 10
+  # 주기 작업 하나가 막혀도 나머지가 굶지 않게 한 칸 비워 둔다 (ADR #54).
+  # 지금은 모듈마다 @Scheduled 가 하나뿐이라 효과가 0 이고, 둘째가 들어올 때를 위한 예방이다.
+  task:
+    scheduling:
+      pool:
+        size: 2
   jpa:
     open-in-view: false          # ADR #42 가드레일 ②
     hibernate:
