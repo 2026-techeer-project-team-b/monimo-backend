@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+# 아래 ADD --chmod 는 BuildKit frontend 기능이라 이 줄이 있어야 어느 도커에서나 같게 빌드된다
 # ClickHouse 마이그레이션을 돌리는 일회성 컨테이너 (ADR #57).
 # PG 쪽 postgres-migrate 와 같은 일을 하고, 같은 Flyway 버전을 쓴다.
 #

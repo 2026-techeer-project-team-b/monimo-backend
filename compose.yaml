@@ -139,9 +139,13 @@ services:
   # 전에는 ClickHouse 가 처음 켜질 때 docker-entrypoint-initdb.d 로 읽었다. 그러면 데이터가 있는
   # 서버에는 영영 적용되지 않아서, 고칠 때마다 DB 를 통째로 날리는 수밖에 없었다.
   #
-  # 접속 대상이 monimo 가 아니라 default 인 이유 : 빈 서버에는 monimo DB 가 아직 없다.
-  # monimo 를 만드는 것이 첫 마이그레이션(V202609220045)이라 거기에 붙을 수가 없다.
-  # 그래서 default 에 붙고 장부(flyway_schema_history)도 default 에 생긴다.
+  # 장부(flyway_schema_history)를 monimo 안에 둔다. 빈 서버에 monimo 가 없어도 괜찮다 :
+  # Flyway 의 createSchemas 가 없으면 만들어 준다.
+  #
+  # default 에 두면 장부와 표가 생명주기가 갈려서 조용히 틀린다. 실측 :
+  # DROP DATABASE monimo 를 하면 다음 migrate 가 "up to date. No migration necessary" 로
+  # 종료코드 0 을 내고, 표가 0개인 채로 infra-ready 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다.
+  # 같이 사라져야 맞다.
   clickhouse-migrate:
     build:
       context: ./db/clickhouse
@@ -155,14 +159,16 @@ services:
       FLYWAY_URL: jdbc:clickhouse://clickhouse:8123/default
       FLYWAY_USER: ${CLICKHOUSE_USER:-monimo}
       FLYWAY_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 붙는 곳은 default(빈 서버에도 늘 있다)이고, 일하는 곳과 장부 자리는 monimo 다
+      FLYWAY_SCHEMAS: monimo
       FLYWAY_LOCATIONS: filesystem:/flyway/sql
       # 이름 규칙에 안 맞는 파일을 조용히 건너뛰지 않고 실패시킨다
       FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
       # 번호(만든 시각)와 머지 순서가 달라도 늦게 들어온 파일을 적용한다 (PG 와 같은 기준)
       FLYWAY_OUT_OF_ORDER: "true"
       FLYWAY_CONNECT_RETRIES: "10"
-      # default 에 표가 하나라도 있고 장부가 없으면 Flyway 는 "비어 있지 않은데 장부가 없다" 로 멈춘다.
-      # 누가 ClickHouse 에 임시 표를 만들어 두면 그 사람은 스택이 아예 안 뜬다.
+      # monimo 에 표가 있고 장부가 없으면 Flyway 는 "비어 있지 않은데 장부가 없다" 로 멈춘다.
+      # 이 변경 전에 만든 로컬이 전부 그 상태라 그대로 두면 아무도 못 뜬다.
       # 이것을 켜면 장부를 v1 로 깔고 시작하는데, 우리 파일 번호가 전부 2026... 이라 v1 보다 커서
       # 하나도 안 건너뛰고 그대로 실행된다. 게다가 전부 IF NOT EXISTS 라 이미 있으면 아무 일도 안 한다
       FLYWAY_BASELINE_ON_MIGRATE: "true"
