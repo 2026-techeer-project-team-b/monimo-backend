@@ -4,6 +4,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.header.internals.RecordHeaders
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer.SingleRecordHeader // 같은 이름 헤더를 쌓지 않고 바꿔 치운다
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -40,9 +41,13 @@ class RawErrorHandlerConfig {
 
     // pause 를 풀어 주는 타이머. Boot 는 @EnableScheduling 이 없으면 TaskScheduler 를 안 만들어 줘서 직접 둔다.
     // pause/resume 예약만 하므로 스레드 하나로 충분하다.
-    // 주의 : 나중에 이 모듈에 @Scheduled 가 들어오면 Boot 의 taskScheduler 가 이 빈을 보고 물러나서(@ConditionalOnMissingBean)
-    // 모든 @Scheduled 가 이 1스레드 풀에서 돌고 spring.task.scheduling.* 가 무시된다. 그때는 @Bean(defaultCandidate = false) 를 붙인다
-    @Bean
+    //
+    // defaultCandidate = false 인 이유 (ADR #54) : 이 빈은 TaskScheduler 타입이라, 나중에 이 모듈에
+    // @Scheduled 가 들어오면 Boot 의 taskScheduler 가 이 빈을 보고 물러난다(@ConditionalOnMissingBean).
+    // 그러면 모든 @Scheduled 가 이 1스레드 풀에서 돌고 spring.task.scheduling.* 가 조용히 무시된다.
+    // 이 플래그를 붙이면 타입만 보고 꽂히지 않으므로 Boot 는 자기 스케줄러를 그대로 만든다.
+    // 대신 쓰는 쪽이 이름을 밝혀야 해서 아래 @Qualifier 가 같이 붙어 있다.
+    @Bean(defaultCandidate = false)
     fun pauseScheduler(): ThreadPoolTaskScheduler = ThreadPoolTaskScheduler().apply {
         poolSize = 1
         setThreadNamePrefix("raw-pause-")
@@ -51,8 +56,10 @@ class RawErrorHandlerConfig {
 
     // "이 컨테이너를 이만큼 멈춰라" 를 받아 그 시간 뒤 스스로 resume 하는 부품. ContainerPausingBackOffHandler 가 쓴다
     @Bean
-    fun listenerContainerPauseService(registry: ListenerContainerRegistry, pauseScheduler: ThreadPoolTaskScheduler) =
-        ListenerContainerPauseService(registry, pauseScheduler)
+    fun listenerContainerPauseService(
+        registry: ListenerContainerRegistry,
+        @Qualifier("pauseScheduler") pauseScheduler: ThreadPoolTaskScheduler,
+    ) = ListenerContainerPauseService(registry, pauseScheduler)
 
     @Bean
     fun rawErrorHandler(
