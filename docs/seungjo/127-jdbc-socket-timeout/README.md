@@ -30,7 +30,7 @@
 - **고른 것** : `socketTimeout` **10초**를 PG 를 치는 **다섯 모듈 전부**(`collector` · `ingester` · `detector` · `notifier` · `api-server`)의 `application.yml` `spring.datasource.hikari.data-source-properties` 에 넣는다. 수집기에 **"마지막 성공 이후 몇 초"** 게이지 `monimo.collector.sampling.refresh.age` 를 더한다. 주기 작업이 있는 세 모듈에 `spring.task.scheduling.pool.size: 2` 를 둔다. `ingester` 의 수동 스케줄러 빈에 `@Bean(defaultCandidate = false)` 를 붙이고 쓰는 쪽에 `@Qualifier` 를 붙인다
 - **버린 것과 이유** : **URL 파라미터**는 운영에서 안 걸린다(url 이 env) · **서버 쪽 `statement_timeout`** 은 서버가 끊어도 그 통보가 못 오므로 막히는 경로 자체를 안 막는다 · **주기 작업 전용 DataSource 를 따로** 두는 것은 수집기가 PG 를 치는 곳이 여기뿐이라 얻는 것이 없는데 풀이 둘이 된다 · **`queryTimeout`** 은 취소 요청이 왕복을 필요로 해서 블랙홀을 못 막는다 · **범위를 내 모듈 둘로** 줄이는 것은 `detector` · `notifier` 에 같은 구멍을 남기는데 모듈당 한 줄이라 줄여서 아끼는 것이 없다 · **값 30초**는 수집기 주기(30초) 한 바퀴를 통째로 먹고 **5초**는 로컬에서 PG 가 느릴 때 오탐이 난다
 - **임계값은 정하지 않았다.** 게이지만 내놓는다. "몇 초를 넘으면 경보" 는 경보 규칙이라 알림 파트 몫이다
-- **되돌리는 조건** : ① 10초 안에 안 끝나는 정상 쿼리가 생기면 그 모듈만 값을 올리거나 그 쿼리 전용 DataSource 로 뺀다 ② 한 모듈에 주기 작업이 셋 이상이 되면 풀 크기를 다시 본다 ③ `api-server` 의 ClickHouse DataSource 에도 같은 한도가 필요해지면 그때 드라이버별 이름으로 넣는다(아래 「안 한 것」)
+- **되돌리는 조건** : ① 10초 안에 안 끝나는 정상 쿼리가 생기면 그 모듈만 값을 올리거나 그 쿼리 전용 DataSource 로 뺀다 ② 한 모듈에 주기 작업이 셋 이상이 되면 풀 크기를 다시 본다 ③ `api-server` 의 ClickHouse DataSource 에도 같은 한도가 필요해지면 그때 드라이버별 이름으로 넣는다(아래 「안 한 것」) ④ 게이지를 보는 사람이 없으면(알림 파트가 규칙을 안 걸면) 지표를 늘린 값어치가 없으므로 경보 규칙을 이 파트가 가져온다
 
 ## 어떻게 확인했나
 
@@ -58,7 +58,7 @@ socketTimeout 10                    pg_sleep(30) 가 10.0초에 끊김
 
 환경변수 이름은 `SPRING_DATASOURCE_HIKARI_DATA_SOURCE_PROPERTIES_SOCKETTIMEOUT` 이다. **Map 키가 camelCase 인데 환경변수는 대문자라 깨질까 걱정했는데 걱정이 틀렸다.** 다만 이것은 `yml` 이 그 키를 먼저 선언해 둔 상태에서 값만 덮어쓴 경우다. yml 줄을 지우고 환경변수만으로 넣는 경우는 재지 않았다.
 
-`api-server` 는 `common/config/DataSourceConfig.kt` 가 `@ConfigurationProperties("spring.datasource.hikari")` 로 `HikariDataSource` 에 직접 바인딩하는데, 같은 접두 아래라 `data-source-properties` 가 그대로 먹는다.
+`api-server` 는 `api-server/.../common/config/DataSourceConfig.kt` 가 `@ConfigurationProperties("spring.datasource.hikari")` 로 `HikariDataSource` 에 직접 바인딩하는데, 같은 접두 아래라 `data-source-properties` 가 그대로 먹는다.
 
 ### 게이지가 "조용한 멈춤" 을 보이게 하나
 
