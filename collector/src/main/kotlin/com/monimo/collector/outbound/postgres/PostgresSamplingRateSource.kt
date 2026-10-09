@@ -4,11 +4,13 @@ import com.monimo.collector.sampling.SamplingProperties
 import com.monimo.collector.sampling.SamplingRateSource
 import com.monimo.collector.sampling.SamplingRates
 import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 // SamplingRateSource 의 PostgreSQL 구현(어댑터). application_configs 를 읽기만 한다.
@@ -22,6 +24,10 @@ import java.util.concurrent.atomic.AtomicReference
 // 에이전트가 응답을 기다리고 있고 수집 경로 가용성 목표가 조회보다 높다(99.9% 대 99.5%).
 // 그래서 @Scheduled 가 주기로 읽어 스냅샷만 갈아끼우고, rates() 는 들고 있는 값을 바로 준다.
 // PG 가 죽으면 비율이 낡기만 하고 수집은 한 번도 멈추지 않는다 (ADR #53).
+//
+// 읽기를 요청 경로에서 뺐다고 끝이 아니다 (ADR #54). PG 가 커넥션은 주고 응답을 안 하면 이 주기
+// 작업이 영구히 멈출 수 있어서, application.yml 의 socketTimeout 으로 기다림에 한도를 두고
+// 아래 age 게이지로 "멈춰서 조용한 것" 을 밖에서 볼 수 있게 했다.
 @Component
 class PostgresSamplingRateSource(
     private val jdbc: JdbcTemplate,
@@ -39,6 +45,23 @@ class PostgresSamplingRateSource(
     private val refreshed = counter(registry, "success", "샘플링 비율 갱신에 성공한 횟수")
     private val failed = counter(registry, "failure", "샘플링 비율 갱신에 실패한 횟수")
 
+    // 위 두 카운터로는 "멈췄다" 를 알 수 없다 (ADR #54). 둘 다 refresh() 가 끝까지 돌아야 올라가는
+    // 값이라서, 주기 작업 스레드가 JDBC 에서 블록되면 둘 다 그냥 멈춘다. 그러면 "정상이라 조용한 것" 과
+    // "멈춰서 조용한 것" 이 구분되지 않는다. 아래 게이지는 읽는 순간 계산되므로 스레드가 막혀 있어도
+    // 계속 커진다. 임계값은 여기서 정하지 않는다 : 경보 규칙은 알림 파트 몫이고 우리는 값만 내놓는다
+    private val clock = registry.config().clock()
+
+    // 한 번도 성공하지 못했으면 기준이 기동 시각이다. 그래야 "처음부터 못 읽고 있다" 도 같은 값이 커지는
+    // 것으로 보인다. 0 으로 두면 기동 직후 값이 수십 년이 되어 눈에 띄긴 하지만 뜻이 틀린 숫자가 된다
+    private val lastSuccessNanos = AtomicLong(clock.monotonicTime())
+
+    init {
+        Gauge.builder(AGE_METRIC) { secondsSinceLastSuccess() }
+            .description("샘플링 비율을 마지막으로 PG 에서 읽는 데 성공한 뒤 흐른 시간")
+            .baseUnit("seconds")
+            .register(registry)
+    }
+
     override fun rates(): SamplingRates = snapshot.get()
 
     // fixedDelay 라 앱이 뜬 직후 한 번 돌고 그다음부터 ttl 간격으로 돈다.
@@ -53,6 +76,8 @@ class PostgresSamplingRateSource(
         }
         snapshot.set(fresh)
         refreshed.increment()
+        // 읽었는데 0줄인 경우도 성공이다. PG 를 읽는 데는 성공했으니 비율이 낡지 않았다
+        lastSuccessNanos.set(clock.monotonicTime())
         if (fresh.byService.isEmpty()) {
             // 조회는 됐는데 줄이 없다. 비율이 기본값으로 떨어지는데 "못 읽었다" 와 증상이 같아서
             // 이것을 안 찍으면 운영에서 조용히 기본값으로 돈다 (seed 미실행 · 전부 deleted_at · 엉뚱한 DB)
@@ -72,12 +97,21 @@ class PostgresSamplingRateSource(
             properties.ratio,
         )
 
+    private fun secondsSinceLastSuccess(): Double =
+        (clock.monotonicTime() - lastSuccessNanos.get()) / NANOS_PER_SECOND
+
     private fun counter(registry: MeterRegistry, outcome: String, description: String): Counter =
         Counter.builder(METRIC).description(description).tag("outcome", outcome).register(registry)
 
     private companion object {
 
         const val METRIC = "monimo.collector.sampling.refresh"
+
+        // 카운터와 접두를 공유한다. 프로메테우스에서는 monimo_collector_sampling_refresh_total 과
+        // monimo_collector_sampling_refresh_age_seconds 로 갈라지므로 이름이 겹치지 않는다
+        const val AGE_METRIC = "$METRIC.age"
+
+        const val NANOS_PER_SECOND = 1_000_000_000.0
 
         val log = LoggerFactory.getLogger(PostgresSamplingRateSource::class.java)
 
