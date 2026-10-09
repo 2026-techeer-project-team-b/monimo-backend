@@ -19,9 +19,9 @@ erd-note(2026-09-16): 경보 규칙 팀 공용 확정 · alert_rules/alert_chann
 
 ## recent decisions (max 5)
 
+- `#56` **에이전트 오버헤드 기준을 실측에 맞게 고친다**(1코어 대비 CPU +3%p · 파드당 CPU 1개 · 초당 주문 20건, 메모리 150MB, 뗀 쪽과 같은 부하로 비교 · 버전 올릴 때 재측정). 성능을 고친 게 아니라 기준을 결과에 맞춘 것. 그대로 둠 · 설정으로 맞춤 · 상대 증가율 숫자만 올림 · 조건 없는 %p · 128MB 기각. 되돌림 = 실제 파드 부하가 더 높으면 그 부하로
 - `#51` **적재 실패를 세 단으로 갈라 다룬다**(일시 장애는 `ContainerPausingBackOffHandler` 로 기다림 10분 · 모르는 실패 1분 · 독성은 바로 `raw.dlq`). 분류를 **뒤집어** "DLQ 로 보낼 것 목록" 만 들고 나머지는 재시도. `319` 제거 · `243` 등 4개는 긴 쪽으로. 전부 DLQ · C(5분 리밸런스) · E(스스로 안 살아남) · `@RetryableTopic` · `ReplacingMergeTree` · `insert_deduplication_token` 기각. **결정 프롬프트 원문이 ADR 안에 있다**
 - `#50` **헬스체크 스팬을 수집기에서 버린다**(`url.path` 정확 일치 · SERVER 만 · 목록은 전역 env, 비우면 꺼짐). 호출자 · 에이전트 · MV · PG 앱별 · `http.route` · 접두 일치 기각. 되돌림 = 헬스체크가 쿼리 · HTTP 호출을 하게 되면 트레이스 단위로. **결정 프롬프트 원문이 ADR 안에 있다**
 - `#49` **PG 마이그레이션 = `db/postgres/` 한 곳 + 전용 Flyway 컨테이너**(파트별 폴더 config · alert · ingest, 파일명 V년월일시분, outOfOrder + CI 빈 DB 검증). 서비스별 Flyway · 스키마 분리 · ddl-auto 기각. 1b에 deploy/schema + K8s Job
 - `#48` **테스트 = Kotest 6.2.5, 기본 BehaviorSpec**(JUnit 5 기각: given-when-then이 이름·주석에만 있고 구조에 안 드러남). 스프링은 모듈별 `io.kotest.provided.ProjectConfig` + SpringExtension, 생성자 주입. 되돌림=연동 문제로 반나절 이상 막힘 2회 시 그 모듈만 JUnit 5
-- `#47` **설계 문서 이관 = `monimo-backend/docs/design/`**(deploy 레포·로컬 유지·Notion 단독 원본 기각). 원본=레포, Notion=사본. `.omc/`·`.bak` 제외, 원 자리 `~/monimonitoring/design/00-index.md` 는 포인터
-docs: 01-decisions(결정 51) · 02-open-questions · 10-requirements · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../seungjo(승조: 하네스 · 이슈별 리서치 · 프롬프트 · 결정 · ERD 영향. 2026-10-04 한 폴더로 합침, 첫 이슈 폴더 92-health-check-filter)
+docs: 01-decisions(결정 56) · 02-open-questions · 10-requirements · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../seungjo(승조: 하네스 · 이슈별 리서치 · 프롬프트 · 결정 · ERD 영향. 2026-10-04 한 폴더로 합침, 첫 이슈 폴더 92-health-check-filter)
