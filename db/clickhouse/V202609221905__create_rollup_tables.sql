@@ -1,5 +1,5 @@
 -- 집계 7표. 정본: 노션 ERD「CH 영역 · 집계 7표」.
--- 사람이 INSERT 하지 않는다. 004 의 MV가 원본에 줄이 들어오는 순간 자동으로 채운다.
+-- 사람이 INSERT 하지 않는다. V202609221907 의 MV 가 원본에 줄이 들어오는 순간 자동으로 채운다.
 -- AggregateFunction 컬럼은 결과가 아니라 "계산 중간 상태"다. 읽을 때 countMerge · sumMerge · quantilesTDigestMerge 등으로 펼친다.
 -- TTL: 002 머리말과 같은 이유로 최종 삭제 시점만 둔다.
 
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS monimo.transactions
     span_name     LowCardinality(String),
     is_error      UInt8,
     http_status   UInt16,
-    -- 이 줄이 그 요청이 시작된 지점(루트)이었나. 004 의 MV 가 parent_span_id 가 비었는지로 계산한다.
+    -- 이 줄이 그 요청이 시작된 지점(루트)이었나. V202609221907 의 MV 가 parent_span_id 가 비었는지로 계산한다.
     -- 조건을 "서비스가 받은 요청" 으로 넓히면서 "루트였다" 는 정보가 조건에서 사라지므로 컬럼으로 옮겼다.
     -- Elastic APM 의 transaction.root 와 같은 용도다. 985바이트(표의 0.04%)이고 ClickHouse 가
     -- 자동으로 PREWHERE 로 옮겨 주므로 이걸 조건에 넣으면 조회가 오히려 빨라진다.

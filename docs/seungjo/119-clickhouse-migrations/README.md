@@ -2,7 +2,8 @@
 
 이슈 `#119` · ADR `#57` · 브랜치 `chore/119-clickhouse-migrations` · `#118` 이 올린 후속
 
-표 정의를 **이번에 바꾸지는 않는다.** 바꿀 수단을 만드는 것까지다.
+표 정의를 **새로 바꾸지는 않는다.** 바꿀 수단을 만드는 것까지다.
+다만 리뷰에서 나온 **호환 마이그레이션 둘**은 넣었다(아래 「리뷰가 잡은 것」). `#118` 이 이미 정한 변경이 옛 로컬에 닿게 하는 것이고, 이 수단의 첫 실사용이기도 하다.
 가볍게 간다 : 이 폴더에 `research.md` · `prompts.md` · `tables.md` · `decision.md` 는 없다.
 어려운 쪽(어떻게 바꿔야 안전한가)은 `#118` 조사가 이미 풀어 뒀다.
 
@@ -51,7 +52,7 @@ CH     clickhouse-migrate  똑같이
 ## 결정
 
 - **고른 것** : Flyway. 본체 버전을 PG 와 같은 `11.7.2` 로 맞추고, 공식 커뮤니티 플러그인(`flyway-database-clickhouse` `10.26.0`)을 얹은 이미지를 `db/clickhouse/Dockerfile` 로 만든다. jar 는 레포에 커밋하지 않고 빌드할 때 받는다
-- **버린 것과 이유** : **전용 도구**(golang-migrate · Atlas · dbmate 등)는 도구가 하나 늘고 PG 와 규칙이 갈려 두 벌을 배워야 한다 · **직접 만들기**는 멱등 · 순서 · 실패 처리 · checksum 을 다시 만드는 일이다 · **그대로 두기**는 변경이 생길 때마다 팀원 전원이 로컬을 날린다 · **jar 를 레포에 커밋**하면 12MB 바이너리가 들어간다 · **컨테이너가 뜰 때 받아오기**는 네트워크가 없으면 못 뜬다 · **플러그인에 맞춰 본체를 `10.x` 로 내리기**는 PG 와 버전이 갈린다
+- **버린 것과 이유** : **전용 도구**(golang-migrate · Atlas · dbmate 등)는 도구가 하나 늘고 PG 와 규칙이 갈려 두 벌을 배워야 한다 · **직접 만들기**는 멱등 · 순서 · 실패 처리 · checksum 을 다시 만드는 일이다 · **그대로 두기**는 변경이 생길 때마다 팀원 전원이 로컬을 날린다 · **jar 를 레포에 커밋**하면 12MB 바이너리가 들어간다 · **컨테이너가 뜰 때 받아오기**는 네트워크가 없으면 못 뜬다 · **플러그인에 맞춰 본체를 `10.x` 로 내리기**는 PG 와 버전이 갈린다 · **`CLICKHOUSE_DB` 환경변수로 DB 를 미리 만들기**는 그것도 **첫 기동 때만 도는 entrypoint 기능**이라 우리가 없애려는 "처음 켤 때만" 의존이 그대로 남는다(리뷰가 공식 이미지 entrypoint 로 확인해 줬다)
 - **다시 볼 조건 셋** : ① 플러그인이 본체를 따라오지 못해 보안 패치를 못 받으면 전용 도구로 ② ClickHouse 를 복제 구성으로 올리면 `ON CLUSTER` 가 필요해져 절차를 다시 본다 ③ 운영 실행 주체를 K8s Job 으로 바꿀 때 이 컨테이너 정의를 그대로 옮긴다
 
 ## 같이 바뀐 것 셋
@@ -68,7 +69,7 @@ CH     clickhouse-migrate  똑같이
      표가 필요한 서비스 : clickhouse-migrate 가 정상 종료될 때까지
 ```
 
-**③ 접속 대상이 `monimo` 가 아니라 `default` 다.** 빈 서버에는 `monimo` DB 가 없고 **그것을 만드는 것이 첫 마이그레이션**이라 거기 붙을 수 없다. 장부도 `default` 에 생긴다.
+**③ 장부를 `monimo` 안에 둔다.** 붙는 곳은 `default` 이지만 일하는 곳과 장부 자리는 `monimo` 다. 그래서 `monimo` 표가 11개에서 12개(장부 포함)가 되고 `check-dev-infra.sh` 단언을 한 줄 고쳤다. **처음에는 `default` 에 뒀다가 리뷰에서 뒤집혔다**(아래).
 
 ## 어떻게 확인했나
 
@@ -82,7 +83,7 @@ spans       1,405,331  ->  1,405,331
 logs           54,564  ->     54,564
 metrics_raw   137,855  ->    137,855
 표 · MV         11 · 7  ->     11 · 7
-장부           없음      ->  V202609220045 ~ V202609221906 네 줄 전부 success
+장부           없음      ->  네 줄 전부 success (이 측정 뒤에 호환 파일 둘이 더 붙어 지금은 여섯이다)
 한 번 더                   "up to date. No migration necessary"
 ```
 
@@ -111,14 +112,19 @@ monimo 표 11개 · MV 7개
 check-dev-infra.sh  모두 정상
 ```
 
-`check-dev-infra.sh` 가 `monimo` 안의 **표 11개**를 못 박고 있는데, 장부가 `default` 에 생기므로 그 숫자가 안 바뀌어 **스크립트를 안 고쳐도 통과**한다. 의도한 것은 아니고 접속 대상을 `default` 로 둔 것의 부수 효과다.
+`check-dev-infra.sh` 의 표 개수 단언을 11 에서 12 로 고쳤다. 장부가 `monimo` 안에 있기 때문이다.
 
 ### 적용한 파일을 고치면 멈춘다
 
+일부러 만든 시험이 아니라 **실제로 한 번 걸렸다.** 마이그레이션이 적용된 뒤에 그 파일 둘의 주석을 고쳤더니 다음 `up` 에서 정확히 그 둘을 짚었다.
+
 ```
 ERROR: Validate failed: Migrations have failed validation
-Migration checksum mismatch for migration version ...
+Migration checksum mismatch for migration version 202609220045
+Migration checksum mismatch for migration version 202609221905
 ```
+
+전에는 **고쳐도 아무 일도 안 일어났다.** 그것이 이 이슈의 문제였다.
 
 ## 시험이 설계 결함을 하나 잡았다
 
@@ -139,17 +145,69 @@ ERROR: Found non-empty schema(s) "default" but no schema history table.
 
 그 성질은 `#118` 조사가 샌드박스에서 `DROP VIEW` + `CREATE` 와 `MODIFY QUERY` 를 **직접 비교해 이미 확인**한 것이다(앞쪽은 4줄 넣고 0줄, 뒤쪽은 손실 없음). 여기서는 다시 재지 않고 인용한다.
 
+## 리뷰가 잡은 것 셋 (전부 High)
+
+**① `#118` 이전 로컬은 스택이 아예 안 떴다.** 처음에 PR 에 "팀원이 해야 하는 것 : 없다" 로 적었는데 **틀렸다.** 위의 live-apply 측정을 **이미 `#118` 이후 상태인 DB 에서만** 하고 일반화했다.
+
+`CREATE MATERIALIZED VIEW IF NOT EXISTS ... TO ... AS SELECT` 는 **존재 검사보다 SELECT 분석을 먼저** 한다. MV 가 이미 있어도 타깃 표에 `is_root` 가 없으면 터지고, `clickhouse-migrate` 가 비정상 종료해 `infra-ready` 가 안 켜진다.
+
+문서로 덮지 않고 **호환 마이그레이션 둘**로 고쳤다.
+
+| 파일 | 하는 일 | 없으면 |
+|---|---|---|
+| `V202609221906` | `transactions` 에 `is_root` 를 채운다 | 다음 파일이 **터진다** |
+| `V202609221908` | `mv_transactions` 를 `MODIFY QUERY` 로 덮어쓴다 | 터지진 않지만 **조용히 옛 정의를 그대로 쓴다** |
+
+둘째가 핵심이다. `CREATE ... IF NOT EXISTS` 는 **이미 있는 MV 를 갱신하지 못한다.** 컬럼만 채우면 에러는 사라지지만 옛 DB 가 옛 조건을 그대로 쓴다. 에러가 없어 아무도 모른다. **이 이슈가 없애려는 바로 그 실패 모양이다.**
+
+양쪽으로 쟀다.
+
+```
+호환 파일 없이  ERROR: Script V202609221907__create_materialized_views.sql failed
+호환 파일 넣고  6개 전부 적용. is_root 가 생기고 조건이 span_kind IN ('SERVER','CONSUMER') 로 바뀌고
+               SERVER 스팬 2개 -> transactions 2줄 (옛 조건이면 1줄), sum(is_root) = 1
+```
+
+**번호를 한 번 틀렸다.** `1905900` 으로 끼우려 했는데 Flyway 는 버전을 숫자로 비교해서 `202609221905900`(15자리)이 `202609221906`(12자리)보다 크다. 분 단위로 다시 매겼다.
+
+**② 장부 자리를 처음에 틀렸다.** `default` 에 붙이고 장부도 거기 뒀는데, 사유로 적은 "빈 서버에는 `monimo` 가 없어 거기 붙을 수가 없다" 가 **제약이 아니었다.** Flyway 의 `createSchemas`(기본 참)가 없으면 만들어 준다.
+
+그리고 `default` 에 두면 **장부와 표의 생명주기가 갈려 조용히 틀린다.**
+
+```
+DROP DATABASE monimo
+-> migrate: "up to date. No migration necessary."  (종료코드 0)
+-> 표 0개인 채로 infra-ready 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다
+```
+
+**이 이슈가 없애려는 바로 그 실패 모양이다.** `FLYWAY_SCHEMAS=monimo` 로 바꾸니 장부가 표와 같이 사라지고 다음 `migrate` 가 전부 다시 만든다. 대가는 표가 12개가 되어 점검 스크립트 한 줄을 고친 것뿐이다.
+
+**처음에는 그 단언이 안 깨지는 것을 "부수 효과" 로 적었는데, 사실은 틀린 선택을 유지하는 쪽의 변명이었다.**
+
+세 경로를 다시 쟀다.
+
+```
+빈 서버          장부가 monimo 에, 6개 적용, 표 12 · MV 7
+#118 이후 DB     baseline v1 -> 6개 전부 실행(전부 무해) -> 표 12 · MV 7
+#118 이전 DB     is_root 0 -> 1, 조건 parent_span_id='' -> span_kind IN ('SERVER','CONSUMER')
+```
+
+**③ 루트 `README.md` 가 이 변경이 없앤 동작을 아직 정본처럼 적고 있었다.** `AGENTS.md` 가 "로컬 실행은 `README.md` 를 본다" 로 가리키는 파일인데, 존재하지 않는 파일명 셋 · 옛 seed 경로 · "데이터가 비어 있을 때만 실행되므로 `down -v` 후 켠다" 가 남아 있었다. `#126` 이 `api-spec.md` 의 거짓 기술을 고친 것과 같은 종류다.
+
 ## 운영 절차
 
 표 정의를 바꿀 때 지켜야 하는 것(`MODIFY QUERY` 만 쓸 것 · 바꾼 뒤 값이 들어오는지 확인할 것 · 컬럼 추가가 먼저일 것 · 과거 구간을 채울 때 조심할 것)은 **`db/clickhouse/README.md`** 에 적었다. 파일 옆에 둬야 바꾸려는 사람이 본다.
 
 ## 바꾼 파일
 
-- `db/clickhouse/*.sql` : 이름 네 개를 `V{년월일시분}__{동사}_{대상}.sql` 로. 내용은 그대로(`git` 이 전부 rename 으로 인식)
+- `db/clickhouse/*.sql` : 기존 네 개의 이름을 `V{년월일시분}__{동사}_{대상}.sql` 로(내용은 그대로, `git` 이 전부 rename 으로 인식). 호환 마이그레이션 둘(`V...1906` · `V...1908`) 신설
 - `db/clickhouse/Dockerfile` : 신설. Flyway 에 플러그인과 드라이버를 얹는다
 - `db/clickhouse/README.md` : 신설. 운영 절차
 - `compose.yaml` : `initdb` 마운트 제거 · `clickhouse-migrate` 추가 · 헬스체크 교체 · `infra-ready` 의존 교체
 - `scripts/seed/clickhouse-fake-signals.sql` : `db/clickhouse/seed/` 에서 옮김
 - `scripts/seed-clickhouse.sh` : 경로 한 줄
 - `docs/design/01-decisions.md` : ADR `#57`
-- `AGENTS.md` : §5 `#119`, §6 해당 행 해소
+- `scripts/check-dev-infra.sh` : 표를 셀 때 장부를 빼고(11개 유지), PG 와 같은 기준으로 CH 장부의 성공 · 실패도 본다
+- `AGENTS.md` : §2 마이그레이션 규칙(PG 전용으로 적혀 있었다) · §5 `#119` · §6 해당 행 해소
+- `README.md`(루트) : 이 변경이 없앤 동작을 정본처럼 적고 있던 네 곳
+- 낡은 경로를 가리키던 넷 : `ingester/.../MetricRow.kt` · `docs/alert/40-agent-down.md` · `scripts/seed/postgres-applications.sql` · `AGENTS.md` §6

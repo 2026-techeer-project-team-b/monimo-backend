@@ -44,7 +44,7 @@ docker build -f collector/Dockerfile -t monimo/collector .
 
 ```bash
 docker compose up -d           # 켜기 (레포 루트에서)
-docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL 마이그레이션이 끝날 때까지 기다리기
+docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL · ClickHouse 마이그레이션이 끝날 때까지 기다리기
 ./scripts/check-dev-infra.sh   # 제대로 떴는지 확인
 ./scripts/seed-clickhouse.sh   # ClickHouse에 가짜 신호 데이터 넣기 (최근 1시간치, 다시 돌리면 비우고 새로 넣음)
 docker compose down            # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
@@ -64,9 +64,9 @@ docker compose --profile collector --profile ingester down
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
 - Kafka 메시지는 컨테이너 안에만 있어서 `down` 하면 지워진다.
 - **PostgreSQL 표는 `db/postgres/` 한 곳**에 파트별 폴더(`config/` · `alert/` · `ingest/`)로 추가하고, 켤 때 Flyway가 자동 적용한다. 서비스는 마이그레이션을 돌리지 않는다. 규칙은 [`db/postgres/README.md`](db/postgres/README.md) (ADR #49)
-- **ClickHouse 표는 `db/clickhouse/`** 에 있다. 원본 4표(`002`) → 집계 7표(`003`) → MV 7개(`004`) 순서이고, 정본은 노션 ERD「CH 영역」이다. **데이터가 비어 있을 때(처음 켤 때)만** 실행되므로, 바꾼 DDL을 다시 적용하려면 `down -v` 후 켠다.
+- **ClickHouse 표도 `db/clickhouse/`** 한 곳에 `V{년월일시분}__{동사}_{대상}.sql` 로 두고, 켤 때 Flyway(`clickhouse-migrate`)가 자동 적용한다. 원본 4표 → 집계 7표 → MV 7개 순서이고 정본은 노션 ERD「CH 영역」이다. **바꾼 DDL 을 적용하려고 `down -v` 할 필요가 없다** : 떠 있는 서버에 안 돌린 파일만 적용된다. 규칙과 표 정의를 바꿀 때의 절차는 [`db/clickhouse/README.md`](db/clickhouse/README.md) (ADR `#57`)
 - 집계 7표는 사람이 넣지 않는다. 원본(`spans` · `metrics_raw`)에 줄이 들어오면 MV가 자동으로 채운다.
-- 가짜 데이터(`db/clickhouse/seed/`)는 쇼핑몰 서비스 4개(`shop-gateway` · `shop-order` · `shop-inventory` · `shop-payment`)의 최근 1시간이다. 결제 5xx 급증(5~15분 전) · 느린 결제 · 404 · 힙이 새는 파드 1대가 들어 있어 화면 · 경보를 바로 시험할 수 있다. 모양은 OTel Java Agent 2.x 형식에 맞췄고, 쇼핑몰이 붙으면 진짜 데이터와 비교해 고친다.
+- 가짜 데이터(`scripts/seed/clickhouse-fake-signals.sql`)는 쇼핑몰 서비스 4개(`shop-gateway` · `shop-order` · `shop-inventory` · `shop-payment`)의 최근 1시간이다. 결제 5xx 급증(5~15분 전) · 느린 결제 · 404 · 힙이 새는 파드 1대가 들어 있어 화면 · 경보를 바로 시험할 수 있다. 모양은 OTel Java Agent 2.x 형식에 맞췄고, 쇼핑몰이 붙으면 진짜 데이터와 비교해 고친다.
 - 포트가 다른 프로젝트와 겹치면 `.env.example` 을 `.env` 로 복사해서 바꾼다.
 - **연결 약속 (개발환경 6단계)**: 모든 compose 는 공용 네트워크 `monimo-dev` 를 쓴다. 쇼핑몰 에이전트는 컨테이너끼리 `collector:4317`, 내 컴퓨터에서 실행한 앱은 `localhost:4317` 로 보낸다. 수집기를 IDE 로 직접 실행할 때는 `--profile collector` 를 켜지 않는다 (포트가 겹친다).
 
@@ -185,7 +185,7 @@ HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연�
 
 | compose | 켜는 것 | 네트워크 |
 |---|---|---|
-| `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(표 · MV) · PostgreSQL(마이그레이션) | `monimo-dev` |
+| `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(마이그레이션) · PostgreSQL(마이그레이션) | `monimo-dev` |
 | `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081`) | `monimo-dev` |
 | `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082`) | `monimo-dev` |
 | `monimo-shop/docker-compose.dev.yml` (예정) | 쇼핑몰 4개 + MySQL. OTel 에이전트는 `collector:4317` 로 보낸다 | `monimo-dev` (external) |

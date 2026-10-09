@@ -1,4 +1,4 @@
--- 가짜 감시 대상 서비스. ClickHouse 가짜 신호(db/clickhouse/seed/001_fake_signals.sql)와 같은 이름이어야
+-- 가짜 감시 대상 서비스. ClickHouse 가짜 신호(clickhouse-fake-signals.sql, 같은 폴더)와 같은 이름이어야
 -- 화면의 서비스 목록과 CH 조회가 이어진다. 두 저장소를 잇는 끈은 이 이름 하나뿐이다.
 --
 -- 넣는 법: ./scripts/seed-clickhouse.sh (CH 와 함께 들어간다)

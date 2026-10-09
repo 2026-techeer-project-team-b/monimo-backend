@@ -18,6 +18,14 @@ docker compose run --rm clickhouse-migrate
 
 `docker compose up` 을 하면 알아서 돈다. `infra-ready` 가 이 컨테이너가 **정상 종료되기를** 기다리므로, 표가 필요한 서비스는 표가 다 생긴 뒤에 뜬다.
 
+**`Dockerfile` 이 바뀌었으면 한 번 다시 빌드해야 한다.** 이미지 태그가 고정이라 이미 있으면 compose 가 다시 안 만든다. 플러그인이나 드라이버 버전을 올려도 옛 Flyway 를 쓰게 된다.
+
+```bash
+docker compose build clickhouse-migrate
+```
+
+**첫 빌드에는 네트워크가 필요하다.** jar 를 레포에 두지 않고 Maven Central 에서 받기 때문이다. 한 번 만들고 나면 필요 없다.
+
 ## 전에는 왜 안 됐나
 
 `db/clickhouse/*.sql` 을 ClickHouse 가 **처음 켤 때만** 읽었다. 데이터가 있으면 안 읽고, 게다가 전부 `CREATE ... IF NOT EXISTS` 라 있으면 그냥 넘어갔다. **파일을 고쳐도 떠 있는 서버는 조용히 건너뛰었다.**
@@ -87,15 +95,55 @@ WHERE ts > now() - INTERVAL 5 MINUTE GROUP BY service_name;
 - **두 번 돌리면 그대로 두 배다.** 복제 표가 아니라 중복 제거가 안 걸린다. 되돌릴 수단이 `DROP PARTITION` 뿐이라 **날짜 파티션 단위로** 하고 어디까지 했는지 적어 둔다
 - **한 번에 많이 못 넣는다.** `max_partitions_per_insert_block` 기본값이 100 이라 하루 파티션이 100개를 넘으면 예외가 난다
 
-## 장부가 `default` 에 있는 이유
+## 옛 로컬을 위한 호환 마이그레이션 둘
 
-빈 서버에는 `monimo` DB 가 아직 없다. **그것을 만드는 것이 첫 마이그레이션**이라 거기에 붙을 수가 없다. 그래서 Flyway 는 `default` 에 붙고 장부도 거기 생긴다.
+`V202609221906` 과 `V202609221908` 은 **`#118` 이전에 만든 ClickHouse 를 가진 사람**을 위한 것이다. `#118` 이후에 만든 DB 에서는 둘 다 아무 일도 안 한다.
 
-```sql
-SELECT version, description, success FROM default.flyway_schema_history ORDER BY installed_rank;
+| 파일 | 하는 일 | 없으면 |
+|---|---|---|
+| `V202609221906` | `transactions` 에 `is_root` 컬럼을 채운다 | 다음 파일이 **터진다.** `clickhouse-migrate` 가 비정상 종료해 스택 전체가 안 뜬다 |
+| `V202609221908` | `mv_transactions` 정의를 `MODIFY QUERY` 로 덮어쓴다 | 터지지는 않지만 **조용히 옛 정의를 그대로 들고 있는다** |
+
+첫째가 필요한 이유는 `CREATE MATERIALIZED VIEW IF NOT EXISTS ... TO ... AS SELECT` 가 **존재 검사보다 SELECT 분석을 먼저** 하기 때문이다. MV 가 이미 있어도 타깃 표에 `is_root` 가 없으면 이렇게 터진다.
+
+```
+ERROR: Code: 8. DB::Exception: SELECT query outputs column with name 'is_root',
+       which is not found in the target table.
 ```
 
-`monimo` 안의 표 개수는 그대로다. 점검 스크립트(`scripts/check-dev-infra.sh`)가 세는 숫자가 안 바뀐 것도 이 때문이다.
+둘째가 필요한 이유는 `CREATE ... IF NOT EXISTS` 가 **이미 있는 MV 를 갱신하지 못하기** 때문이다. 컬럼만 채우면 에러는 없어지지만 옛 DB 는 옛 조건(`WHERE parent_span_id = ''`)을 그대로 쓴다. 에러가 없어서 아무도 모른다.
+
+**새 DDL 을 쓸 때도 같은 함정이 있다.** 표를 고치는 것은 `CREATE ... IF NOT EXISTS` 로 안 되고 `ALTER` 가 필요하다. 기존 파일을 고치지 말고 새 파일에 `ALTER` 를 쓴다.
+
+### 마이그레이션이 실패했을 때
+
+실패 행이 장부에 남아 재실행이 거부된다.
+
+```
+ERROR: Validate failed: Migrations have failed validation
+Detected failed migration to version ... Please remove any half-completed changes
+then run repair to fix the schema history.
+```
+
+반쯤 적용된 것을 손으로 치운 뒤 `docker compose run --rm clickhouse-migrate repair` 를 돌리고 다시 `migrate` 한다. 로컬이고 아까운 데이터가 없으면 `docker compose down -v` 가 더 빠르다.
+
+## 장부
+
+`monimo` 안에 있다. 붙는 곳은 `default` 이지만 일하는 곳과 장부 자리는 `monimo` 다(`FLYWAY_SCHEMAS`).
+
+```sql
+SELECT version, description, success FROM monimo.flyway_schema_history ORDER BY installed_rank;
+```
+
+**장부를 `default` 에 두면 안 된다.** 표와 생명주기가 갈려서 조용히 틀린다. `DROP DATABASE monimo` 를 하면 다음 `migrate` 가 "up to date" 로 종료코드 0 을 내고, 표가 0개인 채로 `infra-ready` 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다.
+
+그래서 `monimo` 안의 표가 11개가 아니라 **12개**(장부 포함)다. `scripts/check-dev-infra.sh` 가 그 숫자를 센다.
+
+### `success` 가 스키마를 보장하지 않는다
+
+우리 파일이 전부 `CREATE ... IF NOT EXISTS` 라, 장부의 `success` 는 **"그 파일의 문장을 돌렸다" 일 뿐**이다. `monimo` 의 실제 정의가 파일과 같다는 보장이 아니다.
+
+`mv_transactions` 를 손으로 옛 정의로 되돌린 뒤 `migrate` 를 돌려도 장부는 전부 `success` 인데 정의는 안 고쳐진다. **표 정의를 바꿀 때 `CREATE` 를 고치지 말고 새 파일에 `ALTER` 를 쓰라는 것이 이 때문이다.**
 
 ## Flyway 버전
 
