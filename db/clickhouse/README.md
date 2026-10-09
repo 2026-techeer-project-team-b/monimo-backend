@@ -40,7 +40,7 @@ Flyway 는 장부(`monimo.flyway_schema_history`)와 파일을 대조해서 **�
 V{년월일시분}__{동사}_{대상}.sql      예: V202610091730__add_spans_foo_column.sql
 ```
 
-- **이미 들어간 파일을 고치지 않는다.** 주석 한 글자만 고쳐도 장부와 어긋나 `checksum mismatch` 로 멈춘다. 이미 적용한 사람은 전부 손으로 풀어야 하고, **`repair` 한 줄로 끝나지 않는다**(그 경로는 장부 표 설정 둘을 먼저 켜야 한다. 아래 「이미 적용한 파일을 고쳤을 때」). 바꿀 것이 있으면 **새 파일**을 만든다
+- **이미 들어간 파일을 고치지 않는다.** 주석 한 글자만 고쳐도 장부와 어긋나 `checksum mismatch` 로 멈춘다. 이미 적용한 사람은 전부 손으로 풀어야 하고, **CH 는 `repair` 한 줄로 끝나지 않는다**(PG 와 다른 점이다). 자세한 복구는 아래 「이미 적용한 파일을 고쳤을 때」. 바꿀 것이 있으면 **새 파일**을 만든다
 - 번호는 만든 시각이다. 머지 순서가 번호 순서와 달라도 늦게 들어온 파일이 적용된다(`outOfOrder`). 순서 의존 문제는 CI 가 빈 DB 에 전부 돌려서 잡는다
 
 ## 표 정의를 바꿀 때 (중요)
@@ -127,7 +127,7 @@ then run repair to fix the schema history.
 
 반쯤 적용된 것을 손으로 치운 뒤 `docker compose run --rm clickhouse-migrate repair` 를 돌리고 다시 `migrate` 한다. 이 경로는 실측으로 그냥 된다(실패 행을 장부에서 지운다). 로컬이고 아까운 데이터가 없으면 `docker compose down -v` 가 더 빠르다.
 
-### 이미 적용한 파일을 고쳤을 때 (`repair` 가 여기서는 안 된다)
+### 이미 적용한 파일을 고쳤을 때 (`repair` 가 그냥은 안 된다)
 
 주석 한 글자만 고쳐도 체크섬이 바뀌어 Flyway 가 멈춘다. 그건 의도된 보호막이다.
 
@@ -138,7 +138,7 @@ Migration checksum mismatch for migration version 202609221905
 -> Resolved locally    : 1353248112
 ```
 
-**여기서 `repair` 를 돌리면 ClickHouse 가 거부한다.** 체크섬을 맞추려면 장부를 `UPDATE` 해야 하는데, ClickHouse 26.8 의 가벼운 UPDATE 는 표에 설정 둘이 켜져 있어야 한다.
+**여기서 `repair` 를 그냥 돌리면 ClickHouse 가 거부한다.** 체크섬을 맞추려면 장부를 `UPDATE` 해야 하는데, ClickHouse 26.8 의 가벼운 UPDATE 는 표에 설정 둘이 켜져 있어야 한다.
 
 ```
 ERROR: Code: 48. DB::Exception: Lightweight updates are not supported.
