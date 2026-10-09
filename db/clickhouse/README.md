@@ -40,7 +40,7 @@ Flyway 는 장부(`monimo.flyway_schema_history`)와 파일을 대조해서 **�
 V{년월일시분}__{동사}_{대상}.sql      예: V202610091730__add_spans_foo_column.sql
 ```
 
-- **이미 들어간 파일을 고치지 않는다.** 고치면 장부와 어긋나 `checksum mismatch` 로 멈추고, 이미 적용한 사람은 전부 `repair` 를 돌려야 한다. 바꿀 것이 있으면 **새 파일**을 만든다
+- **이미 들어간 파일을 고치지 않는다.** 주석 한 글자만 고쳐도 장부와 어긋나 `checksum mismatch` 로 멈춘다. 이미 적용한 사람은 전부 손으로 풀어야 하고, **`repair` 한 줄로 끝나지 않는다**(그 경로는 장부 표 설정 둘을 먼저 켜야 한다. 아래 「이미 적용한 파일을 고쳤을 때」). 바꿀 것이 있으면 **새 파일**을 만든다
 - 번호는 만든 시각이다. 머지 순서가 번호 순서와 달라도 늦게 들어온 파일이 적용된다(`outOfOrder`). 순서 의존 문제는 CI 가 빈 DB 에 전부 돌려서 잡는다
 
 ## 표 정의를 바꿀 때 (중요)
@@ -143,14 +143,25 @@ Migration checksum mismatch for migration version 202609221905
 ```
 ERROR: Code: 48. DB::Exception: Lightweight updates are not supported.
        Lightweight updates are supported only for tables with materialized
-       _block_number column. (NOT_IMPLEMENTED)
+       _block_number column. Run 'MODIFY SETTING enable_block_number_column = 1'
+       command to enable it. (NOT_IMPLEMENTED)
 ```
 
-고치는 방법 셋. 위에서부터 권한다.
+ClickHouse 가 처방을 직접 말해 준다. 그대로 따르면 된다(설정이 둘이라 두 번 나온다).
+
+고치는 방법 넷. 위에서부터 권한다.
 
 1. **고친 것을 되돌린다.** 적용한 파일은 안 고치는 것이 원칙이다. 바꿀 것이 있으면 새 V 파일을 더한다
 2. **로컬이고 아까운 데이터가 없으면** `docker compose down -v` 후 다시 켠다
-3. **데이터를 지켜야 하면** 장부 표에 설정 둘을 켜고 `repair` 를 돌린다. 설정을 켜면 `repair` 가 정상 동작하는 것을 확인했다
+3. **데이터를 지켜야 하는데 어긋난 줄이 하나면** 그 줄만 손으로 맞춘다. 표 설정을 안 건드리고 한 문장으로 끝난다
+
+```sql
+ALTER TABLE monimo.flyway_schema_history
+UPDATE checksum = <위 Resolved locally 값> WHERE version = '202609221905'
+SETTINGS mutations_sync = 2;
+```
+
+4. **어긋난 줄이 여럿이거나 실패 행과 섞였으면** 장부 표에 설정 둘을 켜고 `repair` 를 돌린다
 
 ```sql
 ALTER TABLE monimo.flyway_schema_history MODIFY SETTING enable_block_number_column = 1;
@@ -158,13 +169,9 @@ ALTER TABLE monimo.flyway_schema_history MODIFY SETTING enable_block_offset_colu
 -- 그 뒤: docker compose run --rm clickhouse-migrate repair
 ```
 
-장부 한 줄만 손으로 맞추는 것도 된다(무거운 mutation 은 설정 없이 돌아간다).
+`MODIFY SETTING` 은 설정 전에 쓰인 part 에도 먹는다. ClickHouse 가 part 가 아니라 **표 설정**을 보기 때문이다(리뷰가 실측했다). 그래서 `OPTIMIZE ... FINAL` 같은 보조 단계는 필요 없다.
 
-```sql
-ALTER TABLE monimo.flyway_schema_history
-UPDATE checksum = <Resolved locally 값> WHERE version = '202609221905'
-SETTINGS mutations_sync = 2;
-```
+**이 설정은 장부를 새로 만들면 사라진다.** `DROP TABLE monimo.flyway_schema_history` 뒤 `migrate` 가 다시 만든 장부에는 없다. 한 번 켜 두면 끝나는 설정이 아니라 **사고마다 다시 켜는 처방**이다.
 
 ## 장부
 
