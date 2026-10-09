@@ -144,17 +144,16 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
     // 주기 작업 스레드가 JDBC 에서 막혀 refresh() 가 아예 안 끝나는 상황에서도 값이 커진다.
     // 시계를 손으로 돌려야 하므로 레지스트리에 MockClock 을 꽂는다
     Given("게이지를 보는데") {
-        fun sourceWith(jdbc: JdbcTemplate, clock: MockClock) =
-            SimpleMeterRegistry(SimpleConfig.DEFAULT, clock).let { registry ->
-                PostgresSamplingRateSource(jdbc, SamplingProperties(ratio = 0.01), registry) to registry
-            }
+        // 레지스트리는 위 sourceOf 가 받는다. 여기서는 시계만 갈아끼운 것을 넘긴다
+        fun registryWith(clock: MockClock) = SimpleMeterRegistry(SimpleConfig.DEFAULT, clock)
 
         fun age(registry: SimpleMeterRegistry): Double =
             registry.get("monimo.collector.sampling.refresh.age").gauge().value()
 
         When("갱신에 막 성공했으면") {
             val clock = MockClock()
-            val (source, registry) = sourceWith(FakeJdbc(mapOf("shop-order" to 0.1)), clock)
+            val registry = registryWith(clock)
+            val source = sourceOf(FakeJdbc(mapOf("shop-order" to 0.1)), registry)
             clock.add(Duration.ofSeconds(70))
             source.refresh()
 
@@ -169,7 +168,8 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
         When("성공한 뒤로 시간이 흐르면") {
             val clock = MockClock()
-            val (source, registry) = sourceWith(FakeJdbc(mapOf("shop-order" to 0.1)), clock)
+            val registry = registryWith(clock)
+            val source = sourceOf(FakeJdbc(mapOf("shop-order" to 0.1)), registry)
             source.refresh()
             clock.add(Duration.ofSeconds(90))
 
@@ -181,7 +181,8 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
         When("갱신이 실패하면") {
             val clock = MockClock()
             val jdbc = FakeJdbc(mapOf("shop-order" to 0.1))
-            val (source, registry) = sourceWith(jdbc, clock)
+            val registry = registryWith(clock)
+            val source = sourceOf(jdbc, registry)
             source.refresh()
             clock.add(Duration.ofSeconds(30))
             jdbc.rows = null
@@ -199,7 +200,8 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
         When("한 번도 성공하지 못했으면") {
             val clock = MockClock()
-            val (_, registry) = sourceWith(FakeJdbc(null), clock)
+            val registry = registryWith(clock)
+            sourceOf(FakeJdbc(null), registry)
             clock.add(Duration.ofSeconds(45))
 
             Then("기동 시각부터 센다 : 처음부터 못 읽는 것도 같은 값이 커지는 것으로 보인다") {
@@ -209,7 +211,8 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
 
         When("조회는 됐는데 줄이 0개면") {
             val clock = MockClock()
-            val (source, registry) = sourceWith(FakeJdbc(emptyMap()), clock)
+            val registry = registryWith(clock)
+            val source = sourceOf(FakeJdbc(emptyMap()), registry)
             clock.add(Duration.ofSeconds(20))
             source.refresh()
 
