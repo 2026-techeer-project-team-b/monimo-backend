@@ -15,7 +15,7 @@ echo "비우는 중..."
 for t in $tables; do echo "TRUNCATE TABLE monimo.$t;"; done | CH
 
 echo "넣는 중..."
-CH < db/clickhouse/seed/001_fake_signals.sql
+CH < scripts/seed/clickhouse-fake-signals.sql
 
 echo "PostgreSQL 감시 대상 서비스 넣는 중..."
 docker compose exec -T postgres sh -c 'psql -q -U "$POSTGRES_USER" -d monimo' < scripts/seed/postgres-applications.sql

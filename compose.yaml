@@ -87,13 +87,11 @@ services:
         soft: 262144
         hard: 262144
     volumes:
-      # db/clickhouse/*.sql 은 데이터가 비어 있을 때(처음 켤 때)만 이름 순서대로 실행된다.
-      # 하위 폴더(seed/)는 실행되지 않는다. 가짜 데이터는 ./scripts/seed-clickhouse.sh 로만 넣는다.
-      - ./db/clickhouse:/docker-entrypoint-initdb.d:ro
       - clickhouse-data:/var/lib/clickhouse
     healthcheck:
-      # 마지막 초기화 파일(004)의 마지막 MV까지 만들어졌을 때만 정상. DB만 보면 표를 만드는 도중에 정상으로 뜬다.
-      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'EXISTS TABLE monimo.mv_metrics_1h' | grep -q 1"]
+      # 서버가 살아 있나만 본다. 표를 만드는 일은 clickhouse-migrate 가 맡는다 (ADR #57).
+      # 전에는 여기서 마지막 MV 까지 확인했다 : ClickHouse 자신이 처음 켜질 때 표를 만들었기 때문이다
+      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' | grep -q 1"]
       interval: 5s
       timeout: 10s
       retries: 30
@@ -137,6 +135,49 @@ services:
     command: migrate
     restart: "no"
 
+  # ClickHouse 마이그레이션 (한 번 실행하고 끝나는 컨테이너). 파일: db/clickhouse/V*.sql (ADR #57)
+  # 전에는 ClickHouse 가 처음 켜질 때 docker-entrypoint-initdb.d 로 읽었다. 그러면 데이터가 있는
+  # 서버에는 영영 적용되지 않아서, 고칠 때마다 DB 를 통째로 날리는 수밖에 없었다.
+  #
+  # 장부(flyway_schema_history)를 monimo 안에 둔다. 빈 서버에 monimo 가 없어도 괜찮다 :
+  # Flyway 의 createSchemas 가 없으면 만들어 준다.
+  #
+  # default 에 두면 장부와 표가 생명주기가 갈려서 조용히 틀린다. 실측 :
+  # DROP DATABASE monimo 를 하면 다음 migrate 가 "up to date. No migration necessary" 로
+  # 종료코드 0 을 내고, 표가 0개인 채로 infra-ready 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다.
+  # 같이 사라져야 맞다.
+  clickhouse-migrate:
+    build:
+      context: ./db/clickhouse
+    image: monimo/clickhouse-migrate:dev
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./db/clickhouse:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:clickhouse://clickhouse:8123/default
+      FLYWAY_USER: ${CLICKHOUSE_USER:-monimo}
+      FLYWAY_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 붙는 곳은 default(빈 서버에도 늘 있다)이고, 일하는 곳과 장부 자리는 monimo 다
+      FLYWAY_SCHEMAS: monimo
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      # 이름 규칙에 안 맞는 파일을 조용히 건너뛰지 않고 실패시킨다
+      FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
+      # 번호(만든 시각)와 머지 순서가 달라도 늦게 들어온 파일을 적용한다 (PG 와 같은 기준)
+      FLYWAY_OUT_OF_ORDER: "true"
+      FLYWAY_CONNECT_RETRIES: "10"
+      # monimo 에 표가 있고 장부가 없으면 Flyway 는 "비어 있지 않은데 장부가 없다" 로 멈춘다.
+      # 이 변경 전에 만든 로컬이 전부 그 상태라 그대로 두면 아무도 못 뜬다.
+      # 이것을 켜면 장부를 v1 로 깔고 시작하는데, 우리 파일 번호가 전부 2026... 이라 v1 보다 커서
+      # 하나도 안 건너뛰고 그대로 실행된다. 게다가 전부 IF NOT EXISTS 라 이미 있으면 아무 일도 안 한다
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
+      # Flyway 가 monimo 를 소유하게 됐으므로 clean 이 한 번 돌면 신호 데이터가 전부 날아간다.
+      # Flyway 10+ 기본값이 이미 true 지만, 지우는 명령은 기본값에 맡기지 않고 못박는다
+      FLYWAY_CLEAN_DISABLED: "true"
+    command: migrate
+    restart: "no"
+
   # 준비 완료 표시등: 토픽 만들기 · 마이그레이션이 "끝나야" 켜진다.
   # up --wait 은 이게 healthy 가 될 때까지 기다리므로, 끝나면 바로 앱을 띄워도 된다.
   infra-ready:
@@ -146,8 +187,8 @@ services:
         condition: service_completed_successfully
       postgres-migrate:
         condition: service_completed_successfully
-      clickhouse:
-        condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     entrypoint: ["tail", "-f", "/dev/null"]
     healthcheck:
       test: ["CMD", "true"]
