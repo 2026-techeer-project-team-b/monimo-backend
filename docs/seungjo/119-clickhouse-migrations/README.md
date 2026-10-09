@@ -44,7 +44,7 @@ CH     clickhouse-migrate  똑같이
 | | |
 |---|---|
 | 떠 있는 서버에도 적용된다 | 날릴 필요가 없다 |
-| 어디까지 적용됐는지 장부가 남는다 | `default.flyway_schema_history` |
+| 어디까지 적용됐는지 장부가 남는다 | `monimo.flyway_schema_history` |
 | **파일을 몰래 고치면 멈춘다** | 조용히 건너뛰던 것의 정반대다 |
 
 마지막이 크다. 지금 문제가 **고쳐도 아무 일도 안 일어나는 것**인데, Flyway 는 이미 적용한 파일이 바뀌면 `checksum mismatch` 로 멈춘다.
@@ -69,7 +69,7 @@ CH     clickhouse-migrate  똑같이
      표가 필요한 서비스 : clickhouse-migrate 가 정상 종료될 때까지
 ```
 
-**③ 장부를 `monimo` 안에 둔다.** 붙는 곳은 `default` 이지만 일하는 곳과 장부 자리는 `monimo` 다. 그래서 `monimo` 표가 11개에서 12개(장부 포함)가 되고 `check-dev-infra.sh` 단언을 한 줄 고쳤다. **처음에는 `default` 에 뒀다가 리뷰에서 뒤집혔다**(아래).
+**③ 장부를 `monimo` 안에 둔다.** 붙는 곳은 `default` 이지만 일하는 곳과 장부 자리는 `monimo` 다. 그래서 `monimo` 안의 표가 물리적으로는 장부를 포함해 12개가 된다. `check-dev-infra.sh` 는 **장부를 빼고 11 을 유지**하도록 고쳤다. **처음에는 `default` 에 뒀다가 리뷰에서 뒤집혔다**(아래).
 
 ## 어떻게 확인했나
 
@@ -87,7 +87,7 @@ metrics_raw   137,855  ->    137,855
 한 번 더                   "up to date. No migration necessary"
 ```
 
-이게 되는 이유는 `db/clickhouse` 의 `CREATE` **19개가 전부 `IF NOT EXISTS` 이고 `ALTER` · `INSERT` · `DROP` 이 0개**라, 이미 데이터를 가진 DB 에 다시 돌려도 아무 일도 안 하기 때문이다.
+이게 되는 이유는 `db/clickhouse` 의 `CREATE` **19개가 전부 `IF NOT EXISTS`** 이고, `ALTER` 둘은 `ADD COLUMN IF NOT EXISTS` 와 `MODIFY QUERY` 로 **덧붙이기만** 하기 때문이다(`INSERT` · `DROP` 은 0개). 이미 데이터를 가진 DB 에 다시 돌려도 지우는 문장이 없다.
 
 ### 마이그레이션으로 MV 정의를 바꿀 수 있다
 
@@ -112,7 +112,7 @@ monimo 표 11개 · MV 7개
 check-dev-infra.sh  모두 정상
 ```
 
-`check-dev-infra.sh` 의 표 개수 단언을 11 에서 12 로 고쳤다. 장부가 `monimo` 안에 있기 때문이다.
+`check-dev-infra.sh` 의 표 개수 단언은 **11 을 유지**하고 세는 쪽에서 장부를 뺐다. 장부가 `monimo` 안에 있지만 우리 표가 아니다. 12로 올리면 누가 `monimo` 에 임시 표를 하나 만들었을 때 숫자가 맞아 조용히 통과한다.
 
 ### 적용한 파일을 고치면 멈춘다
 
@@ -180,16 +180,18 @@ DROP DATABASE monimo
 -> 표 0개인 채로 infra-ready 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다
 ```
 
-**이 이슈가 없애려는 바로 그 실패 모양이다.** `FLYWAY_SCHEMAS=monimo` 로 바꾸니 장부가 표와 같이 사라지고 다음 `migrate` 가 전부 다시 만든다. 대가는 표가 12개가 되어 점검 스크립트 한 줄을 고친 것뿐이다.
+**이 이슈가 없애려는 바로 그 실패 모양이다.** `FLYWAY_SCHEMAS=monimo` 로 바꾸니 장부가 표와 같이 사라지고 다음 `migrate` 가 전부 다시 만든다. 대가는 장부가 `monimo` 안으로 들어와 점검 스크립트가 **세는 쪽**을 고친 것뿐이다(단언은 11 그대로).
 
 **처음에는 그 단언이 안 깨지는 것을 "부수 효과" 로 적었는데, 사실은 틀린 선택을 유지하는 쪽의 변명이었다.**
 
 세 경로를 다시 쟀다.
 
 ```
-빈 서버          장부가 monimo 에, 6개 적용, 표 12 · MV 7
-#118 이후 DB     baseline v1 -> 6개 전부 실행(전부 무해) -> 표 12 · MV 7
+빈 서버          장부가 monimo 에, 6개 적용, 표 11(장부 빼고) · MV 7
+                 장부 첫 줄은 << Flyway Schema Creation >> (Flyway 가 monimo 를 직접 만들어서)
+#118 이후 DB     장부 첫 줄은 << Flyway Baseline >> v1 -> 6개 전부 실행(전부 무해) -> 표 11 · MV 7
 #118 이전 DB     is_root 0 -> 1, 조건 parent_span_id='' -> span_kind IN ('SERVER','CONSUMER')
+clean            cleanDisabled 로 막힌다 (Flyway 가 monimo 를 소유하므로 한 번 돌면 신호가 다 날아간다)
 ```
 
 **③ 루트 `README.md` 가 이 변경이 없앤 동작을 아직 정본처럼 적고 있었다.** `AGENTS.md` 가 "로컬 실행은 `README.md` 를 본다" 로 가리키는 파일인데, 존재하지 않는 파일명 셋 · 옛 seed 경로 · "데이터가 비어 있을 때만 실행되므로 `down -v` 후 켠다" 가 남아 있었다. `#126` 이 `api-spec.md` 의 거짓 기술을 고친 것과 같은 종류다.

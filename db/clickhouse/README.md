@@ -32,7 +32,7 @@ docker compose build clickhouse-migrate
 
 그래서 적용하는 방법이 `docker compose down -v` 하나뿐이었고, 그건 PG 볼륨까지 지워서 seed 를 다시 돌려야 했다. 운영에서는 날릴 수가 없으니 **아예 못 바꿨다.**
 
-Flyway 는 장부(`default.flyway_schema_history`)와 파일을 대조해서 **안 돌린 것만** 돌린다. 그리고 이미 돌린 파일이 바뀌면 **멈추고 알려 준다.** 조용히 건너뛰던 것의 정반대다.
+Flyway 는 장부(`monimo.flyway_schema_history`)와 파일을 대조해서 **안 돌린 것만** 돌린다. 그리고 이미 돌린 파일이 바뀌면 **멈추고 알려 준다.** 조용히 건너뛰던 것의 정반대다.
 
 ## 파일을 새로 만들 때
 
@@ -137,7 +137,13 @@ SELECT version, description, success FROM monimo.flyway_schema_history ORDER BY 
 
 **장부를 `default` 에 두면 안 된다.** 표와 생명주기가 갈려서 조용히 틀린다. `DROP DATABASE monimo` 를 하면 다음 `migrate` 가 "up to date" 로 종료코드 0 을 내고, 표가 0개인 채로 `infra-ready` 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다.
 
-그래서 `monimo` 안의 표가 11개가 아니라 **12개**(장부 포함)다. `scripts/check-dev-infra.sh` 가 그 숫자를 센다.
+그래서 `monimo` 안의 표는 물리적으로 장부를 포함해 12개다. `scripts/check-dev-infra.sh` 는 **장부를 빼고 11 을 유지**한다. 12로 올리면 누가 `monimo` 에 임시 표를 하나 만들었을 때 숫자가 맞아 조용히 통과한다.
+
+장부 줄은 7줄인데 **첫 줄이 사람마다 다르다.** 빈 서버는 Flyway 가 `monimo` 를 직접 만들어서 `<< Flyway Schema Creation >>`(종류 `SCHEMA`)이 깔리고, `#119` 전에 만든 로컬은 "표는 있고 장부는 없다" 라서 `<< Flyway Baseline >>`(종류 `BASELINE`, 버전 `1`)이 깔린다. 둘 다 정상이고 그 뒤 여섯 줄은 같다.
+
+`BASELINE` 쪽은 `FLYWAY_BASELINE_ON_MIGRATE` 가 만든다. **이 플래그를 끄면 옛 로컬은 아무도 못 뜬다.** 장부가 `monimo` 안으로 들어온 뒤로는 예외 경로의 보호가 아니라 주 경로를 떠받친다.
+
+장부가 `default` 에 있던 시절에 이 브랜치를 한 번 돌려 본 사람은 `default.flyway_schema_history` 가 고아로 남는다. 해롭지는 않고, `DROP TABLE default.flyway_schema_history` 로 치우면 깔끔하다.
 
 ### `success` 가 스키마를 보장하지 않는다
 
