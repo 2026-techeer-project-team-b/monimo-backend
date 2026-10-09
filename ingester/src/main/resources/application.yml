@@ -1,6 +1,13 @@
 spring:
   application:
     name: ingester
+  # PG 가 커넥션은 주고 응답은 안 하는 경우에 영구히 기다리지 않게 한다 (ADR #54).
+  # 끊긴 PG 는 Hikari connectionTimeout(기본 30초)이 이미 막는다. 이 값은 그 다음 구간이다.
+  # 단위는 밀리초가 아니라 초다. 10000 을 넣으면 2.8시간이 되어 조용히 안 듣는다.
+  datasource:
+    hikari:
+      data-source-properties:
+        socketTimeout: 10
   jpa:
     open-in-view: false          # ADR #42 가드레일 ②
     hibernate:
