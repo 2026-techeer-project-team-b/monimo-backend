@@ -82,7 +82,7 @@ CH     clickhouse-migrate  똑같이
 spans       1,405,331  ->  1,405,331
 logs           54,564  ->     54,564
 metrics_raw   137,855  ->    137,855
-표 · MV         11 · 7  ->     11 · 7
+표 · MV         11 · 7  ->     11 · 7 (측정 당시. 장부가 monimo 로 들어온 뒤는 물리 12 · 7)
 장부           없음      ->  네 줄 전부 success (이 측정 뒤에 호환 파일 둘이 더 붙어 지금은 여섯이다)
 한 번 더                   "up to date. No migration necessary"
 ```
@@ -167,6 +167,19 @@ ERROR: Found non-empty schema(s) "default" but no schema history table.
 호환 파일 넣고  6개 전부 적용. is_root 가 생기고 조건이 span_kind IN ('SERVER','CONSUMER') 로 바뀌고
                SERVER 스팬 2개 -> transactions 2줄 (옛 조건이면 1줄), sum(is_root) = 1
 ```
+
+### `repair` 가 절반만 된다
+
+README 에 실패 복구 절차로 "`repair` 를 돌린다" 고 적어 뒀는데, 관통 시험에서 그게 **절반만 사실**인 것이 드러났다.
+
+```
+실패 행 지우기      된다   (일부러 터뜨린 V202609300000 행이 사라지고 다음 migrate 정상)
+체크섬 어긋남 고치기  안 된다  Code: 48 Lightweight updates are not supported
+```
+
+체크섬을 맞추려면 장부를 `UPDATE` 해야 하는데 ClickHouse `26.8` 의 가벼운 UPDATE 는 표에 설정 둘(`enable_block_number_column` · `enable_block_offset_column`)이 켜져 있어야 한다. 둘을 켜면 `repair` 가 정상 동작한다. 무거운 mutation(`ALTER TABLE ... UPDATE ... SETTINGS mutations_sync = 2`)은 설정 없이 돌아간다.
+
+**도구가 못 하는 것을 내 문서가 약속하고 있었다.** 이 이슈가 없애려는 바로 그 모양이라, `db/clickhouse/README.md` 의 복구 절을 두 경로로 나눠 고쳤다. 내가 직접 체크섬을 어긋나게 만들었을 때(주석 한 줄 수정) 처음 걸렸다.
 
 **번호를 한 번 틀렸다.** `1905900` 으로 끼우려 했는데 Flyway 는 버전을 숫자로 비교해서 `202609221905900`(15자리)이 `202609221906`(12자리)보다 크다. 분 단위로 다시 매겼다.
 

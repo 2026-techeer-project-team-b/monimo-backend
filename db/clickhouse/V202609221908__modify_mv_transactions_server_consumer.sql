@@ -8,6 +8,10 @@
 -- MODIFY QUERY 로 정의를 덮어쓴다. V202609221907 과 글자 단위로 같은 SELECT 라
 -- #118 이후에 만든 DB 에서는 같은 값을 다시 넣는 것이라 아무것도 안 바뀐다.
 --
+-- 두 파일이 같은 것은 지금 상태일 뿐이고 지켜야 하는 불변식이 아니다. 둘 다 이미 적용된 파일이라
+-- 고치면 체크섬이 어긋나 멈춘다. 앞으로 MV 정의를 바꿀 때는 이 둘을 고치지 말고 새 V 파일에
+-- MODIFY QUERY 를 쓴다 (db/clickhouse/README.md).
+--
 -- MODIFY QUERY 를 쓰는 이유(DROP VIEW + CREATE 가 아니라)는 db/clickhouse/README.md 에 있다 :
 -- 지우고 다시 만들면 그 사이 INSERT 가 영구 유실된다 (#118 조사 실험에서 4줄 넣고 0줄).
 ALTER TABLE monimo.mv_transactions MODIFY QUERY

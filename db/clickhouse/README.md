@@ -125,7 +125,46 @@ Detected failed migration to version ... Please remove any half-completed change
 then run repair to fix the schema history.
 ```
 
-반쯤 적용된 것을 손으로 치운 뒤 `docker compose run --rm clickhouse-migrate repair` 를 돌리고 다시 `migrate` 한다. 로컬이고 아까운 데이터가 없으면 `docker compose down -v` 가 더 빠르다.
+반쯤 적용된 것을 손으로 치운 뒤 `docker compose run --rm clickhouse-migrate repair` 를 돌리고 다시 `migrate` 한다. 이 경로는 실측으로 그냥 된다(실패 행을 장부에서 지운다). 로컬이고 아까운 데이터가 없으면 `docker compose down -v` 가 더 빠르다.
+
+### 이미 적용한 파일을 고쳤을 때 (`repair` 가 여기서는 안 된다)
+
+주석 한 글자만 고쳐도 체크섬이 바뀌어 Flyway 가 멈춘다. 그건 의도된 보호막이다.
+
+```
+ERROR: Validate failed: Migrations have failed validation
+Migration checksum mismatch for migration version 202609221905
+-> Applied to database : 762539350
+-> Resolved locally    : 1353248112
+```
+
+**여기서 `repair` 를 돌리면 ClickHouse 가 거부한다.** 체크섬을 맞추려면 장부를 `UPDATE` 해야 하는데, ClickHouse 26.8 의 가벼운 UPDATE 는 표에 설정 둘이 켜져 있어야 한다.
+
+```
+ERROR: Code: 48. DB::Exception: Lightweight updates are not supported.
+       Lightweight updates are supported only for tables with materialized
+       _block_number column. (NOT_IMPLEMENTED)
+```
+
+고치는 방법 셋. 위에서부터 권한다.
+
+1. **고친 것을 되돌린다.** 적용한 파일은 안 고치는 것이 원칙이다. 바꿀 것이 있으면 새 V 파일을 더한다
+2. **로컬이고 아까운 데이터가 없으면** `docker compose down -v` 후 다시 켠다
+3. **데이터를 지켜야 하면** 장부 표에 설정 둘을 켜고 `repair` 를 돌린다. 설정을 켜면 `repair` 가 정상 동작하는 것을 확인했다
+
+```sql
+ALTER TABLE monimo.flyway_schema_history MODIFY SETTING enable_block_number_column = 1;
+ALTER TABLE monimo.flyway_schema_history MODIFY SETTING enable_block_offset_column = 1;
+-- 그 뒤: docker compose run --rm clickhouse-migrate repair
+```
+
+장부 한 줄만 손으로 맞추는 것도 된다(무거운 mutation 은 설정 없이 돌아간다).
+
+```sql
+ALTER TABLE monimo.flyway_schema_history
+UPDATE checksum = <Resolved locally 값> WHERE version = '202609221905'
+SETTINGS mutations_sync = 2;
+```
 
 ## 장부
 
