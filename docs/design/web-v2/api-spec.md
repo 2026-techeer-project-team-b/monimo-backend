@@ -110,7 +110,7 @@
 |---|---|---|---|---|
 | `TraceService/Export` (opentelemetry.proto.collector.trace.v1) | 스팬(요청이 거친 단계·시간). 콜스택/스캐터/서버맵 재료 | `ExportTraceServiceRequest`: resource_spans 배열 | `ExportTraceServiceResponse` — partial_success(rejected_spans, error_message) | FN-7, FN-11, #33 |
 | `MetricsService/Export` (opentelemetry.proto.collector.metrics.v1) | 지표(JVM·호스트: CPU·힙·GC). 시스템메트릭·경보 재료 | `ExportMetricsServiceRequest`: resource_metrics 배열 | `ExportMetricsServiceResponse` — partial_success(rejected_data_points) | FN-11, FN-33, FN-34 |
-| `LogsService/Export` (opentelemetry.proto.collector.logs.v1) | 로그 줄. 로그 검색 재료 | `ExportLogsServiceRequest`: resource_logs 배열 | `ExportLogsServiceResponse` — partial_success(rejected_log_records). 전역 하한(MIN_LOG_LEVEL) 미만 등급은 여기서 버려짐 | FN-11, #38, Q22 |
+| `LogsService/Export` (opentelemetry.proto.collector.logs.v1) | 로그 줄. 로그 검색 재료 | `ExportLogsServiceRequest`: resource_logs 배열 | `ExportLogsServiceResponse` — partial_success(rejected_log_records). 등급으로 거르지 않고 받은 대로 전부 보낸다 : `#38` ④ 가 정한 전역 하한(MIN_LOG_LEVEL)은 구현된 적이 없고 ADR `#55` 가 보류로 확정했다 | FN-11, #38, #55, Q22 |
 
 요청 메시지는 셋 다 3층 구조: ① `resource`(서비스명·파드) → ② `scope`(계측 라이브러리) → ③ 실제 기록(spans/metrics/log_records). 수집기는 ①만 보고도 어느 서비스·파드인지 식별.
 

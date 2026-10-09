@@ -39,6 +39,7 @@
 | [`122-agent-command/`](122-agent-command/README.md) | `#122` | README (조사 · 결정은 monimo-shop `34-thread-dump-extension/`) | 수집기 쪽 문. 짝 = shop `#34` |
 | [`121-sampling-rate-from-pg/`](121-sampling-rate-from-pg/README.md) | `#121` · ADR `#53` | README(설계 한 장) · research(8단계 완료) · prompts · decision · tables | **설계가 못 본 구멍을 드러낸 이슈.** ADR 문구를 구현하려다 "설정 단위는 앱 단위만"(`#38`)이 샘플링에 적용되면 요청 하나가 쪼개진다는 것을 찾았다. 조사가 선택지를 하나 더 만들었다(우리 공식이 단조라서 `상류 >= 하류` 면 고아가 0) |
 | [`127-jdbc-socket-timeout/`](127-jdbc-socket-timeout/README.md) | `#127` · ADR `#54` | README 한 장만 (라이트) | **조사가 이슈 본문을 틀렸다고 밝힌 건.** 재현 조건으로 적은 `docker pause` 는 Hikari `connectionTimeout` 이 이미 막고 있었고, 한도가 없던 자리는 "검증을 통과한 커넥션으로 보낸 쿼리의 응답을 기다리는 구간" 하나였다. `pg_sleep` 으로 따로 쟀다 |
+| [`126-global-config-deferred/`](126-global-config-deferred/README.md) | `#126` `#128` · ADR `#55` | README 한 장만 (라이트) | **안 만들기로 정한 이슈.** 이슈가 "옮길 값 셋" 이라고 적었는데 세어 보니 하나였다. 로그 하한은 ADR 과 API 명세에만 있고 코드에 없었다. 문서가 결정을 적어 두고 구현이 안 따라가면 그 문서가 거짓말이 된다 |
 | [`83-peer-service/`](83-peer-service/README.md) | `#83` · PR `#84` | README · prompts | 소급. 이 방식 전이라 프롬프트 로그만 있다 |
 
 ## 규칙
