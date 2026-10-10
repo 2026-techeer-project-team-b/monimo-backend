@@ -3,7 +3,8 @@ package com.monimo.detector.alert.state
 import java.security.MessageDigest
 import java.util.UUID
 
-// 경보 대상. 5XX_RATE · 4XX_RATE · P95_LATENCY 는 서비스 단위, CPU · HEAP · GC_TIME · AGENT_DOWN 은 파드 단위
+// 경보 대상. 5XX_RATE · 4XX_RATE · P95_LATENCY · AGENT_DOWN 은 서비스 단위, CPU · HEAP · GC_TIME 은 파드 단위.
+// AGENT_DOWN 이 서비스 단위인 이유: 파드 키가 재시작마다 바뀌어 배포와 크래시를 가를 수 없다 (docs/alert/40-agent-down.md D11)
 sealed interface AlertTarget {
     data class Service(val applicationUuid: UUID) : AlertTarget
     data class Agent(val agentUuid: UUID) : AlertTarget

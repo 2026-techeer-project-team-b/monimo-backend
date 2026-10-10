@@ -23,5 +23,13 @@ enum class Rollup {
                 else -> RAW
             }
         }
+
+        // 재료가 1분 단위인 API(service-health · errors/timeline)는 1분보다 잘게 나눌 수 없다
+        fun requireMinuteStep(step: Int): Int {
+            if (step < 60 || step % 60 != 0) {
+                throw ApiException(ErrorCode.INVALID_REQUEST, "step 은 60 이상 60 의 배수여야 합니다.")
+            }
+            return step
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.monimo.detector.alert.record
 
-import com.monimo.detector.alert.state.AlertStateMachine
 import com.monimo.detector.alert.state.Evaluation
 import com.monimo.detector.alert.state.EvaluationPhase
 import com.monimo.detector.alert.state.EvaluationState
@@ -23,7 +22,7 @@ class EvaluationRecorder(
     private val events: AlertEventRepository,
     private val outbox: NotificationOutboxRepository,
     private val entityManager: EntityManager,
-    private val machine: AlertStateMachine,
+    private val machines: AlertStateMachines,
     private val clock: Clock,
     private val hook: TransitionHook,
 ) {
@@ -35,7 +34,7 @@ class EvaluationRecorder(
         states.insertIfAbsent(fingerprint, target.rule.id, target.agentId, target.rule.version, now)
         val row = checkNotNull(states.lockByFingerprint(fingerprint))
 
-        val outcome = machine.apply(row.toState(), evaluation)
+        val outcome = machines.forKind(target.rule.metricKind).apply(row.toState(), evaluation)
         if (outcome !is Outcome.Applied) return outcome  // 같은 버킷 · 과거 평가: 아무것도 쓰지 않는다
 
         val next = outcome.state

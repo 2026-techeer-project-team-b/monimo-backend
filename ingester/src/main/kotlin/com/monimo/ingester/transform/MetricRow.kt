@@ -22,7 +22,7 @@ data class MetricRow(
     val seriesHash: ULong = seriesHashOf(attributes)
 
     companion object {
-        // 가짜 데이터(db/clickhouse/seed)는 CH 의 cityHash64(toString(map)) 로 만들어 이 값과 다르다.
+        // 가짜 데이터(scripts/seed/clickhouse-fake-signals.sql)는 CH 의 cityHash64(toString(map)) 로 만들어 이 값과 다르다.
         // 이 숫자는 "같은 지표 안에서 갈래를 나누는" 용도라 두 출처가 한 그래프에 섞이지 않으면 문제 없다
         // (seed-clickhouse.sh 는 표를 비우고 넣는다)
         fun seriesHashOf(attributes: Map<String, String>): ULong {

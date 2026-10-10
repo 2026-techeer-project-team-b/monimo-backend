@@ -1,6 +1,19 @@
 spring:
   application:
     name: collector
+  # PG 가 커넥션은 주고 응답은 안 하는 경우에 영구히 기다리지 않게 한다 (ADR #54).
+  # 끊긴 PG 는 Hikari connectionTimeout(기본 30초)이 이미 막는다. 이 값은 그 다음 구간이다.
+  # 단위는 밀리초가 아니라 초다. 10000 을 넣으면 2.8시간이 되어 조용히 안 듣는다.
+  datasource:
+    hikari:
+      data-source-properties:
+        socketTimeout: 10
+  # 주기 작업 하나가 막혀도 나머지가 굶지 않게 한 칸 비워 둔다 (ADR #54).
+  # 지금은 모듈마다 @Scheduled 가 하나뿐이라 효과가 0 이고, 둘째가 들어올 때를 위한 예방이다.
+  task:
+    scheduling:
+      pool:
+        size: 2
   jpa:
     open-in-view: false          # ADR #42 가드레일 ②
     hibernate:
@@ -26,12 +39,46 @@ monimo:
         port: 4317
     # 트레이스 샘플링. 에이전트는 100% 보내고(always_on) 고르는 일은 수집기가 한다 (ADR #33).
     # 카나리 표시(trace_state 의 monimon=canary)가 붙은 것은 비율과 무관하게 통과한다 (ADR #41).
-    # 다음 이슈에서 이 비율을 PG(application_configs)에서 읽어 재배포 없이 바꾼다
+    #
+    # 비율의 정본은 PG application_configs.sampling_rate 이고 수집기가 ttl 마다 읽는다 (ADR #53).
+    # 서비스별로 한 줄이지만 그중 최댓값 하나만 쓴다 : 서비스마다 다른 선을 쓰면 같은 트레이스의
+    # 위아래가 다른 선으로 재어져 고아 스팬이 생긴다.
+    # 아래 ratio 는 PG 를 한 번도 못 읽었을 때 쓸 값이다. 환경변수
+    # MONIMO_COLLECTOR_SAMPLING_RATIO 로 덮어써도 그 기본값 자리를 바꾸는 것뿐이고 PG 가 이긴다
     sampling:
       ratio: 0.01
+      ttl: 30s
+    # 헬스체크 스팬 거르기. 도커 · 쿠버네티스가 쇼핑몰의 이 주소를 몇 초마다 찌르는데, 에이전트가 그걸
+    # 진짜 요청과 똑같이 기록해 보내 집계(호출 수 · 에러율 · P95 · 히트맵)를 틀리게 만든다.
+    # SERVER 스팬의 url.path 가 이 목록과 정확히 같을 때만 버린다. CLIENT 는 진짜 호출이라 남긴다.
+    # 비워 두면 필터가 꺼진다 (머지 전후 비교나 헬스체크 조사용).
+    # 환경변수 MONIMO_COLLECTOR_HEALTH_CHECK_PATHS 로 덮어쓴다 (쉼표 구분)
+    health-check:
+      paths: /actuator/health
+    # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 이 GET /agent/commands 로 명령을 받으러 오고(최대 25초 대기),
+    # API 서버 팬아웃이 POST /internal/thread-dump 로 덤프를 시킨다. 토큰이 비면 그 문이 닫힌다
+    agent:
+      token: ${MONIMO_AGENT_TOKEN:}
+      internal-token: ${MONIMO_INTERNAL_TOKEN:}
+      # 명령의 reply_to. Extension 이 결과를 이 주소로 보낸다. K8s 에서는 헤드리스 서비스 파드 주소를 넣는다
+      advertised-url: ${MONIMO_COLLECTOR_ADVERTISED_URL:http://collector:8081}
 
-# /actuator/metrics 로 받은 건수(monimo.collector.otlp.received)를 본다. 연결 점검 스크립트가 읽는다
+# 관리 포트 (#135). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10 :
+# 규약이 적은 8081 은 수집기가 업무용으로 쓰고 있어 못 쓰고, +10 이면 다섯 모듈을 한 컴퓨터에 다 띄워도 안 겹친다
 management:
+  server:
+    port: 8091
+  endpoint:
+    health:
+      probes:
+        enabled: true                 # /actuator/health/liveness · /actuator/health/readiness (헬스체크 규약)
+        # 업무 포트(8081)에도 /livez · /readyz 를 연다. 쿠버네티스는 이쪽을 쏜다.
+        # 관리 포트만 보면 업무 포트가 막혀도 "정상" 이 나온다 (두 포트가 일꾼 · 연결 묶음을 따로 가진다). 공식 문서가 그렇게 권한다
+        add-additional-paths: true
+      # readiness 에 저장소(db)를 넣지 않는다 (ADR #58). 탐지 · 알림과 다르다 : 저장소가 하나라 흔들리면 파드가 전부 동시에 빠지고,
+      # 수집기가 빠지면 에이전트가 신호 보낼 곳이 없어 그 시간대 데이터가 영구히 사라진다. "PG 가 죽어도 수집은 돈다"(ADR #53 · #54)를 지킨다.
+      # group 을 적지 않으면 기본 구성(liveness = livenessState · readiness = readinessState 뿐)이다
+  # /actuator/metrics 로 받은 건수(monimo.collector.otlp.received)를 본다. 연결 점검 스크립트가 관리 포트로 읽는다
   endpoints:
     web:
       exposure:
