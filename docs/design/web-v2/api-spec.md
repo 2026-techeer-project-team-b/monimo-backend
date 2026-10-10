@@ -6,6 +6,7 @@
 - `/api/v1` : 화면이 부르는 API 서버의 업무용 경로 (예: `GET /api/v1/applications`)
 - `/api/v1/internal/**` : 내부 전용(우리 서비스끼리만, 탐지·파수꾼이 API 서버에 물을 때)
 - `/actuator/health/liveness` · `/actuator/health/readiness` : 접두 예외 ① : 쿠버네티스 헬스체크 전용 (재범 「헬스체크」 정리 2026-09-30 의 H1 · H2 · H3 를 반영. 옛 `/healthz` · `/readyz` · `{"status":"ok"}` · 서비스 6개는 폐기). 헤더·쿼리·본문 없음, 응답은 `{"status":"UP"}` / `{"status":"DOWN"}` 한 줄, 상태 코드 200 / 503. 서비스 5개(API 서버·수집기·탐지·알림·적재 처리기)가 관리 포트에 연다(수집기·적재 처리기·탐지·알림은 켰고 API 서버는 예정). 파수꾼은 Lambda 라 HTTP 주소가 없다(Healthchecks.io 핑으로 증명). `readiness` 확인 대상: API 서버=PostgreSQL·ClickHouse 연결 / 탐지=PostgreSQL / 알림=PostgreSQL / 수집기·적재 처리기=**저장소를 보지 않는다**(자기 상태만. 저장소가 하나라 흔들리면 파드가 전부 동시에 빠지고 수집기가 빠지면 에이전트가 신호를 버린다, ADR `#58`). 수집기·적재 처리기는 **업무 포트에도 `/livez` · `/readyz`** 를 추가로 열고 쿠버네티스는 그쪽을 쏜다(관리 포트만 보면 업무 포트가 막혀도 통과하므로). 관리 포트 번호: 수집기 8091 · 적재 처리기 8092(업무 포트 + 10), 탐지·알림 8081, API 서버 미정
+- 문 35 의 `level` **값 범위는 여섯 + 빈 글자로 닫혀 있다** : `TRACE` · `DEBUG` · `INFO` · `WARN` · `ERROR` · `FATAL`, 그리고 등급을 알 수 없을 때 `""`. 적재 처리기가 OTel `severity_number` 를 기준으로 그 여섯에 맞춰 넣고, 표에 없는 글자는 그대로 넣지 않는다(ADR `#59`). 그래서 필터 목록을 `SELECT DISTINCT level` 로 만들면 안 된다 : 지금 로컬 표의 세 값은 가짜 데이터가 SQL 로 직접 넣은 글자다
 - `/internal/thread-dump` · `/internal/channels/test` : 접두 예외 ② — 수집기·알림이 여는 서비스 간 문. `/api/v1` 없음
 - 형식: JSON(`application/json; charset=utf-8`), 시간대: UTC·ISO 8601 (예: `2026-09-14T10:20:30Z`)
 
@@ -81,7 +82,7 @@
 | 32 | API 서버 | POST | /api/v1/auth/logout | 재발급 토큰 무효화 (권한 VIEWER+) | body: refresh_token | result: LOGGED_OUT | FN-17, users |
 | 33 | API 서버 | GET | /api/v1/alert-channels/{alertChannelUuid} | 채널 하나의 상세(비밀값은 가림) (권한 ADMIN) | (경로만) | 채널 상세(config 마스킹) | FN-30, alert_channels |
 | 34 | API 서버 | GET | /api/v1/thread-dumps | 찍어둔 스레드 덤프 목록(본문 제외) (권한 VIEWER+) | service_name?, agent_key?, from?, to?, cursor?, limit? | dump_uuid, agent_key, service_name, requested_by, requested_at, thread_count | FN-39, thread_dumps |
-| 35 | API 서버 | GET | /api/v1/logs | 로그 검색 (권한 VIEWER+) | service_name?, from, to, agent_key?, level?, logger?, trace_id?, q?, cursor?, limit? | ts, service_name, agent_key, level, logger, thread, message, trace_id, span_id, attributes | FN-61, logs |
+| 35 | API 서버 | GET | /api/v1/logs | 로그 검색 (권한 VIEWER+) | service_name?, from, to, agent_key?, `level?`(아래 값 범위), logger?, trace_id?, q?, cursor?, limit? | ts, service_name, agent_key, level, logger, thread, message, trace_id, span_id, attributes | FN-61, logs |
 | 36 | API 서버 | GET | /api/v1/errors/timeline | 시간대별 에러 건수(상태코드 대역·예외타입별) (권한 VIEWER+) | service_name(등록된 서비스가 아니면 404), from, to, step?(60 이상 · 60의 배수, 그 외 400) | step, series[ts_min, http_status_class(5xx · 4xx · other), exception_type(예외 이벤트가 없으면 null), cnt]. 세는 대상은 에러 목록(#3)과 같고, 건수가 0인 칸은 행이 없다 | FN-46, spans |
 | 37 | API 서버 | POST | /api/v1/alert-channels | 채널 등록 (권한 ADMIN) | body: name, type, config(webhook_url, channel), enabled | 채널 상세 | FN-30, alert_channels |
 | 38 | API 서버 | DELETE | /api/v1/applications/{applicationUuid} | 감시 대상에서 제외(deleted_at 기록, 규칙 · 파드 · 이력은 남는다. 이후 목록 · 조회에서 빠진다) (권한 ADMIN) | (경로만) | application_uuid, result: DELETED | FN-17, applications |
