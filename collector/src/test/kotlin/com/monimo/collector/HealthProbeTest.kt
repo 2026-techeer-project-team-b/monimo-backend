@@ -14,7 +14,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 
 // 헬스체크 probe (#135 · ADR #58). 탐지 · 알림의 같은 이름 시험과 다른 점이 둘이다 :
 // 업무 포트에도 /livez · /readyz 를 열고(쿠버네티스는 이쪽을 쏜다), readiness 가 저장소(db)를 안 본다.
-// RANDOM_PORT 라 업무 · 관리 포트가 둘 다 빈 포트로 바뀐다 (운영 8081 · 8091 과 부딪치지 않는다).
+// RANDOM_PORT 라 업무 · 관리 포트가 둘 다 빈 포트로 바뀐다 (운영 8081 · 18081 과 부딪치지 않는다).
 // gRPC 포트도 0 으로 덮는다 : 4317 그대로면 로컬에 수집기 컨테이너가 떠 있을 때 "Address already in use" 로 깨진다 (CollectorApplicationTest 와 같다).
 // Hikari 연결 대기를 3초로 줄인 것은 마지막 Given 에서 PG 를 멈춘 뒤 전체 /actuator/health 가 DOWN 으로 답할 때까지 기다리는 시간이다.
 // 운영 기본값은 30초이고, 그것이 readiness 에 db 를 넣으면 쿠버네티스(1초 만에 끊음)가 원인을 못 보는 이유다

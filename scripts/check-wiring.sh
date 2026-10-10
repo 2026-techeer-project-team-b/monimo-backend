@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 
 TELEMETRYGEN=ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.161.0
 NET=monimo-dev
-HTTP=localhost:${COLLECTOR_MANAGEMENT_PORT:-8091}   # /actuator/metrics 는 관리 포트(업무 포트 + 10)에 있다 (#135)
+HTTP=localhost:${COLLECTOR_MANAGEMENT_PORT:-18081}   # /actuator/metrics 는 관리 포트(업무 포트 + 10000)에 있다 (#135 · #148)
 
 ok() { echo "✓ $1"; }
 fail() { echo "✗ $1"; exit 1; }
