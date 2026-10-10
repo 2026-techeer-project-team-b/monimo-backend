@@ -44,6 +44,9 @@ class DeliveryTestConfig {
         "monimo.notifier.delivery.retry-cap=60s",
         "monimo.notifier.http.connect-timeout=500ms",
         "monimo.notifier.http.request-timeout=500ms",
+        // 이 테스트는 "작업 한 줄 = 메시지 한 건"을 본다. 그룹핑은 GroupingTest 에서
+        "monimo.notifier.delivery.group-wait=0s",
+        "monimo.notifier.delivery.max-group-size=1",
     ],
 )
 class DeliveryWorkerTest(
