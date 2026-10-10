@@ -1,7 +1,7 @@
-stage: 2
-next: 구현 착수 — Phase 진행 기준 = Notion 「API 명세」(사용자 확정 2026-09-23). 수집 파트(승조): 수집기 샘플링 + Kafka raw 발행 → 쇼핑몰 골격. 설계 잔여: Figma v4.3(figma-todo) → 20-scope 규모 숫자·T0(Q8)
-open: 8
-updated: 2026-10-06
+stage: 2 완료 · 3 미착수
+next: 수집 파트(승조)는 agents.ip 채우기 → 배포 7~9단계(monimo-deploy, PVC 근거 20-scope §4) → 에이전트 mTLS 순으로 가고, 설계는 3단계 30-architecture.md 를 쓸지 Q28 과 함께 정한다 (T0+1M 점검 2026-10-22 · Phase 진행 기준 = Notion 「API 명세」 · 설계 잔여 Figma v4.3)
+open: 7
+updated: 2026-10-11
 team(2026-09-23 확정): 승조 @SeungJo-02 = 수집 + 쇼핑몰 + 배포 · ukong @ukongee = 알림 · Nova @hyl1115 = 조회 · 재범 @jaebeom79 = 보안(인증 설정) + 파수꾼 · 화면 = 4명 공동. CODEOWNERS 5개 레포 파트별 반영. ⚠️ 세 멤버 레포 권한이 read 라 write 부여 필요
 devenv(2026-09-23): 계획 1~6단계 완료(`#13` 연결 약속: monimo-dev 네트워크 · collector:4317 · telemetrygen 점검 · shop otel/agent.properties) · 4단계 springdoc 추가(#12) · 7~9단계 남음. ktlint 미사용(사용자 확정, Q29 — ADR 사유 대기)
 notion(개인 스크럼 김승조): CI/CD 흐름 3dcd..8f13 · 깃허브 레포지토리 3dcd..24e6(레포 6개 중간안 → `#46`으로 5개 확정) · 레포별 파일 구성 3e1d..783b(`#46` 채택안) — 2026-09-15 · **사용할 라이브러리 정리 3ded..7453(2026-09-18 작성: 레포 5개별 라이브러리·대안·선택이유, 미확정은 후보+추천안+판단기준. docs 레포 제외한 5개 전제 / 2026-09-19 표 형식 전면 재포맷: 후보 칸에 한 줄 설명, 설명 칸은 장:·단: 각 2줄 이내 — 후보 행 184개 전부. §6은 5열 요약표라 대상 아님)**
@@ -19,9 +19,9 @@ erd-note(2026-09-16): 경보 규칙 팀 공용 확정 · alert_rules/alert_chann
 
 ## recent decisions (max 5)
 
+- `#60` **2단계 범위 · 규모를 로컬 실측으로 확정, `T0` = 2026-09-22(KST, 조직 첫 머지)**(감시 대상 4 · 시계열 인스턴스당 73.5 · 메트릭 4.9 포인트/초 · 트레이스 1% 3.4 스팬/초 · 유휴 0.6 MB/일). 처리량 NFR 은 부하 시험 상한으로 유지. 첫 커밋 · 설계 착수일 · 팀 배치일 기각. 되돌림 = 운영 실측 10배 어긋남. Q8 종결. 같이 드러난 것 : #135 관리 포트 8091 · 8092 가 쇼핑몰 order · payment 호스트 포트와 충돌
+- `#59` **로그 등급은 OTel `severity_number` 가 정본, 글자는 숫자가 없을 때만 별칭 표로, 모르는 글자는 빈 글자**(#144). 글자 정본 · 그대로 넣기 기각. 되돌림 = 원문 글자 요구가 생기면 컬럼 추가
+- `#58` **수집기 · 적재 처리기 probe : readiness 에 저장소 안 넣고 업무 포트에도 `/livez` · `/readyz`, 관리 포트 = 업무 포트 + 10**(#135). 규약대로 Kafka · PG · CH 넣기 · PG 만 넣기 기각. 되돌림 = 저장소가 파드마다 다른 구성이 오면
+- `#57` **ClickHouse 마이그레이션도 Flyway(커뮤니티 플러그인) + 전용 컨테이너, 장부는 `monimo` 안에**(#119). 쉘 스크립트 · 다른 도구 · `down -v` 유지 기각. 되돌림 = 플러그인이 CH 버전을 못 따라오면
 - `#56` **에이전트 오버헤드 기준을 실측에 맞게 고친다**(1코어 대비 CPU +3%p · 파드당 CPU 1개 · 초당 주문 20건, 메모리 150MB, 뗀 쪽과 같은 부하로 비교 · 버전 올릴 때 재측정). 성능을 고친 게 아니라 기준을 결과에 맞춘 것. 그대로 둠 · 설정으로 맞춤 · 상대 증가율 숫자만 올림 · 조건 없는 %p · 128MB 기각. 되돌림 = 실제 파드 부하가 더 높으면 그 부하로
-- `#51` **적재 실패를 세 단으로 갈라 다룬다**(일시 장애는 `ContainerPausingBackOffHandler` 로 기다림 10분 · 모르는 실패 1분 · 독성은 바로 `raw.dlq`). 분류를 **뒤집어** "DLQ 로 보낼 것 목록" 만 들고 나머지는 재시도. `319` 제거 · `243` 등 4개는 긴 쪽으로. 전부 DLQ · C(5분 리밸런스) · E(스스로 안 살아남) · `@RetryableTopic` · `ReplacingMergeTree` · `insert_deduplication_token` 기각. **결정 프롬프트 원문이 ADR 안에 있다**
-- `#50` **헬스체크 스팬을 수집기에서 버린다**(`url.path` 정확 일치 · SERVER 만 · 목록은 전역 env, 비우면 꺼짐). 호출자 · 에이전트 · MV · PG 앱별 · `http.route` · 접두 일치 기각. 되돌림 = 헬스체크가 쿼리 · HTTP 호출을 하게 되면 트레이스 단위로. **결정 프롬프트 원문이 ADR 안에 있다**
-- `#49` **PG 마이그레이션 = `db/postgres/` 한 곳 + 전용 Flyway 컨테이너**(파트별 폴더 config · alert · ingest, 파일명 V년월일시분, outOfOrder + CI 빈 DB 검증). 서비스별 Flyway · 스키마 분리 · ddl-auto 기각. 1b에 deploy/schema + K8s Job
-- `#48` **테스트 = Kotest 6.2.5, 기본 BehaviorSpec**(JUnit 5 기각: given-when-then이 이름·주석에만 있고 구조에 안 드러남). 스프링은 모듈별 `io.kotest.provided.ProjectConfig` + SpringExtension, 생성자 주입. 되돌림=연동 문제로 반나절 이상 막힘 2회 시 그 모듈만 JUnit 5
-docs: 01-decisions(결정 56) · 02-open-questions · 10-requirements · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../seungjo(승조: 하네스 · 이슈별 리서치 · 프롬프트 · 결정 · ERD 영향. 2026-10-04 한 폴더로 합침, 첫 이슈 폴더 92-health-check-filter)
+docs: 01-decisions(결정 60) · 02-open-questions · 10-requirements · **20-scope(2단계 범위 · 규모 · T0, 2026-10-11)** · 30-failure-modes(고장 나면 어떻게 되나, 2026-10-04) · ../seungjo(승조: 하네스 · 이슈별 리서치 · 프롬프트 · 결정 · ERD 영향. 2026-10-04 한 폴더로 합침, 첫 이슈 폴더 92-health-check-filter)
