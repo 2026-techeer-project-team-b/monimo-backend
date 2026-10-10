@@ -266,7 +266,7 @@
 |  | agent_id | 파드 식별자 | LowCardinality(String) |  | 파드 여러 대 중 어느 대가 남겼는지. 한 대만 이상할 때 그 파드 로그만 뽑아 보려면 있어야 한다 |
 |  | logger | 기록한 클래스 | LowCardinality(String) |  | 어느 코드(클래스)가 남긴 로그인지. 검색 화면에서 관심 있는 모듈만 좁혀 보는 필터로 쓴다 |
 |  | thread | 스레드 이름 | String |  | 같은 시각에 요청 여러 건이 섞여 찍힐 때 줄을 갈라 보는 단서. `trace_id`가 안 붙은 로그에서는 거의 유일한 실마리다 |
-| 내용 | level | 로그 단계 | LowCardinality(String) |  | ERROR만 보고 싶을 때 쓰는 칸. 이게 없으면 INFO 수천 줄 사이에서 에러를 눈으로 찾아야 한다 |
+| 내용 | level | 로그 단계 | LowCardinality(String) |  | ERROR만 보고 싶을 때 쓰는 칸. 이게 없으면 INFO 수천 줄 사이에서 에러를 눈으로 찾아야 한다. **값 범위는 `TRACE` · `DEBUG` · `INFO` · `WARN` · `ERROR` · `FATAL` 여섯 + 등급을 모를 때 빈 글자로 닫혀 있다**(ADR `#59`). 적재 처리기가 OTel `severity_number` 기준으로 맞춰 넣고 표에 없는 글자는 안 넣는다 |
 |  | message | 로그 본문 | String CODEC(ZSTD(3)) |  | 사람이 실제로 읽는 본문. 길어서 세게 압축해 두고, 본문 단어 검색이 느려지면 그때 스킵 인덱스를 붙인다 |
 | 주머니 | attributes | 추가 정보 꾸러미 | Map(LowCardinality(String), String) |  | 코드가 로그마다 붙인 꼬리표(MDC) 묶음. 주문번호처럼 미리 컬럼으로 정할 수 없는 값이라 주머니에 담는다 |
 
