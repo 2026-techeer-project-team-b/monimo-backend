@@ -76,5 +76,5 @@ docker run --rm --network monimo-dev -v "$PWD/k6:/scripts" -e BASE_URL=http://ga
 | 운영 디스크가 예상(하루 수십 MB)보다 훨씬 빨리 찬다 | 샘플링 비율이 1% 가 아니다(100% 를 24시간 받으면 하루 2.5 GB). 또는 로컬 TTL(93일)이 운영에 그대로 갔다 | PG `application_configs.sampling_rate` · `db/clickhouse` TTL · `system.parts` |
 | 로컬 디스크가 찬다 | 데모 탓이 아니다(3분 100% 데모 한 번 약 5 MB, 93일 매일 0.5 GB). 가짜 seed 를 반복 넣었거나(한 시간치 23 MB) TTL 93 ~ 105일 | `SELECT table, sum(bytes_on_disk) FROM system.parts WHERE database='monimo' GROUP BY 1` |
 | 시계열 수가 화면과 다르다 | `series_hash` 만 셌다 | `metric_name` 을 함께 묶는다 |
-| 쇼핑몰 compose 가 안 뜬다 | 포트 8091 · 8092 충돌 | `PAYMENT_PORT=18092 ORDER_PORT=18091` 로 띄운다. 영구 수정은 `AGENTS.md` §6 |
+| 쇼핑몰 compose 가 안 뜬다 | 포트 8091 · 8092 충돌 | `#148`(ADR `#61`)이 관리 포트를 18081 · 18082 로 옮겨 해소. 그 전 이미지면 `PAYMENT_PORT=18092 ORDER_PORT=18091` 로 띄운다 |
 | `T0+1M` 점검(2026-10-22)에 되돌림 조건이 걸린다 | ADR `#06`(메트릭 규칙 평가 미완) · `#09`(대시보드 1종 미완). 코드는 둘 다 있다. 끝났는지는 그날 판정한다 | `detector/` · monimo-web `features/` |

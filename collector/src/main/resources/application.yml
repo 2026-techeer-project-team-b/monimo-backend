@@ -63,11 +63,12 @@ monimo:
       # 명령의 reply_to. Extension 이 결과를 이 주소로 보낸다. K8s 에서는 헤드리스 서비스 파드 주소를 넣는다
       advertised-url: ${MONIMO_COLLECTOR_ADVERTISED_URL:http://collector:8081}
 
-# 관리 포트 (#135). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10 :
-# 규약이 적은 8081 은 수집기가 업무용으로 쓰고 있어 못 쓰고, +10 이면 다섯 모듈을 한 컴퓨터에 다 띄워도 안 겹친다
+# 관리 포트 (#135 · #148). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10000 (ADR #61) :
+# 규약이 적은 8081 은 수집기가 업무용으로 쓰고 있어 못 쓰고, #135 가 고른 +10(8091)은 쇼핑몰 order 의 호스트 포트와 겹쳐
+# 두 compose 를 한 컴퓨터에 띄우면 뒤에 뜨는 쪽이 안 떴다. +10000 은 compose 가 인프라 호스트 포트에 이미 쓰는 규칙이다(PG 15432 · CH 18123 · Kafka 19092)
 management:
   server:
-    port: 8091
+    port: 18081
   endpoint:
     health:
       probes:

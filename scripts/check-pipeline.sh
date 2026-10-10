@@ -15,8 +15,8 @@ cd "$(dirname "$0")/.."
 TELEMETRYGEN=ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen:v0.161.0
 NET=monimo-dev
 # /actuator/metrics 는 관리 포트(업무 포트 + 10)에 있다 (#135). compose 가 호스트에 열어 준다
-COLLECTOR=localhost:${COLLECTOR_MANAGEMENT_PORT:-8091}
-INGESTER=localhost:${INGESTER_MANAGEMENT_PORT:-8092}
+COLLECTOR=localhost:${COLLECTOR_MANAGEMENT_PORT:-18081}   # 관리 포트 = 업무 포트 + 10000 (#148)
+INGESTER=localhost:${INGESTER_MANAGEMENT_PORT:-18082}
 WAIT_SECONDS=20   # 적재 처리기가 소비할 때까지 기다리는 최대 시간
 
 ok() { echo "✓ $1"; }

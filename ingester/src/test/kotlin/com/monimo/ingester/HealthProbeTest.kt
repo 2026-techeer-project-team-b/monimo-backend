@@ -15,7 +15,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 // 헬스체크 probe (#135 · ADR #58). 수집기의 HealthProbeTest 와 같은 모양이다 :
 // 업무 포트에도 /livez · /readyz 를 열고, readiness 가 저장소(db)를 안 본다.
 // 적재 처리기는 요청을 받지 않고 Kafka 에서 스스로 꺼내므로 readiness 가 하는 일은 배포 진행을 막는 것뿐이다. 그래도 같은 규칙으로 고정한다.
-// RANDOM_PORT 라 업무 · 관리 포트가 둘 다 빈 포트로 바뀐다 (운영 8082 · 8092 와 부딪치지 않는다).
+// RANDOM_PORT 라 업무 · 관리 포트가 둘 다 빈 포트로 바뀐다 (운영 8082 · 18082 와 부딪치지 않는다).
 // Hikari 연결 대기를 3초로 줄인 것은 마지막 Given 에서 PG 를 멈춘 뒤 전체 /actuator/health 가 DOWN 으로 답할 때까지 기다리는 시간이다 (운영 기본값 30초)
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
