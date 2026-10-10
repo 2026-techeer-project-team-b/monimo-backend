@@ -41,6 +41,7 @@
 | [`127-jdbc-socket-timeout/`](127-jdbc-socket-timeout/README.md) | `#127` · ADR `#54` | README 한 장만 (라이트) | **조사가 이슈 본문을 틀렸다고 밝힌 건.** 재현 조건으로 적은 `docker pause` 는 Hikari `connectionTimeout` 이 이미 막고 있었고, 한도가 없던 자리는 "검증을 통과한 커넥션으로 보낸 쿼리의 응답을 기다리는 구간" 하나였다. `pg_sleep` 으로 따로 쟀다 |
 | [`126-global-config-deferred/`](126-global-config-deferred/README.md) | `#126` `#128` · ADR `#55` | README 한 장만 (라이트) | **안 만들기로 정한 이슈.** 이슈가 "옮길 값 셋" 이라고 적었는데 세어 보니 하나였다. 로그 하한은 ADR 과 API 명세에만 있고 코드에 없었다. 문서가 결정을 적어 두고 구현이 안 따라가면 그 문서가 거짓말이 된다 |
 | [`119-clickhouse-migrations/`](119-clickhouse-migrations/README.md) | `#119` · ADR `#57` | README 한 장만 (라이트) | **어려운 쪽은 `#118` 조사가 이미 풀어 둔 건.** 남은 결정이 "무엇이 실행하나" 하나라 조사 8단계를 안 돌렸다. 시험을 짜다 설계 결함을 하나 잡았다(`default` 에 표가 있으면 스택이 안 뜬다) |
+| [`135-health-probes/`](135-health-probes/README.md) | `#135` · ADR `#58` | README(설계 한 장) · research(9단계 완료) | **규약을 읽었는데 규약의 전제가 틀린 건.** 명세대로 `/healthz` 를 열려다 커밋 메시지에서 규약이 바뀐 것을 찾았고, 규약이 적은 Kafka 확인 기능이 Spring Boot 에 없다는 것과 공식 문서의 경고 하나가 빠진 것을 조사가 밝혔다. 되물음 네 번 중 둘은 내용이 아니라 글의 형태 때문이라 research 틀(9단계 · 꼭 알아야 하는 것 5개)을 바꿨다 |
 | [`83-peer-service/`](83-peer-service/README.md) | `#83` · PR `#84` | README · prompts | 소급. 이 방식 전이라 프롬프트 로그만 있다 |
 
 ## 규칙
