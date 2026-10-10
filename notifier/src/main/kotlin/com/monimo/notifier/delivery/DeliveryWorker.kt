@@ -19,6 +19,7 @@ class DeliveryWorker(
     private val breaker: ChannelCircuitBreaker,
     private val props: DeliveryProperties,
     private val clock: Clock,
+    private val pollAge: LastSuccessAge,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val senderByType: Map<ChannelType, NotificationSender> = senders.associateBy { it.type }
@@ -26,6 +27,8 @@ class DeliveryWorker(
     // 이번 바퀴에 끝낸 작업 수. 0 이면 할 일이 없었다
     fun pollOnce(): Int {
         val claims = claimer.claim()
+        // 발송 대기 큐를 PG 에서 읽는 데 성공했다 (0건이어도 성공). 막히거나 실패하면 여기 오지 못해 게이지가 커진다
+        pollAge.markSuccess()
         claims.forEach { process(it) }
         return claims.size
     }

@@ -53,6 +53,7 @@ class DeliveryWorkerTest(
     jdbc: JdbcTemplate,
     clock: MutableClock,
     fake: FakeSlackServer,
+    pollAge: LastSuccessAge,
 ) : BehaviorSpec({
 
     val appId = jdbc.queryForObject("INSERT INTO applications (name) VALUES ('order-service') RETURNING id", Long::class.java)!!
@@ -321,6 +322,17 @@ class DeliveryWorkerTest(
             row(stale)["status"] shouldBe "FAILED"
             row(stale)["attempt_count"] shouldBe 0
             historyOf(stale).single()["response"].toString() shouldContain "최대 나이 초과"
+        }
+    }
+
+    Given("발송 대기 큐를 한 번 읽는다 (보낼 것이 없어도)") {
+        isolate()
+        Thread.sleep(50)
+        val before = pollAge.seconds()
+        worker.pollOnce()
+
+        Then("낡음 게이지가 0 근처로 돌아간다 — 0건이어도 PG 를 읽는 데 성공했다 (ADR #54)") {
+            (pollAge.seconds() < before) shouldBe true
         }
     }
 })
