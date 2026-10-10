@@ -42,8 +42,21 @@ monimo:
       unknown-max-elapsed: 1m
       dlq-topic: raw.dlq
 
-# /actuator/metrics 로 소비 건수(monimo.ingester.raw.consumed)와 DLQ 건수(monimo.ingester.dlq)를 본다. 연결 점검 · 관통 확인 스크립트가 읽는다
+# 관리 포트 (#135). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10 (수집기 8091 과 같은 규칙)
 management:
+  server:
+    port: 8092
+  endpoint:
+    health:
+      probes:
+        enabled: true                 # /actuator/health/liveness · /actuator/health/readiness (헬스체크 규약)
+        # 업무 포트(8082)에도 /livez · /readyz 를 연다. 쿠버네티스는 이쪽을 쏜다.
+        # 관리 포트만 보면 업무 포트가 막혀도 "정상" 이 나온다 (두 포트가 일꾼 · 연결 묶음을 따로 가진다). 공식 문서가 그렇게 권한다
+        add-additional-paths: true
+      # readiness 에 저장소(db)를 넣지 않는다 (ADR #58). 적재 처리기는 요청을 받지 않고 Kafka 에서 스스로 꺼내므로 readiness 가 하는 일은
+      # 배포 진행을 막는 것뿐이다. 저장소가 하나라 흔들리면 파드가 전부 동시에 빠지고, Kafka · ClickHouse 는 확인 기능이 Spring 에 없어 직접 짜야 한다.
+      # group 을 적지 않으면 기본 구성(liveness = livenessState · readiness = readinessState 뿐)이다
+  # /actuator/metrics 로 소비 건수(monimo.ingester.raw.consumed)와 DLQ 건수(monimo.ingester.dlq)를 본다. 연결 점검 · 관통 확인 스크립트가 관리 포트로 읽는다
   endpoints:
     web:
       exposure:
