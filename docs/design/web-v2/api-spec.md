@@ -5,7 +5,7 @@
 **기본 경로**
 - `/api/v1` : 화면이 부르는 API 서버의 업무용 경로 (예: `GET /api/v1/applications`)
 - `/api/v1/internal/**` : 내부 전용(우리 서비스끼리만, 탐지·파수꾼이 API 서버에 물을 때)
-- `/healthz` · `/readyz` : 접두 예외 ① — 쿠버네티스 헬스체크 전용. 헤더·쿼리·본문 없음, 응답은 `{"status":"ok"}` 한 줄. 서비스 6개(API 서버·수집기·탐지·알림·적재 처리기·파수꾼) 모두 동일하게 연다. `readyz` 확인 대상: API 서버=PostgreSQL·ClickHouse 연결 / 수집기=Kafka 연결·PG 설정 캐시 / 탐지=PostgreSQL / 알림=PostgreSQL / 적재 처리기=Kafka·ClickHouse / 파수꾼=외부 웹훅 도달
+- `/actuator/health/liveness` · `/actuator/health/readiness` : 접두 예외 ① : 쿠버네티스 헬스체크 전용 (재범 「헬스체크」 정리 2026-09-30 의 H1 · H2 · H3 를 반영. 옛 `/healthz` · `/readyz` · `{"status":"ok"}` · 서비스 6개는 폐기). 헤더·쿼리·본문 없음, 응답은 `{"status":"UP"}` / `{"status":"DOWN"}` 한 줄, 상태 코드 200 / 503. 서비스 5개(API 서버·수집기·탐지·알림·적재 처리기)가 관리 포트에 연다(수집기·적재 처리기·탐지·알림은 켰고 API 서버는 예정). 파수꾼은 Lambda 라 HTTP 주소가 없다(Healthchecks.io 핑으로 증명). `readiness` 확인 대상: API 서버=PostgreSQL·ClickHouse 연결 / 탐지=PostgreSQL / 알림=PostgreSQL / 수집기·적재 처리기=**저장소를 보지 않는다**(자기 상태만. 저장소가 하나라 흔들리면 파드가 전부 동시에 빠지고 수집기가 빠지면 에이전트가 신호를 버린다, ADR `#58`). 수집기·적재 처리기는 **업무 포트에도 `/livez` · `/readyz`** 를 추가로 열고 쿠버네티스는 그쪽을 쏜다(관리 포트만 보면 업무 포트가 막혀도 통과하므로). 관리 포트 번호: 수집기 8091 · 적재 처리기 8092(업무 포트 + 10), 탐지·알림 8081, API 서버 미정
 - `/internal/thread-dump` · `/internal/channels/test` : 접두 예외 ② — 수집기·알림이 여는 서비스 간 문. `/api/v1` 없음
 - 형식: JSON(`application/json; charset=utf-8`), 시간대: UTC·ISO 8601 (예: `2026-09-14T10:20:30Z`)
 

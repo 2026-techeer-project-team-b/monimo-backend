@@ -206,6 +206,8 @@ services:
     ports:
       - "${COLLECTOR_OTLP_PORT:-4317}:4317"
       - "${COLLECTOR_HTTP_PORT:-8081}:8081"
+      # 관리 포트 (#135). /actuator/** 가 전부 여기 있다. 점검 스크립트가 내 컴퓨터에서 /actuator/metrics 를 읽으므로 호스트에 연다
+      - "${COLLECTOR_MANAGEMENT_PORT:-8091}:8091"
     environment:
       SPRING_PROFILES_ACTIVE: local
       # local 프로필의 localhost 대신 컨테이너 이름으로
@@ -234,8 +236,9 @@ services:
       infra-ready:
         condition: service_healthy
     healthcheck:
-      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 /actuator/health 를 읽는다
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081; printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (#135) :
+      # /actuator/health 는 관리 포트(8091)로 옮겨 갔고, 쿠버네티스가 쏠 주소와 같은 곳을 로컬에서도 보는 셈이다
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -251,6 +254,8 @@ services:
     image: monimo/ingester:dev
     ports:
       - "${INGESTER_HTTP_PORT:-8082}:8082"
+      # 관리 포트 (#135). /actuator/** 가 전부 여기 있다. 점검 스크립트가 내 컴퓨터에서 /actuator/metrics 를 읽으므로 호스트에 연다
+      - "${INGESTER_MANAGEMENT_PORT:-8092}:8092"
     environment:
       SPRING_PROFILES_ACTIVE: local
       # local 프로필의 localhost 대신 컨테이너 이름으로
@@ -271,8 +276,9 @@ services:
       infra-ready:
         condition: service_healthy
     healthcheck:
-      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 /actuator/health 를 읽는다
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (#135) :
+      # /actuator/health 는 관리 포트(8092)로 옮겨 갔고, 쿠버네티스가 쏠 주소와 같은 곳을 로컬에서도 보는 셈이다
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
       interval: 5s
       timeout: 5s
       retries: 30
