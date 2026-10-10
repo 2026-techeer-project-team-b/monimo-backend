@@ -36,13 +36,18 @@ class OutboxClaimer(
         val now = clock.instant()
         outbox.cancelResolvedBeforeSend(now)
         val rows = outbox.lockDue(now, now.minus(props.groupWait), props.batchSize)
+        // 발화 알림이 영구 실패 · 재시도 한도로 끝났는데 복구가 생긴 경우, 사람은 "터졌다"를 못 받은 채 "풀렸다"를 받는다.
+        // 복구를 숨기면 장애가 있었다는 사실 자체가 사라지므로 보내되, 발화 알림이 닿지 못했다고 적는다 (D18-보강)
+        val resolvedIds = rows.filter { it.transition == "RESOLVED" }.map { it.id }
+        val firingFailed = if (resolvedIds.isEmpty()) emptySet() else outbox.resolvedWhoseFiringFailed(resolvedIds).toSet()
         return rows.map { row ->
             val token = UUID.randomUUID()
             row.status = DeliveryStatus.IN_FLIGHT
             row.claimToken = token
             row.leaseUntil = now.plus(props.lease)
             row.updatedAt = now
-            Claim(row.id, token, row.alertEventId, row.alertChannelId, row.payload, row.attemptCount, row.createdAt)
+            val payload = if (row.id in firingFailed) row.payload + (FIRING_UNDELIVERED to true) else row.payload
+            Claim(row.id, token, row.alertEventId, row.alertChannelId, payload, row.attemptCount, row.createdAt)
         }
     }
 
@@ -87,3 +92,6 @@ data class Finish(
     val response: String? = null,
     val error: String? = null,
 )
+
+// 복구 알림 payload 에 붙이는 표시 (DB 에는 쓰지 않는다. 보낼 때만 계산)
+const val FIRING_UNDELIVERED = "firing_undelivered"
