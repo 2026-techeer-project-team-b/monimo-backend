@@ -44,6 +44,15 @@ class HealthProbeTest(
             }
         }
 
+        When("관리 포트로 낡음 게이지를 부르면 (ADR #54)") {
+            val gauge = rest.getForEntity("$management/actuator/metrics/monimo.notifier.delivery.poll.age", String::class.java)
+
+            Then("200 이고 단위는 초") {
+                gauge.statusCode.value() shouldBe 200
+                (gauge.body!!.contains("\"baseUnit\":\"seconds\"")) shouldBe true
+            }
+        }
+
         When("업무 포트로 actuator 를 부르면") {
             val onAppPort = TestRestTemplate().getForEntity(
                 "http://localhost:${environment.getProperty("local.server.port")}/actuator/health/readiness", String::class.java,

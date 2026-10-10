@@ -114,6 +114,7 @@ class EvaluationRunner(
 class EvaluationScheduler(
     private val runner: EvaluationRunner,
     private val agentDown: AgentDownRunner,
+    private val age: LastSuccessAge,
 ) {
     private val log = LoggerFactory.getLogger(EvaluationScheduler::class.java)
 
@@ -128,5 +129,8 @@ class EvaluationScheduler(
         if (a.fired + a.resolved + a.queryFailures + a.statusChanged > 0) {
             log.info("AGENT_DOWN 규칙={} 반영={} 발화={} 해제={} 조회실패={} 상태변경={}", a.rules, a.applied, a.fired, a.resolved, a.queryFailures, a.statusChanged)
         }
+        // 두 평가가 PG 를 읽고 끝까지 돌았다. API 서버 조회 실패는 각 runOnce 가 판정 불가로 삼키므로 여기까지 오고,
+        // PG 가 막히거나 실패하면 예외 · 블록으로 여기 오지 못해 게이지가 커진다
+        age.markSuccess()
     }
 }

@@ -125,6 +125,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#81`** 탐지 · 알림 헬스체크. `/actuator/health/liveness` · `/actuator/health/readiness` 를 관리 포트 **8081** 로 연다(local 프로필은 서비스 포트 8083 · 8084 그대로 — 로컬에서 수집기 8081 과 겹쳐서). readiness = `readinessState` + `db`(PostgreSQL), liveness 는 자기 자신만. 응답은 `{"status":"UP"}` 하나(운영은 세부 항목 미노출). PG 를 끄면 readiness 503 · liveness 200 — 단 **503 까지 약 30초**(Hikari 연결 대기 기본값)
 - **AGENT_DOWN 판정** (탐지). 매 주기 `agents/active`(조회, 명세 40번)를 한 번 불러 ① 90초 넘게 데이터가 없는 키는 `agents.status = DOWN`, 돌아오면 `UP` ② 경보는 **서비스 단위** — 그 서비스에 살아 있는 키가 0 이면 위반, AGENT_DOWN 만 N=1. 파드 키가 재시작마다 바뀌어 배포와 크래시를 가를 수 없어서다(`docs/alert/40-agent-down.md`). 어느 서비스에서도 데이터가 없으면 파이프라인 의심으로 판정 불가, DOWN 된 지 24시간 지난 키는 감시에서 뺀다. **조회 `agents/active` 가 머지되기 전에는 탐지 로그에 조회 실패가 찍히고 판정 불가로 남는다**
 - **알림 그룹핑** (알림). 같은 채널 · 같은 서비스로 나가는 알림을 **10초** 기다렸다 Slack 한 메시지로 묶는다(제목에 가장 높은 심각도 · 건수, 줄은 발화 시각 순). 사건 · 이력 · 해제는 그대로 따로다 — 메시지만 묶는다. 묶음 상태는 outbox 줄 자체라 새 표가 없고 탐지는 안 바뀐다. 복구는 같은 사건의 발화가 끝난 뒤에만 가고, 발화를 한 번도 못 보낸 채 복구되면 둘 다 보내지 않는다(`docs/alert/50-grouping.md`). 10초만큼 첫 알림이 늦어진다(NFR 실측 최대 약 56초)
+- **주기 작업 낡음 게이지** (탐지 · 알림, ADR `#54` 후속). 수집기 `monimo.collector.sampling.refresh.age` 와 같은 꼴로 `monimo.detector.evaluation.age`(평가 주기가 끝까지 돈 뒤 흐른 초, 평소 15초 안쪽) · `monimo.notifier.delivery.poll.age`(발송 대기 큐를 PG 에서 읽은 뒤 흐른 초, 평소 1초 안쪽)를 더했다. 두 모듈 관리 포트(8081)에 `/actuator/metrics` 를 열었다. **임계값 · 경보 규칙은 아직 없다** — 이 게이지들은 ClickHouse 에 없어서 탐지가 읽을 길을 먼저 정해야 한다(우리 서비스 지표도 우리 수집기로 보낼지 · 탐지가 actuator 를 직접 읽을지 · Prometheus)
 
 ### 인증 설정 파트 (재범)
 

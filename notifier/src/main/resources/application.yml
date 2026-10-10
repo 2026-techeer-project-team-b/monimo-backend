@@ -31,6 +31,10 @@ monimo:
 management:
   server:
     port: 8081                   # 관리 포트. actuator 는 업무 포트와 나눠 밖(인그레스)으로 안 나간다. probe 는 kubelet 이 파드에 직접 붙는다
+  endpoints:
+    web:
+      exposure:
+        include: health, metrics   # metrics: 주기 작업 낡음 게이지(ADR #54)를 밖에서 읽게. 관리 포트라 인그레스로 안 나간다
   endpoint:
     health:
       probes:
