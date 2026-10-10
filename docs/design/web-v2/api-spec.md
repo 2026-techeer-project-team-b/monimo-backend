@@ -5,7 +5,7 @@
 **기본 경로**
 - `/api/v1` : 화면이 부르는 API 서버의 업무용 경로 (예: `GET /api/v1/applications`)
 - `/api/v1/internal/**` : 내부 전용(우리 서비스끼리만, 탐지·파수꾼이 API 서버에 물을 때)
-- `/healthz` · `/readyz` : 접두 예외 ① — 쿠버네티스 헬스체크 전용. 헤더·쿼리·본문 없음, 응답은 `{"status":"ok"}` 한 줄. 서비스 6개(API 서버·수집기·탐지·알림·적재 처리기·파수꾼) 모두 동일하게 연다. `readyz` 확인 대상: API 서버=PostgreSQL·ClickHouse 연결 / 수집기=Kafka 연결·PG 설정 캐시 / 탐지=PostgreSQL / 알림=PostgreSQL / 적재 처리기=Kafka·ClickHouse / 파수꾼=외부 웹훅 도달
+- `/actuator/health/liveness` · `/actuator/health/readiness` : 접두 예외 ① : 쿠버네티스 헬스체크 전용 (재범 「헬스체크」 정리 2026-09-30 의 H1 · H2 · H3 를 반영. 옛 `/healthz` · `/readyz` · `{"status":"ok"}` · 서비스 6개는 폐기). 헤더·쿼리·본문 없음, 응답은 `{"status":"UP"}` / `{"status":"DOWN"}` 한 줄, 상태 코드 200 / 503. 서비스 5개(API 서버·수집기·탐지·알림·적재 처리기)가 관리 포트에 연다(수집기·적재 처리기·탐지·알림은 켰고 API 서버는 예정). 파수꾼은 Lambda 라 HTTP 주소가 없다(Healthchecks.io 핑으로 증명). `readiness` 확인 대상: API 서버=PostgreSQL·ClickHouse 연결 / 탐지=PostgreSQL / 알림=PostgreSQL / 수집기·적재 처리기=**저장소를 보지 않는다**(자기 상태만. 저장소가 하나라 흔들리면 파드가 전부 동시에 빠지고 수집기가 빠지면 에이전트가 신호를 버린다, ADR `#58`). 수집기·적재 처리기는 **업무 포트에도 `/livez` · `/readyz`** 를 추가로 열고 쿠버네티스는 그쪽을 쏜다(관리 포트만 보면 업무 포트가 막혀도 통과하므로). 관리 포트 번호: 수집기 8091 · 적재 처리기 8092(업무 포트 + 10), 탐지·알림 8081, API 서버 미정
 - `/internal/thread-dump` · `/internal/channels/test` : 접두 예외 ② — 수집기·알림이 여는 서비스 간 문. `/api/v1` 없음
 - 형식: JSON(`application/json; charset=utf-8`), 시간대: UTC·ISO 8601 (예: `2026-09-14T10:20:30Z`)
 
@@ -49,9 +49,9 @@
 |---|---|---|---|---|---|---|---|
 | 1 | API 서버 | POST | /api/v1/agents/{agentUuid}/thread-dumps | 지금 이 파드의 스레드 덤프를 동기로 요청 (권한 ADMIN) | body: timeout_ms | dump_uuid, agent_uuid, agent_key, service_name, requested_by, requested_at, thread_count, dump | FN-39, thread_dumps |
 | 2 | API 서버 | GET | /api/v1/internal/service-health | 서비스별 1분 호출수·에러수·지연 백분위 (권한 내부) | service_name?, from, to, step?(60 이상 · 60의 배수, 그 외 400) | ts_min, service_name, cnt, err_cnt, cnt_4xx, cnt_5xx, p50/p95/p99_ms (요청 0건인 버킷은 행 없음) | FN-27, FN-29, service_health_1m |
-| 3 | API 서버 | GET | /api/v1/errors | 실패한 스팬 목록(예외 타입·메시지·상태코드) (권한 VIEWER+) | service_name, from, to, agent_key?, http_status?, exception_type?, cursor?, limit? | trace_id, span_id, start_time, duration_ns, service_name, agent_key, span_name, span_kind, status_code, http_status, exception_type, exception_message | FN-23, spans |
+| 3 | API 서버 | GET | /api/v1/errors | 실패한 스팬 목록(예외 타입·메시지·상태코드) (권한 VIEWER+) | service_name(등록된 서비스가 아니면 404), from, to, agent_key?, http_status?, exception_type?(셋 다 정확히 같은 값), cursor?, limit? | trace_id, span_id, start_time(나노초 9자리), duration_ns, service_name, agent_key, span_name, span_kind, status_code, http_status(HTTP 아닌 스팬은 null), exception_type · exception_message(예외 이벤트가 없으면 null). status_code = ERROR 인 모든 종류의 스팬, 시간 역순 | FN-23, spans |
 | 4 | API 서버 | GET | /api/v1/internal/canary/freshness | 가장 최근 카나리 신호가 몇 초 전인지 (권한 내부) | service_name? | service_name, last_signal_at, age_sec, threshold_sec, fresh | FN-55, #01 #18 |
-| 5 | API 서버 | GET | /api/v1/traces/scatter | 스캐터 차트 점 데이터, 과다시 버킷 집계 (권한 VIEWER+) | service_name, from, to, agent_key?, limit?(점 상한) | mode(raw/bucketed), total_count, points[trace_id, start_time, duration_ms, is_error, http_status, span_name, agent_key] | FN-41, FN-42, transactions/heatmap_1m |
+| 5 | API 서버 | GET | /api/v1/traces/scatter | 스캐터 차트 점 데이터, 과다시 버킷 집계 (권한 VIEWER+) | service_name(등록된 서비스가 아니면 404), from, to, agent_key?, limit?(점 상한, 기본 5000 · 최대 20000) | mode(raw/bucketed), total_count(접기 전 요청 수), points[trace_id, start_time(ms 3자리), duration_ms, is_error(true/false), http_status(HTTP 아니면 null), span_name, agent_key]. bucketed = (시간 칸 × 응답시간 칸(로그 간격) × 성공/실패) 격자마다 가장 느린 실제 요청 하나를 대표 점으로 — 점 모양은 raw 와 같다 | FN-41, FN-42, transactions |
 | 6 | API 서버 | GET | /api/v1/applications/{applicationUuid} | 서비스 하나의 상세 (권한 VIEWER+) | (경로만) | application_uuid, name, display_name, description, created_at, updated_at, agent_count | FN-17, applications |
 | 7 | API 서버 | PATCH | /api/v1/alert-channels/{alertChannelUuid}/enabled | 채널을 잠시 끄거나 켠다 (권한 ADMIN) | body: enabled | alert_channel_uuid, enabled, updated_at | FN-30, alert_channels.enabled |
 | 8 | API 서버 | PATCH | /api/v1/applications/{applicationUuid} | 표시명·설명 수정(name은 불변) (권한 ADMIN) | body: display_name, description | application 상세 | FN-17, applications |
@@ -82,11 +82,11 @@
 | 33 | API 서버 | GET | /api/v1/alert-channels/{alertChannelUuid} | 채널 하나의 상세(비밀값은 가림) (권한 ADMIN) | (경로만) | 채널 상세(config 마스킹) | FN-30, alert_channels |
 | 34 | API 서버 | GET | /api/v1/thread-dumps | 찍어둔 스레드 덤프 목록(본문 제외) (권한 VIEWER+) | service_name?, agent_key?, from?, to?, cursor?, limit? | dump_uuid, agent_key, service_name, requested_by, requested_at, thread_count | FN-39, thread_dumps |
 | 35 | API 서버 | GET | /api/v1/logs | 로그 검색 (권한 VIEWER+) | service_name?, from, to, agent_key?, level?, logger?, trace_id?, q?, cursor?, limit? | ts, service_name, agent_key, level, logger, thread, message, trace_id, span_id, attributes | FN-61, logs |
-| 36 | API 서버 | GET | /api/v1/errors/timeline | 시간대별 에러 건수(상태코드 대역·예외타입별) (권한 VIEWER+) | service_name, from, to, step? | step, series[ts_min, http_status_class, exception_type, cnt] | FN-46, spans |
+| 36 | API 서버 | GET | /api/v1/errors/timeline | 시간대별 에러 건수(상태코드 대역·예외타입별) (권한 VIEWER+) | service_name(등록된 서비스가 아니면 404), from, to, step?(60 이상 · 60의 배수, 그 외 400) | step, series[ts_min, http_status_class(5xx · 4xx · other), exception_type(예외 이벤트가 없으면 null), cnt]. 세는 대상은 에러 목록(#3)과 같고, 건수가 0인 칸은 행이 없다 | FN-46, spans |
 | 37 | API 서버 | POST | /api/v1/alert-channels | 채널 등록 (권한 ADMIN) | body: name, type, config(webhook_url, channel), enabled | 채널 상세 | FN-30, alert_channels |
 | 38 | API 서버 | DELETE | /api/v1/applications/{applicationUuid} | 감시 대상에서 제외(deleted_at 기록, 규칙 · 파드 · 이력은 남는다. 이후 목록 · 조회에서 빠진다) (권한 ADMIN) | (경로만) | application_uuid, result: DELETED | FN-17, applications |
 | 39 | API 서버 | PUT | /api/v1/applications/{applicationUuid}/config | 샘플링률 변경(version+1, 낙관적 잠금) (권한 ADMIN) | body: sampling_rate, expected_version | application_config_uuid, sampling_rate, version, updated_by, updated_at | FN-49, application_configs |
-| 40 | API 서버 | GET | /api/v1/internal/agents/active | 최근 구간 데이터를 보낸 파드 목록(AGENT_DOWN 판정용) (권한 내부) | service_name?, from, to | service_name, agent_key, last_signal_at, source | FN-29, #35, spans/metrics_raw |
+| 40 | API 서버 | GET | /api/v1/internal/agents/active | 최근 구간 데이터를 보낸 파드 목록(AGENT_DOWN 판정용) (권한 내부) | service_name?(없으면 전체 서비스), from, to | service_name, agent_key, last_signal_at, source — 파드당 한 줄. spans · metrics_raw 중 더 최근 시각과 그 표 이름. agent_id 가 빈 데이터는 제외, 구간에 데이터가 없는 파드는 응답에 없다 | FN-29, #35, spans/metrics_raw |
 | 41 | API 서버 | GET | /api/v1/server-map | 서비스 간 호출량·에러수·평균소요시간 (권한 VIEWER+) | service_name?(주면 그 서비스가 부르거나 불리는 간선만), from, to | nodes[service_name, cnt, err_cnt](요청을 받은 우리 서비스만. DB · 외부는 간선의 callee_kind 로 화면이 만든다), edges[caller_service, callee_service, callee_kind, cnt, err_cnt, avg_duration_ms(소수 첫째 자리)] | FN-21, FN-22, server_map_1m · service_health_1m |
 | 42 | API 서버 | GET | /api/v1/alert-channels | 채널 목록(SLACK·EMAIL·WEBHOOK·PAGERDUTY) (권한 VIEWER+) | type?, enabled?, cursor?, limit? | 채널 목록 + page | FN-30, alert_channels |
 | 43 | API 서버 | GET | /api/v1/alert-rules/{alertRuleUuid}/channels | 이 규칙이 터지면 어디로 가는지 (권한 VIEWER+) | (경로만) | alert_rule_uuid, channels[] | FN-24, alert_rule_channels |
@@ -110,7 +110,7 @@
 |---|---|---|---|---|
 | `TraceService/Export` (opentelemetry.proto.collector.trace.v1) | 스팬(요청이 거친 단계·시간). 콜스택/스캐터/서버맵 재료 | `ExportTraceServiceRequest`: resource_spans 배열 | `ExportTraceServiceResponse` — partial_success(rejected_spans, error_message) | FN-7, FN-11, #33 |
 | `MetricsService/Export` (opentelemetry.proto.collector.metrics.v1) | 지표(JVM·호스트: CPU·힙·GC). 시스템메트릭·경보 재료 | `ExportMetricsServiceRequest`: resource_metrics 배열 | `ExportMetricsServiceResponse` — partial_success(rejected_data_points) | FN-11, FN-33, FN-34 |
-| `LogsService/Export` (opentelemetry.proto.collector.logs.v1) | 로그 줄. 로그 검색 재료 | `ExportLogsServiceRequest`: resource_logs 배열 | `ExportLogsServiceResponse` — partial_success(rejected_log_records). 전역 하한(MIN_LOG_LEVEL) 미만 등급은 여기서 버려짐 | FN-11, #38, Q22 |
+| `LogsService/Export` (opentelemetry.proto.collector.logs.v1) | 로그 줄. 로그 검색 재료 | `ExportLogsServiceRequest`: resource_logs 배열 | `ExportLogsServiceResponse` — partial_success(rejected_log_records). 등급으로 거르지 않고 받은 대로 전부 보낸다 : `#38` ④ 가 정한 전역 하한(MIN_LOG_LEVEL)은 구현된 적이 없고 ADR `#55` 가 보류로 확정했다 | FN-11, #38, #55, Q22 |
 
 요청 메시지는 셋 다 3층 구조: ① `resource`(서비스명·파드) → ② `scope`(계측 라이브러리) → ③ 실제 기록(spans/metrics/log_records). 수집기는 ①만 보고도 어느 서비스·파드인지 식별.
 

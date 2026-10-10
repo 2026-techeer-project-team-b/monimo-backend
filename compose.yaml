@@ -87,13 +87,11 @@ services:
         soft: 262144
         hard: 262144
     volumes:
-      # db/clickhouse/*.sql 은 데이터가 비어 있을 때(처음 켤 때)만 이름 순서대로 실행된다.
-      # 하위 폴더(seed/)는 실행되지 않는다. 가짜 데이터는 ./scripts/seed-clickhouse.sh 로만 넣는다.
-      - ./db/clickhouse:/docker-entrypoint-initdb.d:ro
       - clickhouse-data:/var/lib/clickhouse
     healthcheck:
-      # 마지막 초기화 파일(004)의 마지막 MV까지 만들어졌을 때만 정상. DB만 보면 표를 만드는 도중에 정상으로 뜬다.
-      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'EXISTS TABLE monimo.mv_metrics_1h' | grep -q 1"]
+      # 서버가 살아 있나만 본다. 표를 만드는 일은 clickhouse-migrate 가 맡는다 (ADR #57).
+      # 전에는 여기서 마지막 MV 까지 확인했다 : ClickHouse 자신이 처음 켜질 때 표를 만들었기 때문이다
+      test: ["CMD-SHELL", "clickhouse-client --user \"$$CLICKHOUSE_USER\" --password \"$$CLICKHOUSE_PASSWORD\" --query 'SELECT 1' | grep -q 1"]
       interval: 5s
       timeout: 10s
       retries: 30
@@ -137,6 +135,49 @@ services:
     command: migrate
     restart: "no"
 
+  # ClickHouse 마이그레이션 (한 번 실행하고 끝나는 컨테이너). 파일: db/clickhouse/V*.sql (ADR #57)
+  # 전에는 ClickHouse 가 처음 켜질 때 docker-entrypoint-initdb.d 로 읽었다. 그러면 데이터가 있는
+  # 서버에는 영영 적용되지 않아서, 고칠 때마다 DB 를 통째로 날리는 수밖에 없었다.
+  #
+  # 장부(flyway_schema_history)를 monimo 안에 둔다. 빈 서버에 monimo 가 없어도 괜찮다 :
+  # Flyway 의 createSchemas 가 없으면 만들어 준다.
+  #
+  # default 에 두면 장부와 표가 생명주기가 갈려서 조용히 틀린다. 실측 :
+  # DROP DATABASE monimo 를 하면 다음 migrate 가 "up to date. No migration necessary" 로
+  # 종료코드 0 을 내고, 표가 0개인 채로 infra-ready 가 켜진다. 장부만 영구히 "다 됐다" 고 말한다.
+  # 같이 사라져야 맞다.
+  clickhouse-migrate:
+    build:
+      context: ./db/clickhouse
+    image: monimo/clickhouse-migrate:dev
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./db/clickhouse:/flyway/sql:ro
+    environment:
+      FLYWAY_URL: jdbc:clickhouse://clickhouse:8123/default
+      FLYWAY_USER: ${CLICKHOUSE_USER:-monimo}
+      FLYWAY_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 붙는 곳은 default(빈 서버에도 늘 있다)이고, 일하는 곳과 장부 자리는 monimo 다
+      FLYWAY_SCHEMAS: monimo
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      # 이름 규칙에 안 맞는 파일을 조용히 건너뛰지 않고 실패시킨다
+      FLYWAY_VALIDATE_MIGRATION_NAMING: "true"
+      # 번호(만든 시각)와 머지 순서가 달라도 늦게 들어온 파일을 적용한다 (PG 와 같은 기준)
+      FLYWAY_OUT_OF_ORDER: "true"
+      FLYWAY_CONNECT_RETRIES: "10"
+      # monimo 에 표가 있고 장부가 없으면 Flyway 는 "비어 있지 않은데 장부가 없다" 로 멈춘다.
+      # 이 변경 전에 만든 로컬이 전부 그 상태라 그대로 두면 아무도 못 뜬다.
+      # 이것을 켜면 장부를 v1 로 깔고 시작하는데, 우리 파일 번호가 전부 2026... 이라 v1 보다 커서
+      # 하나도 안 건너뛰고 그대로 실행된다. 게다가 전부 IF NOT EXISTS 라 이미 있으면 아무 일도 안 한다
+      FLYWAY_BASELINE_ON_MIGRATE: "true"
+      # Flyway 가 monimo 를 소유하게 됐으므로 clean 이 한 번 돌면 신호 데이터가 전부 날아간다.
+      # Flyway 10+ 기본값이 이미 true 지만, 지우는 명령은 기본값에 맡기지 않고 못박는다
+      FLYWAY_CLEAN_DISABLED: "true"
+    command: migrate
+    restart: "no"
+
   # 준비 완료 표시등: 토픽 만들기 · 마이그레이션이 "끝나야" 켜진다.
   # up --wait 은 이게 healthy 가 될 때까지 기다리므로, 끝나면 바로 앱을 띄워도 된다.
   infra-ready:
@@ -146,8 +187,8 @@ services:
         condition: service_completed_successfully
       postgres-migrate:
         condition: service_completed_successfully
-      clickhouse:
-        condition: service_healthy
+      clickhouse-migrate:
+        condition: service_completed_successfully
     entrypoint: ["tail", "-f", "/dev/null"]
     healthcheck:
       test: ["CMD", "true"]
@@ -165,6 +206,8 @@ services:
     ports:
       - "${COLLECTOR_OTLP_PORT:-4317}:4317"
       - "${COLLECTOR_HTTP_PORT:-8081}:8081"
+      # 관리 포트 (#135). /actuator/** 가 전부 여기 있다. 점검 스크립트가 내 컴퓨터에서 /actuator/metrics 를 읽으므로 호스트에 연다
+      - "${COLLECTOR_MANAGEMENT_PORT:-8091}:8091"
     environment:
       SPRING_PROFILES_ACTIVE: local
       # local 프로필의 localhost 대신 컨테이너 이름으로
@@ -175,14 +218,27 @@ services:
       KAFKA_HOST: kafka
       KAFKA_PORT: "29092"
       # 트레이스 샘플링 비율. 로컬 기본은 1.0(전부 통과)이라 보낸 것이 그대로 보인다.
-      # 샘플링을 눈으로 시험하려면 .env 에 COLLECTOR_SAMPLING_RATIO=0.1 처럼 넣는다 (0.0 이면 카나리만 통과)
+      # PG 를 못 읽었을 때 쓸 기본값이다. 정본은 PG application_configs 이고 PG 가 이긴다 (ADR #53).
+      # PG 를 멈춘 채로 수집기를 띄워 이 값이 쓰이는지 보려면 .env 에 COLLECTOR_SAMPLING_RATIO=0.1 처럼 넣는다
       MONIMO_COLLECTOR_SAMPLING_RATIO: "${COLLECTOR_SAMPLING_RATIO:-1.0}"
+      # 헬스체크로 보고 버릴 주소. SERVER 스팬의 url.path 가 이 중 하나와 정확히 같으면 Kafka 로 안 보낸다.
+      # 비우면 필터가 꺼져 헬스체크도 그대로 적재된다. .env 에 COLLECTOR_HEALTH_CHECK_PATHS= 로 빈 값을 넣으면 된다.
+      # :- 가 아니라 - 를 쓴다: :- 는 빈 값일 때도 기본값을 되살려서 끌 수가 없다
+      MONIMO_COLLECTOR_HEALTH_CHECK_PATHS: "${COLLECTOR_HEALTH_CHECK_PATHS-/actuator/health}"
+      # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 은 /agent/** 에 에이전트 토큰을, API 서버 팬아웃은 /internal/** 에 내부 토큰을 붙인다.
+      # 로컬 전용 기본값이다. 에이전트 토큰은 monimo-shop compose 의 MONIMO_AGENT_TOKEN 과 같아야 한다.
+      # :- 라서 .env 에 빈 값을 넣어도 기본값이 되살아난다. 문을 닫아 보려면 컨테이너 env 를 직접 비운다 (수집기는 빈 값이면 문을 닫는다)
+      MONIMO_AGENT_TOKEN: ${MONIMO_AGENT_TOKEN:-local-agent-token}
+      MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
+      # 명령의 reply_to (Extension 이 결과를 보낼 이 수집기 주소). 수집기가 한 대라 compose 서비스 이름 그대로
+      MONIMO_COLLECTOR_ADVERTISED_URL: http://collector:8081
     depends_on:
       infra-ready:
         condition: service_healthy
     healthcheck:
-      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 /actuator/health 를 읽는다
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081; printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (#135) :
+      # /actuator/health 는 관리 포트(8091)로 옮겨 갔고, 쿠버네티스가 쏠 주소와 같은 곳을 로컬에서도 보는 셈이다
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8081; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -198,6 +254,8 @@ services:
     image: monimo/ingester:dev
     ports:
       - "${INGESTER_HTTP_PORT:-8082}:8082"
+      # 관리 포트 (#135). /actuator/** 가 전부 여기 있다. 점검 스크립트가 내 컴퓨터에서 /actuator/metrics 를 읽으므로 호스트에 연다
+      - "${INGESTER_MANAGEMENT_PORT:-8092}:8092"
     environment:
       SPRING_PROFILES_ACTIVE: local
       # local 프로필의 localhost 대신 컨테이너 이름으로
@@ -211,12 +269,16 @@ services:
       CLICKHOUSE_HTTP_PORT: "8123"
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-monimo}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 적재 실패 때 버티는 시간 (ADR #51). 기본값은 application.yml(10m · 1m). 빈 값이면 기본값으로 돌아간다
+      MONIMO_INGESTER_RETRY_TRANSIENT_MAX_ELAPSED: ${INGESTER_RETRY_TRANSIENT_MAX_ELAPSED:-10m}
+      MONIMO_INGESTER_RETRY_UNKNOWN_MAX_ELAPSED: ${INGESTER_RETRY_UNKNOWN_MAX_ELAPSED:-1m}
     depends_on:
       infra-ready:
         condition: service_healthy
     healthcheck:
-      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 /actuator/health 를 읽는다
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (#135) :
+      # /actuator/health 는 관리 포트(8092)로 옮겨 갔고, 쿠버네티스가 쏠 주소와 같은 곳을 로컬에서도 보는 셈이다
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8082; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
       interval: 5s
       timeout: 5s
       retries: 30

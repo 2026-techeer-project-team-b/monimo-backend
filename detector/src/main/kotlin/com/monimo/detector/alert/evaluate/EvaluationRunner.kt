@@ -111,13 +111,22 @@ class EvaluationRunner(
 }
 
 // 주기 실행. 여러 탐지 인스턴스가 같이 돌아도 기록기가 상태 행을 잠그고 같은 버킷을 무시하므로 사건은 하나다
-class EvaluationScheduler(private val runner: EvaluationRunner) {
+class EvaluationScheduler(
+    private val runner: EvaluationRunner,
+    private val agentDown: AgentDownRunner,
+) {
+    private val log = LoggerFactory.getLogger(EvaluationScheduler::class.java)
+
     @Scheduled(fixedDelayString = "\${monimo.alert.schedule.interval:15s}")
     fun tick() {
         val s = runner.runOnce()
         if (s.fired + s.resolved + s.queryFailures > 0) {
-            LoggerFactory.getLogger(EvaluationScheduler::class.java)
-                .info("평가 규칙={} 반영={} 발화={} 해제={} 조회실패={}", s.rules, s.applied, s.fired, s.resolved, s.queryFailures)
+            log.info("평가 규칙={} 반영={} 발화={} 해제={} 조회실패={}", s.rules, s.applied, s.fired, s.resolved, s.queryFailures)
+        }
+        // 한쪽 조회가 실패해도 다른 쪽은 돈다 (각 runOnce 가 조회 실패를 판정 불가로 삼킨다)
+        val a = agentDown.runOnce()
+        if (a.fired + a.resolved + a.queryFailures + a.statusChanged > 0) {
+            log.info("AGENT_DOWN 규칙={} 반영={} 발화={} 해제={} 조회실패={} 상태변경={}", a.rules, a.applied, a.fired, a.resolved, a.queryFailures, a.statusChanged)
         }
     }
 }

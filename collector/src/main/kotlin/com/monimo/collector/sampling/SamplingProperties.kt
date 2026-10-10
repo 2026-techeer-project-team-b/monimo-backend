@@ -1,15 +1,24 @@
 package com.monimo.collector.sampling
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import java.time.Duration
 
 // 트레이스 샘플링 설정. application.yml 의 monimo.collector.sampling.* 를 읽는다.
 //
-// ratio = 남길 비율. 0.01 이면 100개 중 1개(정확히는 trace ID 해시가 하위 1% 구간에 드는 것)만 남긴다.
-//   기본 1% 는 ADR #33. 로컬 프로필에서는 1.0(전부 통과)으로 덮어써서 흐름을 눈으로 본다.
-//   다음 이슈에서 이 값을 PG(application_configs)에서 읽어 30초마다 갱신한다. 그때도 이 클래스가 기본값 역할을 한다.
+// ratio = PG 를 못 읽었을 때 쓸 비율. **정본이 아니다.**
+//   정본은 PG application_configs.sampling_rate 이고 수집기가 30초마다 읽는다 (ADR #33 · #53).
+//   읽는 데 성공하면 PG 가 이기고, 한 번도 못 읽었으면 이 값으로 돈다.
+//   빈 값을 쓰지 않는 이유: 0 이면 전부 버리고 1 이면 전부 통과시켜 둘 다 사고다.
+//   환경변수 MONIMO_COLLECTOR_SAMPLING_RATIO 로 덮어쓸 수 있는데 그것도 이 기본값 자리를 바꾸는 것뿐이다.
+// ttl = PG 를 다시 읽는 주기. 화면에서 비율을 바꾸면 최대 이만큼 뒤에 반영된다 (ADR #37).
+//   테스트에서 짧게 쓰려고 설정으로 뺐다. Jaeger · OTel 은 60초, Elastic APM 서버 기본값은 30초다.
+//   주의: 주기를 실제로 정하는 것은 PostgresSamplingRateSource 의 @Scheduled 플레이스홀더가 읽는
+//   같은 키다. 이 칸의 기본값만 바꾸면 아무 일도 안 일어나므로 두 곳을 같이 바꾼다
+//   (notifier DeliveryProperties.pollInterval · detector EvaluationProperties.interval 도 같은 모양이다).
 // canaryMarker = 파수꾼이 붙이는 표시. span 의 trace_state 에 이 항목이 있으면 비율과 무관하게 통과시킨다 (ADR #41)
 @ConfigurationProperties("monimo.collector.sampling")
 data class SamplingProperties(
     val ratio: Double = 0.01,
+    val ttl: Duration = Duration.ofSeconds(30),
     val canaryMarker: String = "monimon=canary",
 )
