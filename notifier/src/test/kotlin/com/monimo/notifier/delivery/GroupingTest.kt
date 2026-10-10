@@ -280,4 +280,43 @@ class GroupingTest(
         }
         fake.switchStatus = 200
     }
+
+    Given("D18-보강: 발화 알림이 영구 실패(400)로 끝난 뒤 복구가 생긴다") {
+        isolate()
+        fake.switchStatus = 400
+        at(800)
+        val ch = channel("switch")
+        val (firing, eventId) = outbox(ch, "결제 실패율")
+        at(811)
+        worker.pollOnce()  // 400 → Permanent → FIRING FAILED (사람은 발화를 못 받음)
+        fake.switchStatus = 200
+        fake.reset()
+        val resolved = outbox(ch, "결제 실패율", transition = "RESOLVED", eventId = eventId, createdAt = clock.now).first
+        at(822)
+        worker.pollOnce()
+
+        Then("복구는 숨기지 않고 보내되, 발화 알림이 전달되지 못했다고 적는다") {
+            status(firing) shouldBe "FAILED"
+            status(resolved) shouldBe "SENT"
+            fake.received.single() shouldContain "[RESOLVED] 결제 실패율"
+            fake.received.single() shouldContain "발화 알림은 전달되지 못했습니다"
+        }
+    }
+
+    Given("D18-보강: 발화가 정상 발송된 사건의 복구") {
+        isolate()
+        at(900)
+        val ch = channel("ok")
+        val (_, eventId) = outbox(ch, "정상 사건")
+        at(911)
+        worker.pollOnce()
+        fake.reset()
+        outbox(ch, "정상 사건", transition = "RESOLVED", eventId = eventId, createdAt = clock.now)
+        at(922)
+        worker.pollOnce()
+
+        Then("표시 없이 평소 복구 문구") {
+            fake.received.single() shouldNotContain "전달되지 못했습니다"
+        }
+    }
 })

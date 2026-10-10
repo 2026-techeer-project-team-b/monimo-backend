@@ -49,16 +49,20 @@ data class OutboundMessage(val payloads: List<Map<String, Any?>>) {
             parts += "[FIRING][$severity] $service 경보 ${firing.size}건\n" + lines(firing, ::firingLine)
         }
         if (resolved.isNotEmpty()) {
-            parts += "[RESOLVED] $service 복구 ${resolved.size}건\n" + lines(resolved) { "• ${it["rule_name"]} (발화 ${it["fired_at"]}, 복구 ${it["resolved_at"]})" }
+            parts += "[RESOLVED] $service 복구 ${resolved.size}건\n" + lines(resolved) { "• ${it["rule_name"]} (발화 ${it["fired_at"]}, 복구 ${it["resolved_at"]})" + undelivered(it) }
         }
         return parts.joinToString("\n")
     }
 
     private fun single(p: Map<String, Any?>): String = when (p["transition"].toString()) {
         "TEST" -> "[TEST] monimo 시험 발송입니다. 이 메시지가 보이면 채널 설정이 맞습니다."
-        "RESOLVED" -> "[RESOLVED] ${p["rule_name"]} — ${p["service_name"]} 복구 (발화 ${p["fired_at"]}, 복구 ${p["resolved_at"]})"
+        "RESOLVED" -> "[RESOLVED] ${p["rule_name"]} — ${p["service_name"]} 복구 (발화 ${p["fired_at"]}, 복구 ${p["resolved_at"]})" + undelivered(p)
         else -> "[FIRING][${p["severity"]}] ${p["rule_name"]} — ${p["service_name"]} ${condition(p)} (발화 ${p["fired_at"]})"
     }
+
+    // 발화 알림이 닿지 못했던 사건의 복구 (D18-보강). 사람이 처음 보는 알림이 "풀렸다"일 수 있어 알려 준다
+    private fun undelivered(p: Map<String, Any?>): String =
+        if (p["firing_undelivered"] == true) " — ⚠️ 이 경보의 발화 알림은 전달되지 못했습니다" else ""
 
     private fun firingLine(p: Map<String, Any?>) = "• ${p["rule_name"]} — ${condition(p)} (발화 ${p["fired_at"]})"
 
