@@ -33,6 +33,9 @@ monimo:
   # 채널 시험 발송(#13)이 부르는 알림 서비스. X-Internal-Token 은 위 값을 그대로 보낸다
   notifier:
     base-url: ${MONIMO_NOTIFIER_URL:http://localhost:8084}
+  # 스레드 덤프 팬아웃(#124)이 부르는 수집기 전부. 쉼표로 나눈다. 1a 는 한 대, K8s 는 헤드리스 Service 의 파드 주소들 (배포 파트와 맞춘다)
+  collector:
+    urls: ${MONIMO_COLLECTOR_URLS:http://localhost:8081}
 
 # REST 명세(/v3/api-docs)와 Swagger UI(/swagger-ui.html)는 기본으로 끈다. local 프로필에서만 켠다.
 # 이 접두는 API 명세 §0-1 주소 규칙에 없고 §0-2 인증 분류도 미정이라 운영에 노출하지 않는다.
