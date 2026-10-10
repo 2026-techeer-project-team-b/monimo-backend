@@ -29,46 +29,56 @@ class DeliveryWorker(
         val claims = claimer.claim()
         // 발송 대기 큐를 PG 에서 읽는 데 성공했다 (0건이어도 성공). 막히거나 실패하면 여기 오지 못해 게이지가 커진다
         pollAge.markSuccess()
-        claims.forEach { process(it) }
+        // 그룹(채널, 서비스)마다 한 번 보낸다 (docs/alert/50-grouping.md D17). 너무 크면 maxGroupSize 로 나눈다
+        claims.groupBy { it.groupKey }.values
+            .flatMap { it.chunked(props.maxGroupSize) }
+            .forEach { process(it) }
         return claims.size
     }
 
-    fun process(claim: Claim) {
-        val finish = decide(claim)
-        val owned = claimer.finish(claim, finish)
-        if (!owned) log.warn("늦은 완료 무시: outbox={} 임대가 끝나 다른 워커가 가져갔다 (결과={})", claim.outboxId, finish.status)
+    fun process(group: List<Claim>) {
+        val finishes = decide(group)
+        group.forEach { claim ->
+            val finish = finishes.getValue(claim.outboxId)
+            val owned = claimer.finish(claim, finish)
+            if (!owned) log.warn("늦은 완료 무시: outbox={} 임대가 끝나 다른 워커가 가져갔다 (결과={})", claim.outboxId, finish.status)
+        }
     }
 
-    private fun decide(claim: Claim): Finish {
-        // 보내기 직전에 채널을 다시 본다. 발화 뒤 채널이 꺼졌으면 보내지 않는다
-        val channel = channels.findById(claim.alertChannelId).orElse(null)
+    // 그룹 하나 = 채널 호출 1번. 결과 · 재시도 판단 · 서킷은 호출 기준이고, 결과는 줄마다 같은 값으로 적는다
+    private fun decide(group: List<Claim>): Map<Long, Finish> {
+        fun all(finish: Finish) = group.associate { it.outboxId to finish }
+        // 그룹은 같은 채널이다. 보내기 직전에 채널을 다시 본다. 발화 뒤 채널이 꺼졌으면 보내지 않는다
+        val channel = channels.findById(group.first().alertChannelId).orElse(null)
         if (channel == null || !channel.enabled) {
-            return Finish(DeliveryStatus.CANCELLED, attempted = false, error = "채널이 꺼져 있음")
+            return all(Finish(DeliveryStatus.CANCELLED, attempted = false, error = "채널이 꺼져 있음"))
         }
         val sender = senderByType[ChannelType.valueOf(channel.type)]
             // 어댑터가 없는 채널을 성공으로 치지 않는다 (FN-30: Slack 우선, 나머지는 이후)
-            ?: return Finish(DeliveryStatus.FAILED, attempted = false, error = "${channel.type} 어댑터 미구현")
+            ?: return all(Finish(DeliveryStatus.FAILED, attempted = false, error = "${channel.type} 어댑터 미구현"))
 
         // 서킷 OPEN 이면 호출하지 않고 재예약한다. 실제 호출이 아니므로 시도 횟수를 올리지 않는다 (E8)
         val permit = breaker.acquire(channel.id)
-        if (permit is ChannelCircuitBreaker.Permit.Rejected) return deferred(claim, permit)
+        if (permit is ChannelCircuitBreaker.Permit.Rejected) return group.associate { it.outboxId to deferred(it, permit) }
 
-        val result = sender.send(OutboundMessage(claim.payload), channel.config)
+        val result = sender.send(OutboundMessage(group.map { it.payload }), channel.config)
         when (result) {
             is SendResult.Accepted, is SendResult.Permanent -> breaker.onResponded(channel.id)
             is SendResult.Retryable, is SendResult.Unknown -> breaker.onFailure(channel.id)
         }
-        val attempts = claim.attemptCount + 1
         return when (result) {
-            is SendResult.Accepted -> Finish(DeliveryStatus.SENT, attempted = true, response = result.response)
-            is SendResult.Permanent -> Finish(DeliveryStatus.FAILED, attempted = true, error = result.reason)
+            is SendResult.Accepted -> all(Finish(DeliveryStatus.SENT, attempted = true, response = result.response))
+            is SendResult.Permanent -> all(Finish(DeliveryStatus.FAILED, attempted = true, error = result.reason))
             // Unknown 도 다시 보낸다: 경보는 "안 간 것"이 "두 번 간 것"보다 나쁘다고 본다 (중복 가능성은 docs/alert/30-delivery.md)
             is SendResult.Retryable, is SendResult.Unknown -> {
                 val reason = if (result is SendResult.Retryable) result.reason else (result as SendResult.Unknown).reason
                 val retryAfter = (result as? SendResult.Retryable)?.retryAfter
-                when (val d = retryPolicy.decide(attempts, claim.createdAt, clock.instant(), retryAfter)) {
-                    is RetryPolicy.Decision.RetryAt -> Finish(DeliveryStatus.PENDING, attempted = true, nextAttemptAt = d.at, error = reason)
-                    RetryPolicy.Decision.GiveUp -> Finish(DeliveryStatus.FAILED, attempted = true, error = "재시도 한도 도달: $reason")
+                // 그룹이 다음에도 같이 나가도록 한 번만 판단한다: 가장 많이 시도한 줄 · 가장 오래된 줄 기준
+                val attempts = group.maxOf { it.attemptCount } + 1
+                val oldest = group.minOf { it.createdAt }
+                when (val d = retryPolicy.decide(attempts, oldest, clock.instant(), retryAfter)) {
+                    is RetryPolicy.Decision.RetryAt -> all(Finish(DeliveryStatus.PENDING, attempted = true, nextAttemptAt = d.at, error = reason))
+                    RetryPolicy.Decision.GiveUp -> all(Finish(DeliveryStatus.FAILED, attempted = true, error = "재시도 한도 도달: $reason"))
                 }
             }
         }

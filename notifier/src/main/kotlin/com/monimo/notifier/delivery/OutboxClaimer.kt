@@ -15,7 +15,10 @@ data class Claim(
     val payload: Map<String, Any?>,
     val attemptCount: Int,
     val createdAt: Instant,
-)
+) {
+    // 그룹 키 (D15): 같은 채널 · 같은 서비스
+    val groupKey: Pair<Long, String> get() = alertChannelId to (payload["service_name"]?.toString() ?: "")
+}
 
 // 짧은 트랜잭션 두 개. 외부 호출은 이 둘 사이, 트랜잭션 밖에서 한다
 @Component
@@ -31,7 +34,8 @@ class OutboxClaimer(
     @Transactional
     fun claim(): List<Claim> {
         val now = clock.instant()
-        val rows = outbox.lockDue(now, props.batchSize)
+        outbox.cancelResolvedBeforeSend(now)
+        val rows = outbox.lockDue(now, now.minus(props.groupWait), props.batchSize)
         return rows.map { row ->
             val token = UUID.randomUUID()
             row.status = DeliveryStatus.IN_FLIGHT
