@@ -1,0 +1,25 @@
+run=161314 service=exp-reprocess-161314
+code: 6995727bca3d1a7d9610ebd647bdec0a1247b972 (ingester · common 변경 없음)
+jar: ingester/build/libs/ingester-0.0.1-SNAPSHOT.jar sha256=5e8dd6e60d9db195d019745bc2b0caeb43e2eeb236ab9fb9c82380784c74fea1 mtime=2026-10-11T15:15:27+0900
+jdk: openjdk version "21.0.10" 2026-01-20 LTS
+jar libs: client-v2-0.10.0.jar kafka-clients-3.9.2.jar spring-boot-3.5.16.jar spring-kafka-3.3.16.jar 
+kafka image: apache/kafka:3.9.2 started=2026-10-11T06:15:43.813083135Z
+ch image: clickhouse/clickhouse-server:26.8.10.6 started=2026-10-11T06:15:44.560902844Z version=26.8.10.6
+ch settings (system.settings, 기본 사용자):
+  async_insert	1	0
+  async_insert_deduplicate	0	0
+  compatibility		0
+  deduplicate_blocks_in_dependent_materialized_views	1	0
+  deduplicate_insert	enable	0
+  insert_deduplicate	1	0
+  insert_deduplication_token		0
+  update_insert_deduplication_token_in_dependent_materialized_views	0	0
+  wait_for_async_insert	1	0
+ch merge_tree_settings:
+  non_replicated_deduplication_window	0	0
+  replicated_deduplication_window	10000	0
+tables:
+  service_health_1m	AggregatingMergeTree PARTITION BY toYYYYMM(ts_min) ORDER BY (service_name, ts_min) TTL ts_min + toIntervalDay(120) SETTINGS index_granularity = 8192
+  spans	MergeTree PARTITION BY toDate(start_time) ORDER BY (service_name, span_name, toDateTime(start_time)) TTL toDateTime(start_time) + toIntervalDay(93) SETTINGS index_granularity = 8192
+bucket=07:03
+실패: 15초 안에 파티션을 배정받지 못함 (로그 $OUT/ing-161314-1.log)

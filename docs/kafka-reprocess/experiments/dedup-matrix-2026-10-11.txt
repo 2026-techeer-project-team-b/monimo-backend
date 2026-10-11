@@ -1,0 +1,16 @@
+# 2026-10-11 exp-ch(26.8.10.6) · exp2 DB · 각 1회
+A 창0 · 같은 블록 2번 (async)             rows=20  uniq=10  mv_cnt=20  mv_err=20
+B 창1000 · 같은 블록 2번 (async)          rows=10  uniq=10  mv_cnt=20  mv_err=20
+B2 창1000 · 같은 블록 2번 (sync)          rows=10  uniq=10  mv_cnt=20  mv_err=20
+C 창1000 · 같은 토큰 2번 (async)          rows=10  uniq=10  mv_cnt=20  mv_err=20
+C2 창1000 · 내용 다름 · 같은 토큰 (async) rows=10  uniq=10  mv_cnt=20  mv_err=10
+D 창1000 · 같은 줄 · 순서만 다름 (async) rows=20  uniq=10  mv_cnt=20  mv_err=20
+D2 창1000 · 같은 줄 · 다른 토큰(새 오프셋) rows=20  uniq=10  mv_cnt=20  mv_err=20
+E 창2 · p q r 뒤 p 재삽입 (창 밖)        rows=20  uniq=15  mv_cnt=20  mv_err=0
+F 창2 · p q 뒤 p 재삽입 (창 안)          rows=10  uniq=10  mv_cnt=15  mv_err=0
+G 원본·집계 창1000 · 토큰 없음 (async)    rows=10  uniq=10  mv_cnt=10  mv_err=10
+G2 원본·집계 창1000 · 토큰 없음 (sync)    rows=10  uniq=10  mv_cnt=10  mv_err=10
+H 원본·집계 창1000 · 같은 토큰 (async)    rows=10  uniq=10  mv_cnt=10  mv_err=10
+H2 원본·집계 창1000 · 같은 토큰 (sync)    rows=10  uniq=10  mv_cnt=10  mv_err=10
+I 원본·집계 창1000 · 다른 레코드 · 같은 집계값 rows=20  uniq=20  mv_cnt=20  mv_err=20
+I2 원본·집계 창1000 · 다른 레코드 · 다른 토큰 rows=20  uniq=20  mv_cnt=20  mv_err=20
