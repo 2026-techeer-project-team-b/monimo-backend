@@ -39,6 +39,19 @@ interface OutboxRowRepository : JpaRepository<OutboxRow, Long> {
     )
     fun lockDue(@Param("now") now: Instant, @Param("groupBefore") groupBefore: Instant, @Param("limit") limit: Int): List<OutboxRow>
 
+    // 복구 줄의 짝인 발화 줄이 FAILED 로 끝났는지. FAILED 는 "못 보냈다"와 "보냈는지 모른 채(Unknown) 한도에 닿았다"를 함께 담으므로
+    // 복구 알림에는 "전달 성공이 확인되지 않았다"고만 적는다 (D18-보강)
+    @Query(
+        nativeQuery = true,
+        value = """
+            SELECT r.id FROM notification_outbox r
+            JOIN notification_outbox f ON f.alert_event_id = r.alert_event_id AND f.alert_channel_id = r.alert_channel_id
+                AND f.transition = 'FIRING' AND f.status = 'FAILED'
+            WHERE r.id IN (:resolvedIds)
+        """,
+    )
+    fun resolvedWhoseFiringFailed(@Param("resolvedIds") resolvedIds: Collection<Long>): List<Long>
+
     // 발송 전 복구 (D18): 한 번도 보내지 않은 FIRING 에 RESOLVED 가 생겼으면 둘 다 보내지 않는다.
     // 사람에게 "터졌다 · 풀렸다"를 연달아 보내지 않으려는 것. 이력(notification_history)은 남기지 않는다 (CANCELLED 와 같음)
     @Modifying

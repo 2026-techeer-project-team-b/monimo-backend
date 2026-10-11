@@ -280,4 +280,71 @@ class GroupingTest(
         }
         fake.switchStatus = 200
     }
+
+    Given("D18-보강: 발화 알림이 영구 실패(400)로 끝난 뒤 복구가 생긴다") {
+        isolate()
+        fake.switchStatus = 400
+        at(800)
+        val ch = channel("switch")
+        val (firing, eventId) = outbox(ch, "결제 실패율")
+        at(811)
+        worker.pollOnce()  // 400 → Permanent → FIRING FAILED (사람은 발화를 못 받음)
+        fake.switchStatus = 200
+        fake.reset()
+        val resolved = outbox(ch, "결제 실패율", transition = "RESOLVED", eventId = eventId, createdAt = clock.now).first
+        at(822)
+        worker.pollOnce()
+
+        Then("복구는 숨기지 않고 보내되, 발화 알림의 전달 성공이 확인되지 않았다고 적는다") {
+            status(firing) shouldBe "FAILED"
+            status(resolved) shouldBe "SENT"
+            fake.received.single() shouldContain "[RESOLVED] 결제 실패율"
+            fake.received.single() shouldContain "발화 알림은 전달 성공이 확인되지 않았습니다"
+        }
+    }
+
+    Given("D18-보강: 수신기는 받았지만 응답이 없어(Unknown) 재시도 한도로 FAILED 가 된 뒤 복구가 생긴다") {
+        isolate()
+        fake.slowMillis = 1_000  // 요청 한도 500ms 보다 길다 → 받은 기록은 남고 응답은 못 받는다 (Unknown)
+        at(1_000)
+        val ch = channel("slow")
+        val (firing, eventId) = outbox(ch, "주문 지연")
+        var t = 1_011L
+        repeat(5) { at(t); worker.pollOnce(); t += 10 }  // max-attempts 5 : 다섯 번 다 Unknown → 한도
+        val firingReceived = fake.received.size
+        // 채널이 회복됐다: 정상 주소로 바꾸고, 다섯 번째 실패로 열린 서킷(30초)이 시험 호출을 허락할 만큼 시간을 보낸다
+        jdbc.update("UPDATE alert_channels SET config = ?::jsonb WHERE id = ?", """{"webhook_url":"${fake.url("ok")}"}""", ch)
+        fake.reset()
+        at(t + 60)
+        val resolved = outbox(ch, "주문 지연", transition = "RESOLVED", eventId = eventId, createdAt = clock.now).first
+        at(t + 71)
+        worker.pollOnce()
+        fake.slowMillis = 2_000
+
+        Then("발화는 FAILED 지만 수신기는 실제로 받았다 — 그래서 복구에는 \"못 받았다\"가 아니라 \"확인 안 됨\"이라 적는다") {
+            status(firing) shouldBe "FAILED"
+            firingReceived shouldBe 5
+            status(resolved) shouldBe "SENT"
+            fake.received.single() shouldContain "[RESOLVED] 주문 지연"
+            fake.received.single() shouldContain "발화 알림은 전달 성공이 확인되지 않았습니다"
+            fake.received.single() shouldNotContain "전달되지 못했습니다"
+        }
+    }
+
+    Given("D18-보강: 발화가 정상 발송된 사건의 복구") {
+        isolate()
+        at(900)
+        val ch = channel("ok")
+        val (_, eventId) = outbox(ch, "정상 사건")
+        at(911)
+        worker.pollOnce()
+        fake.reset()
+        outbox(ch, "정상 사건", transition = "RESOLVED", eventId = eventId, createdAt = clock.now)
+        at(922)
+        worker.pollOnce()
+
+        Then("표시 없이 평소 복구 문구") {
+            fake.received.single() shouldNotContain "확인되지 않았습니다"
+        }
+    }
 })
