@@ -1,4 +1,5 @@
 > STATUS: TENTATIVE (blocked by Q14 · 2단계 규모 숫자 미확정) — 3단계 `30-architecture.md`의 "소유 데이터" 절에 편입될 초안. ORDER BY·파티션·TTL 값은 `20-scope.md` 숫자가 나오면 재검증한다.
+> 2026-10-11: `20-scope.md` 숫자가 나왔다(ADR `#60`). 재검증은 안 했다. 이 문서는 `AGENTS.md` §0 대로 확정 ADR 보다 낡은 초안이고, 실제 ORDER BY · 파티션 · TTL 정본은 `db/clickhouse/*.sql` 이다.
 > 근거 ADR: `#15` `#20` `#22` `#27` `#30` `#31` `#32` · 보관기간·처리량은 `10-requirements.md` §3 · PG 영역 정본은 `erd-pg-input-sheet.md`(agent_key·application_configs 1:1·UUID 규칙), 팀 공유 최종본은 Notion ERD 페이지(2026-09-12). Redis 명령 채널 언급은 `#31`로 폐기됨(HTTP 팬아웃)
 
 # ClickHouse 기반 ERD 설계 가이드

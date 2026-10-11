@@ -30,7 +30,8 @@ docker network create monimo-dev     # 처음 한 번만. backend · shop 의 co
 # 서비스 하나 실행: 로컬 인프라를 먼저 켜고 local 프로필로
 docker compose up -d --wait
 ./gradlew :collector:bootRun --args='--spring.profiles.active=local'
-curl localhost:8081/actuator/health  # DB별 연결 상태까지 보인다
+curl localhost:8091/actuator/health  # 관리 포트(업무 포트 + 10). DB별 연결 상태까지 보인다
+curl localhost:8081/readyz           # 쿠버네티스가 쏘는 주소. 업무 포트에 있고 저장소는 안 본다
 
 # API 서버를 local 프로필로 켜면 REST 명세 · Swagger UI 가 열린다 (다른 프로필에서는 404)
 ./gradlew :api-server:bootRun --args='--spring.profiles.active=local'
@@ -142,8 +143,8 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `CLICKHOUSE_HTTP_PORT` | 18123 | ClickHouse HTTP 호스트 포트 |
 | `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
-| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` | 4317 · 8081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트 |
-| `INGESTER_HTTP_PORT` | 8082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트 |
+| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` · `COLLECTOR_MANAGEMENT_PORT` | 4317 · 8081 · 8091 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트. 관리 포트(`/actuator/**`)는 업무 포트 + 10 |
+| `INGESTER_HTTP_PORT` · `INGESTER_MANAGEMENT_PORT` | 8082 · 8092 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트. 관리 포트는 업무 포트 + 10 |
 | `COLLECTOR_SAMPLING_RATIO` | 1.0 | 수집기 트레이스 샘플링 비율 (로컬은 전부 통과. 운영 정본은 1%, ADR #33). 카나리 표시는 비율과 무관하게 통과 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
@@ -171,23 +172,23 @@ notifier 용 (bootRun 환경변수):
 
 ## 포트
 
-HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연결 약속)에서 확정.
+업무 HTTP 포트는 개발환경 6단계(로컬 연결 약속)에서 확정. 관리 포트(`/actuator/**`)는 수집기 · 적재 처리기가 업무 포트 + 10 으로 나눴고(`#135`), 쿠버네티스 probe 는 업무 포트의 `/livez` · `/readyz` 를 쏜다.
 
-| 서비스 | 포트 |
-|---|---|
-| api-server | 8080 |
-| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) |
-| ingester | 8082 |
-| detector | 8083 |
-| notifier | 8084 |
+| 서비스 | 업무 포트 | 관리 포트 (`/actuator/**`) |
+|---|---|---|
+| api-server | 8080 | 아직 안 나눔 |
+| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) | 8091 |
+| ingester | 8082 | 8092 |
+| detector | 8083 | 8081 (로컬은 8083) |
+| notifier | 8084 | 8081 (로컬은 8084) |
 
 어느 compose 가 무엇을 켜는지:
 
 | compose | 켜는 것 | 네트워크 |
 |---|---|---|
 | `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(마이그레이션) · PostgreSQL(마이그레이션) | `monimo-dev` |
-| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081`) | `monimo-dev` |
-| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082`) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081` · 관리 `:8091`) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082` · 관리 `:8092`) | `monimo-dev` |
 | `monimo-shop/docker-compose.dev.yml` (예정) | 쇼핑몰 4개 + MySQL. OTel 에이전트는 `collector:4317` 로 보낸다 | `monimo-dev` (external) |
 | (없음) | api-server · detector · notifier 는 `bootRun` 또는 IDE 로 실행. 컨테이너 프로필은 구현 때 추가 | |
 
