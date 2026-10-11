@@ -22,6 +22,10 @@ import org.springframework.stereotype.Component
 // 트레이스만 중간에 헬스체크 거르기 → 샘플링을 거친다 (메트릭 · 로그는 전부 통과. 로그 레벨 하한 필터는 별도 이슈).
 // 부분 실패(partial_success)는 쓰지 않는다. 받았으면 전부 받은 것이다.
 //
+// 세 신호 모두 Kafka 에 넣을 때 보낸 쪽 주소를 봉투 메모로 붙인다 (`#149`, ADR `#63`). 주소는
+// PeerAddressInterceptor 가 연결에서 읽어 Context 에 담아 둔 값이고, 못 읽었으면 null 이라 메모가 안 붙는다.
+// 트레이스만으로는 모자란다 : 전부 거르기 · 샘플링에서 빠지면 메시지 자체가 안 가므로 지표 · 로그가 받쳐 준다
+//
 // 세 클래스(트레이스 · 메트릭 · 로그)는 구조가 똑같다. 아래 트레이스에 자세히 적었고, 나머지는 다른 점만 표시한다.
 
 @Component // 스프링이 객체를 하나 만들어 두고, gRPC 서버에 등록해 준다
@@ -57,7 +61,8 @@ class OtlpTraceService(
         if (keptSpans < spans) log.debug("거르기 · 샘플링: 스팬 {}건 중 {}건만 남김", spans, keptSpans)
 
         responseObserver.respondAfter( // 응답은 규칙 함수에 맡긴다 (Kafka 저장이 끝난 뒤에 답장한다)
-            sent = producer.send(RawSignal.TRACES, sampled.toByteArray()), // 남긴 것만 바이트로 바꿔 raw 에 넣기 시작
+            // 남긴 것만 바이트로 바꿔 raw 에 넣기 시작. 세 번째 인자는 이 호출을 보낸 파드의 주소다 (`#149`)
+            sent = producer.send(RawSignal.TRACES, sampled.toByteArray(), currentPeerAddress()),
             response = ExportTraceServiceResponse.getDefaultInstance(), // 성공 때 보낼 빈 응답
             signal = "traces", // 로그에 찍을 이름
         )
@@ -80,7 +85,7 @@ class OtlpMetricsService(
         counter.received(OtlpReceiveCounter.Signal.METRICS, metrics)
         log.debug("OTLP metrics 수신: 메트릭 {}건 (resource {}개)", metrics, request.resourceMetricsCount)
         responseObserver.respondAfter(
-            sent = producer.send(RawSignal.METRICS, request.toByteArray()),
+            sent = producer.send(RawSignal.METRICS, request.toByteArray(), currentPeerAddress()),
             response = ExportMetricsServiceResponse.getDefaultInstance(),
             signal = "metrics",
         )
@@ -103,7 +108,7 @@ class OtlpLogsService(
         counter.received(OtlpReceiveCounter.Signal.LOGS, records)
         log.debug("OTLP logs 수신: 로그 레코드 {}건 (resource {}개)", records, request.resourceLogsCount)
         responseObserver.respondAfter(
-            sent = producer.send(RawSignal.LOGS, request.toByteArray()),
+            sent = producer.send(RawSignal.LOGS, request.toByteArray(), currentPeerAddress()),
             response = ExportLogsServiceResponse.getDefaultInstance(),
             signal = "logs",
         )

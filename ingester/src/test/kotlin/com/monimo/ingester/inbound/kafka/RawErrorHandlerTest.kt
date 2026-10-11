@@ -1,5 +1,6 @@
 package com.monimo.ingester.inbound.kafka
 
+import com.monimo.common.kafka.RawHeaders
 import com.monimo.common.kafka.RawSignal
 import com.monimo.ingester.support.TestInfraConfig
 import io.kotest.core.spec.style.BehaviorSpec
@@ -85,7 +86,10 @@ class RawErrorHandlerTest(
             // Kafka 가 고르게 해야 들어간다. 처음 구현은 이 경로가 깨져 있었다
             val poison = byteArrayOf(0x0A, 0x7F)
             val before = dlqCounter.count(FailureClass.POISON)
-            producer.send(ProducerRecord(RawSignal.TOPIC, 1, RawSignal.TRACES.key, poison)).get()
+            // 수집기가 붙이는 주소 메모도 같이 넣는다. 재처리 잡이 주소를 잃지 않는지 보려는 것이다 (`#149`)
+            val poisonRecord = ProducerRecord(RawSignal.TOPIC, 1, RawSignal.TRACES.key, poison)
+            poisonRecord.headers().add(RawHeaders.PEER_ADDRESS, "172.19.0.11".toByteArray())
+            producer.send(poisonRecord).get()
             val dlqRecord = awaitDlq()
             awaitDlqSeen = dlqRecord // 다음 When(재처리 흉내)이 쓴다
 
@@ -110,6 +114,10 @@ class RawErrorHandlerTest(
             Then("우리 헤더 둘이 붙는다 : 처음이라 x-dlq-attempt 는 1, 분류는 poison") {
                 header(dlqRecord!!, RawErrorHandlerConfig.HEADER_ATTEMPT) shouldBe "1"
                 header(dlqRecord, RawErrorHandlerConfig.HEADER_REASON) shouldBe "poison"
+            }
+
+            Then("원본 주소 메모가 그대로 따라간다 : 스프링 부품이 원본 헤더를 복사한다고 문서에 적혀 있고, 우리가 확인한 적이 없었다") {
+                header(dlqRecord!!, RawHeaders.PEER_ADDRESS) shouldBe "172.19.0.11"
             }
 
             Then("DLQ 카운터가 poison 으로 1 오른다") {
