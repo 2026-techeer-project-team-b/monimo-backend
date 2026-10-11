@@ -49,20 +49,21 @@ data class OutboundMessage(val payloads: List<Map<String, Any?>>) {
             parts += "[FIRING][$severity] $service 경보 ${firing.size}건\n" + lines(firing, ::firingLine)
         }
         if (resolved.isNotEmpty()) {
-            parts += "[RESOLVED] $service 복구 ${resolved.size}건\n" + lines(resolved) { "• ${it["rule_name"]} (발화 ${it["fired_at"]}, 복구 ${it["resolved_at"]})" + undelivered(it) }
+            parts += "[RESOLVED] $service 복구 ${resolved.size}건\n" + lines(resolved) { "• ${it["rule_name"]} (발화 ${it["fired_at"]}, 복구 ${it["resolved_at"]})" + firingUnconfirmed(it) }
         }
         return parts.joinToString("\n")
     }
 
     private fun single(p: Map<String, Any?>): String = when (p["transition"].toString()) {
         "TEST" -> "[TEST] monimo 시험 발송입니다. 이 메시지가 보이면 채널 설정이 맞습니다."
-        "RESOLVED" -> "[RESOLVED] ${p["rule_name"]} — ${p["service_name"]} 복구 (발화 ${p["fired_at"]}, 복구 ${p["resolved_at"]})" + undelivered(p)
+        "RESOLVED" -> "[RESOLVED] ${p["rule_name"]} — ${p["service_name"]} 복구 (발화 ${p["fired_at"]}, 복구 ${p["resolved_at"]})" + firingUnconfirmed(p)
         else -> "[FIRING][${p["severity"]}] ${p["rule_name"]} — ${p["service_name"]} ${condition(p)} (발화 ${p["fired_at"]})"
     }
 
-    // 발화 알림이 닿지 못했던 사건의 복구 (D18-보강). 사람이 처음 보는 알림이 "풀렸다"일 수 있어 알려 준다
-    private fun undelivered(p: Map<String, Any?>): String =
-        if (p["firing_undelivered"] == true) " — ⚠️ 이 경보의 발화 알림은 전달되지 못했습니다" else ""
+    // 발화 알림의 전달 성공을 확인하지 못한 사건의 복구 (D18-보강). 사람이 처음 보는 알림이 "풀렸다"일 수 있어 알려 준다.
+    // "전달되지 못했다"고 단정하지 않는다 — 응답을 못 받은 채(Unknown) 재시도 한도에 닿은 경우 수신기는 받았을 수도 있다
+    private fun firingUnconfirmed(p: Map<String, Any?>): String =
+        if (p[FIRING_UNCONFIRMED] == true) " — ⚠️ 이 경보의 발화 알림은 전달 성공이 확인되지 않았습니다" else ""
 
     private fun firingLine(p: Map<String, Any?>) = "• ${p["rule_name"]} — ${condition(p)} (발화 ${p["fired_at"]})"
 
@@ -86,3 +87,7 @@ data class OutboundMessage(val payloads: List<Map<String, Any?>>) {
         val SEVERITY_RANK = mapOf("INFO" to 0, "WARNING" to 1, "CRITICAL" to 2)
     }
 }
+
+// 복구 알림 payload 에 붙이는 표시 — 짝인 발화 줄이 FAILED 로 끝나 전달 성공을 확인하지 못했다 (D18-보강).
+// DB 에는 쓰지 않는다. 선점할 때 OutboxClaimer 가 계산해 붙인다
+const val FIRING_UNCONFIRMED = "firing_unconfirmed"

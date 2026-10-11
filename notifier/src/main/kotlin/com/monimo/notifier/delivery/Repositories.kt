@@ -39,7 +39,8 @@ interface OutboxRowRepository : JpaRepository<OutboxRow, Long> {
     )
     fun lockDue(@Param("now") now: Instant, @Param("groupBefore") groupBefore: Instant, @Param("limit") limit: Int): List<OutboxRow>
 
-    // 복구 줄의 짝인 발화 줄이 사람에게 닿지 못하고(FAILED) 끝났는지. 복구 알림에 그 사실을 적으려고 본다 (D18-보강)
+    // 복구 줄의 짝인 발화 줄이 FAILED 로 끝났는지. FAILED 는 "못 보냈다"와 "보냈는지 모른 채(Unknown) 한도에 닿았다"를 함께 담으므로
+    // 복구 알림에는 "전달 성공이 확인되지 않았다"고만 적는다 (D18-보강)
     @Query(
         nativeQuery = true,
         value = """
