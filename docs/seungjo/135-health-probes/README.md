@@ -37,6 +37,7 @@
 ## 결정
 
 - **고른 것**: 설정만 바꾼다. 관리 포트 8091 · 8092 로 `/actuator/**` 를 옮기고, `probes.enabled` + `add-additional-paths` 로 관리 포트의 규약 주소와 업무 포트의 `/livez` · `/readyz` 를 함께 연다. `group` 은 적지 않아 두 그룹 다 자기 상태만 본다. 코드 0줄, 시험은 모듈마다 7건
+- **2026-10-11 바뀐 것(`#148` · ADR `#61`)**: 관리 포트 번호 규칙을 **업무 포트 + 10000**(18081 · 18082)으로 바꿨다. +10 의 8091 · 8092 가 monimo-shop order · payment 의 호스트 포트와 겹쳐 두 compose 를 한 컴퓨터에 못 띄웠다. 이 조사가 "다섯 모듈을 한 컴퓨터에 다 띄워도 안 겹친다" 고 적은 것은 우리 모듈끼리만 본 것이다. 나머지 결정(저장소 안 봄 · 업무 포트 추가 주소 · 그룹 안 적음)은 그대로다
 - **버린 것과 이유**: 위 표. 규약과 다르게 간 둘(저장소 안 봄 · 업무 포트에도 연다)은 ADR `#58` 에 사유와 되돌리는 조건을 남겼다
 - **되돌리는 조건**: 저장소가 파드마다 다른 구성이 오면 readiness 에 넣는 것을 다시 본다 · 에이전트가 버퍼링 · 재시도를 하게 되면 "데이터가 사라진다" 사유가 없어진다 · Spring Boot 가 Kafka 지표를 다시 넣으면 적재 처리기 쪽을 다시 본다 · 팀이 포트 규칙을 다르게 정하면 따른다(쿠버네티스는 포트를 이름으로 가리켜 배포 설정은 하나다) · gRPC 수신이 "뜬 뒤 조용히 죽는" 일을 실제로 겪으면 확인 수단을 다시 꺼낸다
 
@@ -52,5 +53,5 @@
 | probe 주소가 404 | `probes.enabled` 가 빠졌거나 프로필이 덮어썼다. 에러가 아니라 조용히 없다 | 두 모듈 `application.yml` 의 `management.endpoint.health.probes` |
 | `/livez` 는 200 인데 쿠버네티스가 파드를 뺀다 | 쏘는 쪽 주소 · 포트가 다르다. 그룹 이름을 오타 내면 오타 난 주소가 하나 더 열리고 원래 것은 그대로다 | 매니페스트의 `httpGet.path` · `port` 와 `kubectl describe pod` 의 probe 실패 메시지 |
 | 저장소가 죽었는데 파드가 그대로 받는다 | **의도한 동작이다.** 수집기는 받아서 Kafka 로 넘기고, 비율은 낡은 값으로 돈다(`#54` 의 낡음 게이지가 오른다). 저장소 장애는 저장소 쪽 경보로 본다 | `/actuator/metrics` 의 샘플링 낡음 게이지 · 탐지의 저장소 경보 |
-| 점검 스크립트가 "카운터 조회 실패" | 관리 포트가 호스트에 안 열렸다(compose 를 옛 것으로 띄웠거나 `.env` 가 포트를 바꿨다) | `docker compose ps` 의 PORTS 에 8091 · 8092 가 있나 |
+| 점검 스크립트가 "카운터 조회 실패" | 관리 포트가 호스트에 안 열렸다(compose 를 옛 것으로 띄웠거나 `.env` 가 포트를 바꿨다) | `docker compose ps` 의 PORTS 에 18081 · 18082 가 있나(`#148` 전 이미지는 8091 · 8092) |
 | `up --wait` 가 150초 뒤 "container is unhealthy" 로 실패한다 | **이 브랜치를 받은 뒤 `--build` 없이 띄웠다.** compose 는 있는 이미지(`monimo/collector:dev` · `monimo/ingester:dev`)를 다시 안 만들어서 옛 jar 에는 `/readyz` 가 없고, 헬스체크가 5초 × 30회 전부 실패한다. 아니면 `add-additional-paths` 가 꺼져 있다 | `docker compose --profile collector --profile ingester up -d --wait --build` 로 다시 만든다 · `docker compose logs collector` 에 `/readyz` 404 가 있나 |
