@@ -11,6 +11,10 @@ data class AgentSighting(
     val serviceName: String, // resource 의 service.name. PG applications.name 과 같은 글자여야 번호를 찾을 수 있다
     val agentKey: String, // 파드 식별자. CH 모든 표의 agent_id 와 같은 글자 (PG 에서는 숫자 FK 와 헷갈리지 않게 key 로 부른다)
     val hostname: String?, // 파드 이름. 없으면 null → 컬럼도 NULL 허용
+    // 이 신호를 보낸 파드의 주소. 다른 칸과 달리 resource 에서 오지 않는다 : 데이터 안에 주소가 없어서
+    // 수집기가 gRPC 연결에서 읽어 Kafka 봉투 메모로 보내 준다(ADR `#63`). 메모가 없으면 null 이고,
+    // null 이면 주소 칸을 건드리지 않는다. 그리고 다른 칸과 달리 **바뀐다** : 파드가 재생성되면 새 주소를 받는다
+    val ip: String?,
     val jvmVersion: String?, // 예: 17.0.9
     val agentVersion: String?, // OTel Java Agent 버전
     val seenAt: Instant, // 이 목격의 시각. first_seen_at 에 쓴다

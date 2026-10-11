@@ -376,3 +376,77 @@
 
 
 ## 9. 프롬프트를 가지고 실제 구현
+
+8절 프롬프트대로 구현했다. 새 결정은 만들지 않았다. ADR 번호는 `#62` 가 아니라 **`#63`** 이다 : 조사하는 동안 배포 쪽 `#62`(1b EKS 배포 기반)가 먼저 머지됐다.
+
+### 바꾼 것
+
+| 모듈 | 파일 | 무엇 |
+|---|---|---|
+| `common` | `RawHeaders.kt` (신규) | 봉투 메모 이름 한 줄. 붙이는 쪽과 꺼내는 쪽이 다른 모듈이라 글자가 어긋나면 조용히 빈칸이 된다 |
+| `collector` | `PeerAddress.kt` (신규) | `Context.Key` 통로 · 소켓 주소 → 글자 · 글자 다듬기(`::ffff:` · 영역 꼬리) |
+| `collector` | `PeerAddressInterceptor.kt` (신규) | 호출마다 상대 주소를 읽어 Context 에 담는다 · 못 읽은 횟수 눈금 |
+| `collector` | `OtlpGrpcServer.kt` | 서버에 가로채기를 **한 번** 건다(`ServerBuilder.intercept`). 서비스를 더해도 자동으로 걸린다 |
+| `collector` | `OtlpExportServices.kt` | 세 신호 전부 발행할 때 주소를 같이 넘긴다 |
+| `collector` | `RawProducer.kt` | 헤더를 붙여 발행. 주소가 null 이면 헤더를 아예 안 붙인다. 기본값을 두지 않았다 : 깜빡하면 조용히 빠진다 |
+| `ingester` | `RawConsumer.kt` | 헤더에서 주소를 꺼내 목격 기록에 나눠 준다. 꺼내는 함수는 클래스 밖에 둬서 컨테이너 없이 시험한다 |
+| `ingester` | `AgentSighting.kt` · `OtlpValues.kt` | 주소 칸 추가. 주소만 인자로 받는다(resource 에 없는 값이라) |
+| `ingester` | `AgentRepository.kt` | `INSERT` 에 `CAST(:ip AS inet)` · **`updateIp` 신설**(`WHERE ip IS DISTINCT FROM`) |
+| `ingester` | `PostgresAgentRegistry.kt` | 캐시를 "이름표 → 마지막으로 본 주소" 짝으로. 아는 파드는 `UPDATE` 한 번, 모르는 파드는 `INSERT` |
+| `ingester` | `AgentEntity.kt` | `ip` 칸 추가 + `columnDefinition = "inet"`. 이것 없이는 기동 때 표 대조가 "타입이 다르다" 로 서버를 안 띄운다 |
+| `ingester` | `AgentRegisterCounter.kt` | 결과 종류에 `ip_updated` 추가 |
+
+PG 마이그레이션 · 조회 API · 화면 · ClickHouse · 이름표는 안 건드렸다.
+
+### 시험 (2026-10-12)
+
+| 어디 | 무엇 | 결과 |
+|---|---|---|
+| `collector` 단위 | 글자 다듬기 · 가로채기(읽힘 · 못 읽음) | 110건 전부 통과 |
+| `collector` 스프링 | gRPC 로 보내면 세 신호 전부 메모가 붙고 **값 바이트는 그대로** | 통과 |
+| `ingester` 단위 | 메모 읽기 4경우 | 148건 전부 통과 |
+| `ingester` 스프링 | 처음 등록에 주소 · 다른 주소면 고쳐짐 · 같은 주소면 0줄 · 메모 없으면 칸 유지 · 모르는 서비스는 주소가 있어도 등록 안 됨 | 통과 |
+| `ingester` 스프링 | `raw.dlq` 로 갈 때 주소 메모가 따라간다 | 통과. **4절에서 "확인한 적 없다" 고 적은 것을 이걸로 닫았다** |
+
+### 관통 (로컬 compose, 2026-10-12)
+
+쇼핑몰 네 서비스를 띄우고 주문을 흘렸다. `#148` 뒤라 포트 우회 없이 그냥 떴다.
+
+```
+명부에 적힌 주소                      docker inspect 실제 주소
+shop-gateway-local-1    172.19.0.14   172.19.0.14
+shop-order-local-1      172.19.0.13   172.19.0.13
+shop-payment-local-1    172.19.0.11   172.19.0.11
+shop-inventory-local-1  172.19.0.12   172.19.0.12
+```
+
+- 네 줄이 정확히 일치했다. PG `family(ip)` 가 **전부 4(IPv4)** 다 : `::ffff:` 를 안 뗐으면 6 이 된다
+- 수집기 눈금 `monimo.collector.otlp.peer_address.unknown` = **0** : 못 읽은 호출이 없었다
+- 처음 돌릴 때 `outcome=registered` 가 0 이고 `ip_updated` 가 4 였다. 네 줄이 이미 있고 주소만 `NULL` 이었기 때문이다. **`=` 가 아니라 `IS DISTINCT FROM` 을 쓴 이유가 여기서 드러났다** : `NULL <> '172.19.0.11'` 은 참이 아니라 `NULL` 이라 `=` 꼴로 썼으면 옛 줄은 영원히 비어 있었다
+
+**주소가 바뀌는 경우** : `shop-inventory` 컨테이너를 지우고, 비어 버린 `172.19.0.12` 를 다른 컨테이너가 먼저 잡게 한 뒤 다시 만들었다(2.4 실측대로 혼자 다시 만들면 같은 주소를 돌려받는다).
+
+```
+inventory 주소   172.19.0.12 -> 172.19.0.15
+명부 줄 수       4 -> 4            (이름표가 같아 새 줄이 안 생긴다)
+바뀐 줄          inventory 한 줄만. updated_at 도 그 줄만 움직였다
+눈금 ip_updated  4 -> 5            (쓰기 한 번)
+```
+
+**적재 처리기를 재시작했을 때** : 캐시가 비니 네 파드가 모두 한 번씩 미스가 된다. 그때 실제 쓰기가 없어야 한다.
+
+```
+재시작 뒤 주문 12건을 흘림
+updated_at 네 줄 전부 그대로        (diff 결과 차이 없음)
+ip_updated 0 · failed 0 · registered 0
+```
+
+캐시가 비어도 SQL 의 `IS DISTINCT FROM` 이 0줄로 끝낸다. 캐시 상한(만 개)을 넘겨 비우는 경로도 같은 모양이다.
+
+**메모가 없는 메시지** : `check-pipeline.sh`(telemetrygen) 통과. traces 6 · metrics 3 · logs 3 이 수집기 → Kafka → 적재 처리기 → ClickHouse 를 그대로 지났고 `failed` 는 0 이었다. `check-wiring.sh` 도 통과.
+
+### 남은 것 · 안 한 것
+
+- **쿠버네티스에서 이름표에 무엇을 넣을지는 여전히 미정**이다(`AGENTS.md` §6). ② 를 고른 덕에 어느 쪽으로 정해도 주소가 맞다. 2.4 표의 둘째 줄(파드 이름)로 가면 갱신이 거의 안 돌고, 셋째 줄(고정 이름)로 가면 계속 돈다
+- **로드밸런서 경유 보정은 안 했다.** 그 경로가 생기면 수집기가 읽는 값이 LB 주소가 된다. ADR `#63` 되돌림 ②
+- **포트는 담지 않았다**(`network.peer.port`). 명부에 칸이 없다

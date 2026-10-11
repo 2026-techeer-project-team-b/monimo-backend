@@ -60,14 +60,18 @@ internal fun Long.nanosToInstant(): Instant =
     Instant.ofEpochSecond(this / 1_000_000_000L, this % 1_000_000_000L)
 
 // resource 에서 "이 파드를 봤다" 기록을 만든다. 서비스 이름과 파드 식별자는 origin() 과 같은 규칙으로 고른다.
-// 적재할 줄을 만드는 것과 달리 이쪽은 PG agents 표에 올릴 재료라, 사람이 보는 환경 정보까지 같이 꺼낸다
-internal fun Resource.sighting(seenAt: Instant): AgentSighting {
+// 적재할 줄을 만드는 것과 달리 이쪽은 PG agents 표에 올릴 재료라, 사람이 보는 환경 정보까지 같이 꺼낸다.
+//
+// ip 만 인자로 받는다 : 주소는 resource 에 없다. 에이전트 기본값이 주소를 안 보내서 수집기가 gRPC 연결에서
+// 읽어 Kafka 봉투 메모로 보내 준다(ADR `#63`). 메모가 없는 메시지(옛 수집기 · telemetrygen)면 null 이다
+internal fun Resource.sighting(seenAt: Instant, ip: String?): AgentSighting {
     val attributes = attributesList.toStringMap()
     return AgentSighting(
         // unknown_service 는 사람이 등록한 서비스 이름일 수 없으므로 빈 글자로 둬서 등록 대상에서 빠지게 한다
         serviceName = attributes[SERVICE_NAME_KEY]?.takeIf { it != UNKNOWN_SERVICE } ?: "",
         agentKey = AGENT_ID_KEYS.firstNotNullOfOrNull { attributes[it] } ?: "",
         hostname = attributes[HOST_NAME_KEY],
+        ip = ip,
         jvmVersion = attributes[JVM_VERSION_KEY],
         agentVersion = AGENT_VERSION_KEYS.firstNotNullOfOrNull { attributes[it] },
         seenAt = seenAt,
