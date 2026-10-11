@@ -12,6 +12,6 @@ RUN groupadd --system app && useradd --system --gid app app
 WORKDIR /app
 COPY --from=build /workspace/ingester/build/libs/*.jar app.jar
 USER app
-# 8082 업무 HTTP(probe /livez · /readyz 포함) · 8092 관리(/actuator/**)
-EXPOSE 8082 8092
+# 8082 업무 HTTP(probe /livez · /readyz 포함) · 18082 관리(/actuator/**, 업무 포트 + 10000)
+EXPOSE 8082 18082
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -42,10 +42,11 @@ monimo:
       unknown-max-elapsed: 1m
       dlq-topic: raw.dlq
 
-# 관리 포트 (#135). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10 (수집기 8091 과 같은 규칙)
+# 관리 포트 (#135 · #148). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10000 (수집기 18081 과 같은 규칙, ADR #61).
+# #135 가 고른 +10(8092)은 쇼핑몰 payment 의 호스트 포트와 겹쳐 두 compose 를 한 컴퓨터에 못 띄웠다
 management:
   server:
-    port: 8092
+    port: 18082
   endpoint:
     health:
       probes:
