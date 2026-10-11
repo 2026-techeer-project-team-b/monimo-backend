@@ -1,6 +1,6 @@
 # Kafka 재처리 시 집계 정확성 — 1단계: 기준선 재현
 
-> 2026-10-11 · 알림 파트(박유경) · 격리 환경 실측 3회.
+> 2026-10-11 · 알림 파트(박유경) · 격리 환경 실측 4회 (도구 v1 3회 · v2 1회).
 > **이번 단계는 문제를 재현하고 근거를 모으는 것까지다. 해결책은 정하지 않았다** (2단계에서 비교).
 > 운영 코드 · 스키마는 바꾸지 않았다. 공유 compose 의 `ingester` 그룹 오프셋과 로컬 공유 데이터는 건드리지 않았다.
 
@@ -34,14 +34,18 @@
 | 장치 | 지금 값 | 이 경우에 걸러 주나 |
 |---|---|---|
 | `spans` 엔진 | `MergeTree` (ORDER BY service_name, span_name, toDateTime(start_time)) | ✗ — `ReplacingMergeTree` 가 아니라 병합 때도 같은 행을 합치지 않는다 |
-| insert 블록 중복 제거 | `insert_deduplicate=1` 이지만 **비복제 표는 `non_replicated_deduplication_window=0`** | ✗ — 창이 0 이라 꺼진 것과 같다 |
-| 비동기 insert 중복 제거 | `async_insert=1` · `async_insert_deduplicate=0` | ✗ |
+| insert 중복 제거 스위치 | `deduplicate_insert=enable` (이 버전에서 `insert_deduplicate` · `async_insert_deduplicate` 를 **대신하는** 설정 — 그 둘은 이 값이 `backward_compatible_choice` 일 때만 쓰인다. `system.settings` 설명으로 확인) | 스위치는 켜져 있다 |
+| **표의 중복 제거 기록** | `spans` 에 별도 SETTINGS 없음 → `non_replicated_deduplication_window=0` (기본) | ✗ — **결정적인 이유.** 비복제 표는 이 창만큼 블록 해시를 남겨야 중복을 알아보는데 0 이라 기록이 없다 |
+| 비동기 insert | `async_insert=1` · `wait_for_async_insert=1` | (중복 제거 여부는 위 두 줄이 정한다) |
+| `compatibility` | 빈 값 = 꺼짐 (지원됨, 예전 버전 기본값을 쓰지 않음) | — |
 | insert 토큰 | 적재 처리기가 `InsertSettings()` 기본값, `insert_deduplication_token` 없음 | ✗ |
 | MV 쪽 | `deduplicate_blocks_in_dependent_materialized_views=1` | ✗ — 원본 insert 가 중복 제거되지 않으니 MV 도 그대로 한 번 더 받는다 |
 | `service_health_1m` | `AggregatingMergeTree` ← `mv_service_health_1m` (SERVER 스팬, `countState` · `sumState(status_code='ERROR')` 등) | ✗ — 집계 상태는 "더하기"라 같은 스팬이 두 번 오면 두 번 센다 |
 | 조회 | `ServiceHealthRepository`: `countMerge(cnt)` · `sumMerge(err_cnt)` | 중복을 구분할 정보(trace_id · span_id)가 집계 표에 없다 |
 
-→ **읽기만으로 예상: 원본도 집계도 중복된다.** 다만 원본은 `(trace_id, span_id)` 로 나중에 가려낼 수 있지만, 집계는 합쳐진 숫자라 가려낼 수 없다.
+→ **읽기만으로 예상: 원본도 집계도 중복된다.** 원본은 `(trace_id, span_id)` 로 중복을 식별할 수 있지만, 집계 표는 합쳐진 숫자라 **집계 표만으로는** 중복을 식별할 수 없다.
+
+> 설정값은 실험 이미지(`clickhouse/clickhouse-server:26.8.10.6`)의 `system.settings` · `system.merge_tree_settings` · `system.tables` 에서 직접 읽었다. 최신 문서의 기본값을 가정하지 않았다. 처음 판(#154 첫 커밋)은 `async_insert_deduplicate=0` 을 이유로 들었는데, 이 버전에서는 `deduplicate_insert` 가 그 설정을 대신하므로 **틀린 설명이었다** — 고쳤다.
 
 ## 3. 실험
 
@@ -71,9 +75,29 @@ KafkaMessageListenerContainer$ListenerConsumer.doCommitSync
 
 리스너 호출이 끝난 뒤 `pollAndInvoke` 안에서 커밋한다 = `BATCH` 동작과 일치.
 
-재현: `docs/kafka-reprocess/experiments/` (`setup_isolated.sh` → `reprocess_exp.sh`). 원자료 `result-run1~3.txt`.
+재현: `docs/kafka-reprocess/experiments/` (`setup_isolated.sh` → `reprocess_exp.sh`).
 
-## 4. 결과 (3회 모두 같음)
+### 3-4. 실험 도구 판과 원자료
+
+| 판 | 실행 | 원자료 | 다른 점 |
+|---|---|---|---|
+| v1 (첫 커밋) | 회차 1~3 (06:27~06:32Z) | `result-run1~3.txt` (그대로 보존) | 정상 레코드 커밋을 고정 sleep 으로 기다림 · Kafka 조회 실패를 숨김 · 기대값 검사 없음 · 실험 ingester 업무 포트 18082 |
+| **v2 (지금)** | 회차 4 (07:10Z) | `result-run4-tool-v2.txt` | 커밋된 오프셋 조건으로 대기 · 조회 실패 · 기동 실패 · 시간 초과면 중단 · 단계마다 원본 줄 / 고유 스팬 / 오류 줄 / MV cnt · err_cnt / 커밋 · 끝 오프셋을 기대값과 비교해 다르면 실패 · 실행 환경 자동 기록 · 포트 `EXP_INGESTER_PORT`(기본 28082) · `EXP_INGESTER_MGMT_PORT`(기본 38082) — 18082 는 #150 의 적재 처리기 관리 포트와 겹쳐서 옮겼다 |
+
+v2 로 실패 경로도 확인했다: 기대값을 틀리게 주면 종료 코드 1 (`check-fail-expectation.txt`), Kafka 를 멈춘 채 실행하면 기동 단계에서 중단 (`check-fail-startup.txt`). Kafka 조회 명령 자체가 실패하는 경로는 코드로만 확인했다(실행 안 함).
+
+### 3-5. 실행 환경
+
+| 항목 | 회차 1~3 (v1) | 회차 4 (v2) |
+|---|---|---|
+| 코드 | `ba90605` — **당시 기록 안 함, 사후 근거**: reflog 상 15:13:01 ~ 15:32:59 KST 의 HEAD, jar 빌드 15:15:27 KST. 작업 트리에 커밋 안 된 변경이 있었는지는 **미기록** | `6995727` (ingester · common 변경 없음, 자동 기록) — ingester 코드는 `ba90605` 과 같다 |
+| jar sha256 | `5e8dd6e6…74fea1` — jar 파일 mtime 15:15:27 KST 가 실행(15:27~) 뒤에도 그대로라 같은 파일 | 같음 (자동 기록) |
+| JDK · Spring | Java 21.0.10 · Spring Boot 3.5.16 · Spring 6.2.19 · kafka-clients 3.9.2 — **당시 ingester 기동 로그** | 같음 |
+| spring-kafka · CH client | 3.3.16 · client-v2 0.10.0 — 같은 jar 파일 안 라이브러리 목록 | 같음 |
+| Kafka · CH 이미지 | `apache/kafka:3.9.2` · `clickhouse/clickhouse-server:26.8.10.6` (컨테이너 06:15:4xZ 기동, 이후 재시작 없음) | 같은 컨테이너 |
+| CH 유효 설정 | **미기록** (당시 조회하지 않았다. 같은 컨테이너이고 설정을 바꾼 적은 없지만 현재 값으로 대신 적지 않는다) | `deduplicate_insert=enable` · `insert_deduplicate=1` · `async_insert=1` · `async_insert_deduplicate=0` · `wait_for_async_insert=1` · `compatibility=''` · `non_replicated_deduplication_window=0` (전부 `changed=0`, `result-run4-tool-v2.txt`) |
+
+## 4. 결과 (v1 3회 · v2 1회 모두 같음)
 
 | 시점 | 커밋 오프셋 / 끝 | `spans` 줄 | 고유 (trace_id, span_id) | 오류 줄 | 집계 cnt | 집계 err_cnt | **에러율** |
 |---|---|---|---|---|---|---|---|
@@ -84,12 +108,22 @@ KafkaMessageListenerContainer$ListenerConsumer.doCommitSync
 
 - 중복 스팬: **오류 스팬 10개가 각 2줄** (정상 스팬은 1줄씩 — 이미 커밋돼 다시 읽히지 않음).
 - 재시작한 적재 처리기 로그: `raw 소비: traces 10건 (오프셋 n)` → `Committing offset=n+1`. 같은 레코드를 정상 처리로 한 번 더 넣었다. 오류 · 경고 로그 없음 → **조용히 틀린다.**
-- 재시작 → 다시 처리까지 약 41초 (kill 06:31:41.1Z → 재합류 06:32:22.1Z, 3회 모두 비슷). 기동은 3초였고 나머지는 **그룹이 죽은 소비자를 `session.timeout.ms` 45초가 지나야 빼기 때문**이다 (중단점에서 하트비트도 멈춰 kill 몇 초 전부터 셌다).
+- **재시작 → 다시 처리까지 약 40초.** 기동은 3초였다. 나머지는 브로커 로그로 뒷받침된다:
+
+| 회차 | kill -9 | 새 소비자 합류 요청 | 옛 소비자 "has failed, removing" | 그룹 안정화 | kill → 제거 |
+|---|---|---|---|---|---|
+| 1 | 06:28:07.9 | 06:28:13.98 | 06:28:48.99 | 06:28:48.99 | 41.1초 |
+| 2 | 06:29:59.7 | 06:30:05.43 | 06:30:40.05 | 06:30:40.07 | 40.4초 |
+| 3 | 06:31:41.1 | 06:31:46.88 | 06:32:22.11 | 06:32:22.12 | 41.0초 |
+| 4 (v2) | 07:10:18.8 | 07:10:25.58 | 07:10:57.94 | 07:10:57.96 | 39.1초 |
+
+  **로그로 확인한 것**: 새 소비자가 합류를 요청한 뒤에도 그룹은 옛 소비자가 "failed" 로 제거될 때까지 재배정을 끝내지 않았다(30~35초 대기). **해석(직접 재지 않음)**: 제거는 `session.timeout.ms`(45초) 동안 하트비트가 없어서다. 중단점은 모든 스레드를 멈추므로 하트비트도 그때 멈췄고, 제거 시각 − 45초(예: 회차 3 06:31:37.1)가 중단점 도달 직후의 측정 시각(06:31:39.7) 바로 앞이라 맞아떨어진다. 중단점 도달 시각 자체는 기록되지 않았다.
 
 ## 5. 영향 (사실과 추론을 나눔)
 
 **측정한 것**
-- 같은 1분의 에러율이 실제 10% 인데 집계 · 조회는 18.18% 로 답한다. 중복은 집계 표에 합쳐져 사후에 가려낼 수 없다.
+- 같은 1분의 에러율이 실제 10% 인데 집계 · 조회는 18.18% 로 답한다 (v1 3회 + v2 1회, 모두 같음).
+- **집계 표만으로는 중복을 식별할 수 없다.** 원본이 보존돼 있다면 원본에서 `(trace_id, span_id)` 중복을 제거한 뒤 그 구간을 재집계하는 복구 경로는 검토할 수 있다 (이번에 해 보지 않았다).
 - 원본 `spans` 는 `uniqExact(trace_id, span_id)` 로 가려낼 수 있다(110 → 100).
 
 **추론 (측정하지 않음)**
@@ -103,6 +137,8 @@ KafkaMessageListenerContainer$ListenerConsumer.doCommitSync
 `docs/design/30-failure-modes.md` ④ "적재 처리기가 죽으면 오프셋부터 이어서 읽는다. **유실 없음**" — 맞다. 이번 실험은 그 **반대 면(중복)** 이 집계를 틀리게 만든다는 근거다. 그 문서(수집 파트 소관)는 고치지 않았고, 이 결과를 공유해 반영 여부를 묻는다.
 
 ## 7. 다음 단계 (2단계에서 비교할 후보 — 아직 고르지 않음)
+
+→ 비교 계획 초안: [`20-stage2-plan.md`](20-stage2-plan.md) (예비 점검: 원본 표에만 창을 켜면 MV 집계는 여전히 두 번 센다)
 
 후보만 적는다. 각각 이번 실험 도구로 같은 입력을 넣어 비교한다.
 - CH 쪽에서 거르기: insert 중복 제거 창 켜기 + 레코드별 `insert_deduplication_token`(예: 토픽-파티션-오프셋), 또는 `ReplacingMergeTree` / 조회 때 거르기
