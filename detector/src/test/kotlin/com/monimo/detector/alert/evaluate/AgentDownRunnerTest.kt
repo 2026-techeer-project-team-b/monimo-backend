@@ -42,6 +42,8 @@ class AgentDownTestConfig {
 @Import(TestInfraConfig::class, AgentDownTestConfig::class)
 class AgentDownRunnerTest(
     runner: AgentDownRunner,
+    evaluationRunner: EvaluationRunner,
+    evaluationAge: LastSuccessAge,
     jdbc: JdbcTemplate,
     clock: MutableClock,
     fake: FakeAgentActivity,
@@ -195,6 +197,16 @@ class AgentDownRunnerTest(
         Then("감시 대상 키가 없으므로 판정 불가 — 오래전에 사라진 파드로 울리지 않는다") {
             s.fired shouldBe 0
             events(lonelyRule, "FIRING") shouldBe 0
+        }
+    }
+
+    Given("스케줄러 한 주기(서비스 단위 평가 + AGENT_DOWN)가 끝까지 돈다") {
+        Thread.sleep(50)
+        val before = evaluationAge.seconds()
+        EvaluationScheduler(evaluationRunner, runner, evaluationAge).tick()
+
+        Then("낡음 게이지가 0 근처로 돌아간다 (ADR #54)") {
+            (evaluationAge.seconds() < before) shouldBe true
         }
     }
 })

@@ -1,6 +1,7 @@
 package com.monimo.notifier.delivery
 
 import com.monimo.notifier.channel.DeliveryHttpProperties
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -25,6 +26,11 @@ class DeliveryConfig {
         require(props.lease > worstBatch) { "lease(${props.lease})는 batch × (connect + request timeout) = $worstBatch 보다 길어야 합니다" }
         return RetryPolicy(props.retryBase, props.retryCap, props.maxAttempts, props.maxAge)
     }
+
+    // 발송 대기 큐를 마지막으로 읽는 데 성공한 뒤 흐른 초 (ADR #54). 폴링이 1초라 평소엔 1초 안쪽
+    @Bean
+    fun deliveryPollAge(registry: MeterRegistry) =
+        LastSuccessAge(registry, "monimo.notifier.delivery.poll.age", "발송 대기 큐를 마지막으로 PG 에서 읽는 데 성공한 뒤 흐른 시간")
 
     @Bean
     fun channelCircuitBreaker(props: DeliveryProperties, clock: Clock) =
