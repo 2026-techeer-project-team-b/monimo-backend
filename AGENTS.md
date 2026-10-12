@@ -142,6 +142,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#88`** 에이전트 3개 문(목록 · 상세 · 서비스별) + `agent_count` 실제 집계(`#66` 으로 파드가 등록돼 0 이 틀린 값이 됐다). `agents` 는 남의 표라 Entity 없이 읽기만 한다
 - **`#124`** 스레드 덤프 3개 문(요청 · 목록 · 상세). 요청은 `MONIMO_COLLECTOR_URLS` 전부에 팬아웃해 200 한 대만 쓰고 전부 503 이면 1회 재시도. CH `thread_dumps` 는 API 서버가 쓴다
 - **`#162`** 헬스체크 probe. 관리 포트 18080(업무 포트 + 10000), 업무 포트에 `/livez` · `/readyz`, readiness 는 저장소를 안 본다(ADR `#58` · `#61`)
+- **`#164`** 자동 덤프 내부 문 `POST /internal/thread-dumps {agent_uuid}`. `#124` 와 같은 팬아웃 · 저장, 파드당 5분 쿨다운(안이면 `skipped`). 호출 쪽은 탐지 몫
 
 ### 조회 파트 (Nova)
 
@@ -181,6 +182,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | **적재 처리기가 커밋 전에 죽으면 집계가 중복된다** (재현됨, 미해결) | 수집 (적재 처리기 · CH 스키마 주인) · 알림이 2단계 비교 | 재시작 때 커밋 안 된 묶음(최대 500 레코드)을 다시 넣어 `spans` · MV 집계가 두 번 센다. 탐지 에러율이 틀어진다(실측 10% → 18.18%). `30-failure-modes.md` ④ 는 "유실 없음"만 적고 중복은 없다 (`docs/kafka-reprocess/10-baseline.md`) |
 | **NFR "경보 조건 충족 → 알림 60초"의 기준 시각이 팀 합의가 안 됐다** | 팀 전원 (알림이 제안) | 알림 파트는 `fired_at`(N 번째 나쁜 버킷 끝)부터 재서 32~46초로 통과라고 보지만, "에러가 처음 난 순간"으로 읽으면 1분 버킷 구조상 맞출 수 없다(실측 168~207초, N=3). 수집 경로가 멈춘 시간을 어느 NFR 로 볼지도 정해야 한다 (`docs/alert/10-state-machine.md` D1-실측-2) |
 | **`api-server` 의 ClickHouse DataSource 에는 소켓 타임아웃이 없다** | 조회 | `#127`(ADR `#54`)이 PG 를 치는 다섯 모듈에 pgjdbc `socketTimeout` 10초를 넣었는데, `api-server` 가 따로 들고 있는 ClickHouse 쪽(`DataSourceConfig.clickHouseDataSource`, 접두 `monimo.clickhouse`)은 **드라이버가 달라 속성 이름과 단위가 달라서** 범위에서 뺐다. 그쪽은 주기 작업이 아니라 요청 경로라 쿼리가 멈추면 요청 스레드 하나가 묶이고 나머지는 계속 돈다(영구 정지가 아니다). 다만 한도가 없는 것은 같다. 조회가 멈추는 일이 실측되면 ADR `#54` 되돌림 ③ 으로 그 드라이버 이름으로 넣는다 |
+| **자동 스레드 덤프의 호출 쪽이 없다** | 알림 (탐지 CPU · HEAP · GC 평가) | 문(`#164`)은 열렸는데 탐지의 CPU · HEAP · GC 평가가 아직 없어(`AlertTarget.Agent(` 생성 0곳) 경보 때 덤프가 안 뜬다. 평가가 들어올 때 경보가 **열리는 순간** 한 번 `POST /api/v1/internal/thread-dumps {agent_uuid}` 를 부르면 된다. 덤프 실패 · 쿨다운(200 + `skipped`)은 경보에 영향을 주지 않게 짧게 끊는다 |
 
 **이 과정에서 정한 것**
 

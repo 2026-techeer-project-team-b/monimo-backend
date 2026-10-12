@@ -22,7 +22,7 @@
 **공통 헤더**
 - `Authorization: Bearer <JWT>` — VIEWER+·ADMIN 요청
 - `Content-Type: application/json` — 본문 있는 POST/PUT/PATCH
-- `X-Internal-Token: <내부 토큰>` — 내부 문 5개(`/api/v1/internal/**` 3개, `/internal/thread-dump`, `/internal/channels/test`), Authorization 미사용
+- `X-Internal-Token: <내부 토큰>` — 내부 문 6개(`/api/v1/internal/**` 4개, `/internal/thread-dump`, `/internal/channels/test`), Authorization 미사용
 - `X-Request-Id` — 모든 응답에 서버가 UUID로 부여 (장애 문의 시 사용)
 - `429 TOO_MANY_REQUESTS`에만 `Retry-After` 헤더 동봉
 
@@ -52,6 +52,7 @@
 | 2 | API 서버 | GET | /api/v1/internal/service-health | 서비스별 1분 호출수·에러수·지연 백분위 (권한 내부) | service_name?, from, to, step?(60 이상 · 60의 배수, 그 외 400) | ts_min, service_name, cnt, err_cnt, cnt_4xx, cnt_5xx, p50/p95/p99_ms (요청 0건인 버킷은 행 없음) | FN-27, FN-29, service_health_1m |
 | 3 | API 서버 | GET | /api/v1/errors | 실패한 스팬 목록(예외 타입·메시지·상태코드) (권한 VIEWER+) | service_name(등록된 서비스가 아니면 404), from, to, agent_key?, http_status?, exception_type?(셋 다 정확히 같은 값), cursor?, limit? | trace_id, span_id, start_time(나노초 9자리), duration_ns, service_name, agent_key, span_name, span_kind, status_code, http_status(HTTP 아닌 스팬은 null), exception_type · exception_message(예외 이벤트가 없으면 null). status_code = ERROR 인 모든 종류의 스팬, 시간 역순 | FN-23, spans |
 | 4 | API 서버 | GET | /api/v1/internal/canary/freshness | 가장 최근 카나리 신호가 몇 초 전인지 (권한 내부) | service_name?(없으면 모든 서비스 중 가장 최근 카나리) | service_name, last_signal_at, age_sec, threshold_sec(기본 180, `MONIMO_CANARY_THRESHOLD_SEC`), fresh(age_sec ≤ threshold_sec). 카나리는 서비스 이름이 아니라 스팬의 표식 `attributes['monimo.canary']` 로 찾는다(ADR #41). 최근 24시간에 카나리가 한 건도 없으면 404 가 아니라 200 · fresh=false · last_signal_at · age_sec 는 null | FN-55, #01 #18 #41, spans |
+| 4-1 | API 서버 | POST | /api/v1/internal/thread-dumps | 탐지가 CPU · HEAP · GC 경보 때 부르는 자동 스레드 덤프 (권한 내부, #164). 1번과 같은 팬아웃 · 저장. 파드당 5분 쿨다운 안이면 뜨지 않고 200 + skipped | body: agent_uuid, requested_by?(기본 detector) | skipped, agent_key, service_name, dump_uuid(skipped 면 null), thread_count, last_dump_at(skipped 면 쿨다운을 건 직전 덤프 시각) | FN-39, thread_dumps |
 | 5 | API 서버 | GET | /api/v1/traces/scatter | 스캐터 차트 점 데이터, 과다시 버킷 집계 (권한 VIEWER+) | service_name(등록된 서비스가 아니면 404), from, to, agent_key?, limit?(점 상한, 기본 5000 · 최대 20000) | mode(raw/bucketed), total_count(접기 전 요청 수), points[trace_id, start_time(ms 3자리), duration_ms, is_error(true/false), http_status(HTTP 아니면 null), span_name, agent_key]. bucketed = (시간 칸 × 응답시간 칸(로그 간격) × 성공/실패) 격자마다 가장 느린 실제 요청 하나를 대표 점으로 — 점 모양은 raw 와 같다 | FN-41, FN-42, transactions |
 | 6 | API 서버 | GET | /api/v1/applications/{applicationUuid} | 서비스 하나의 상세 (권한 VIEWER+) | (경로만) | application_uuid, name, display_name, description, created_at, updated_at, agent_count | FN-17, applications |
 | 7 | API 서버 | PATCH | /api/v1/alert-channels/{alertChannelUuid}/enabled | 채널을 잠시 끄거나 켠다 (권한 ADMIN) | body: enabled | alert_channel_uuid, enabled, updated_at | FN-30, alert_channels.enabled |
@@ -131,7 +132,7 @@
 1. **평소 흐름**: 에이전트(쇼핑몰에 부착된 OTel Java Agent) → gRPC 3개(4317, mTLS) → 수집기(1% 샘플링, 카나리 표시는 예외) → Kafka → 적재 처리기 → ClickHouse. 화면은 API 서버에게만 물어 이 데이터를 조회.
 2. **탐지·파수꾼**: ClickHouse에 직접 붙지 않고, API 서버의 `내부` 문 3개(`GET /api/v1/internal/service-health`, `GET /api/v1/internal/agents/active`, `GET /api/v1/internal/canary/freshness`)로만 읽음. 화면이 보는 그래프와 탐지의 판정이 같은 계산에서 나오도록 하기 위함.
 3. **알림**: 경보 발송은 PostgreSQL을 큐처럼 스스로 폴링해 처리. 화면에서 "이 슬랙 주소가 맞나" 테스트 버튼을 누르면 그때만 API 서버가 내부 문(`POST /internal/channels/test`)으로 알림 서비스에 대행 요청.
-4. **역방향(유일)**: 스레드 덤프. 화면 → API 서버(`POST /api/v1/agents/{agentUuid}/thread-dumps`) → 수집기 전체 팬아웃(`POST /internal/thread-dump`) → 그 파드를 실제로 들고 있는 수집기 한 대 → Extension → 같은 경로로 응답 역류. 아무도 답하지 않으면 `503 AGENT_NOT_REACHABLE`.
+4. **역방향(유일)**: 스레드 덤프. 화면 → API 서버(`POST /api/v1/agents/{agentUuid}/thread-dumps`, 탐지의 CPU · HEAP · GC 경보는 `POST /api/v1/internal/thread-dumps`) → 수집기 전체 팬아웃(`POST /internal/thread-dump`) → 그 파드를 실제로 들고 있는 수집기 한 대 → Extension → 같은 경로로 응답 역류. 아무도 답하지 않으면 `503 AGENT_NOT_REACHABLE`.
 5. 기타 경로: API 서버 ↔ PostgreSQL(설정·규칙·채널·사용자 쓰기, 경보 이력 읽기) / API 서버 ↔ ClickHouse(신호 조회: 스팬·메트릭·로그·덤프) / 탐지 ↔ PostgreSQL(규칙 읽기·경보 이벤트 쓰기) / 알림 ↔ PostgreSQL(발송 대기 읽기·전송 이력 쓰기) / 파수꾼 → 쇼핑몰(카나리 가짜 주문 요청, traceparent+tracestate 카나리 표시 포함).
 
 TOTAL_ROWS=50
