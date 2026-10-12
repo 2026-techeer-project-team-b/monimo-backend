@@ -40,6 +40,25 @@ monimo:
   collector:
     urls: ${MONIMO_COLLECTOR_URLS:http://localhost:8081}
 
+# 관리 포트 (#162). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10000 (ADR #61)
+management:
+  server:
+    port: 18080
+  endpoint:
+    health:
+      probes:
+        enabled: true                 # /actuator/health/liveness · /actuator/health/readiness (헬스체크 규약)
+        # 업무 포트(8080)에도 /livez · /readyz 를 연다. 쿠버네티스는 이쪽을 쏜다.
+        # 관리 포트만 보면 업무 포트가 막혀도 "정상" 이 나온다 (두 포트가 일꾼 · 연결 묶음을 따로 가진다)
+        add-additional-paths: true
+      # readiness 에 저장소(db)를 넣지 않는다 (ADR #58). 저장소가 하나라 흔들리면 파드가 전부 동시에 빠지고,
+      # probe 는 1초에 끊는데 Hikari 연결 대기는 30초라 쿠버네티스는 원인을 못 본다. 저장소 장애는 저장소 쪽 경보로 본다.
+      # group 을 적지 않으면 기본 구성(liveness = livenessState · readiness = readinessState 뿐)이다
+  endpoints:
+    web:
+      exposure:
+        include: health
+
 # REST 명세(/v3/api-docs)와 Swagger UI(/swagger-ui.html)는 기본으로 끈다. local 프로필에서만 켠다.
 # 이 접두는 API 명세 §0-1 주소 규칙에 없고 §0-2 인증 분류도 미정이라 운영에 노출하지 않는다.
 springdoc:

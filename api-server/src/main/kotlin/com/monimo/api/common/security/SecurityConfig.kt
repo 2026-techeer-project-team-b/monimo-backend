@@ -42,7 +42,8 @@ class SecurityConfig {
                 it.requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                     .requestMatchers("/api/v1/internal/**").hasAuthority(INTERNAL_AUTHORITY)
                     .requestMatchers("/api/v1/**").authenticated()
-                    // 업무 API 는 전부 /api/v1 아래다. 나머지는 헬스체크 · actuator · springdoc(local) 이라 열어 둔다
+                    // 업무 API 는 전부 /api/v1 아래다. 나머지는 /livez · /readyz · springdoc(local) 이라 열어 둔다.
+                    // /actuator/** 는 관리 포트(18080)에만 있고, 그쪽도 이 체인을 타므로 probe 가 토큰 없이 통과한다
                     .anyRequest().permitAll()
             }
             .oauth2ResourceServer { rs ->
