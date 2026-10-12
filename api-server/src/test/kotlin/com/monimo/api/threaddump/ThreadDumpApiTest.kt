@@ -78,8 +78,11 @@ class ThreadDumpTestConfig {
         HttpCollectorClient(props.copy(urls = listOf(fakes.a.baseUrl, fakes.b.baseUrl)), token.internalToken)
 }
 
-// 스레드 덤프 3개 문을 실제 HTTP 로 돈다. 수집기는 가짜 2대, PG · ClickHouse 는 Testcontainers. 서비스 이름 접두 td-
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// 스레드 덤프 3개 문 + 자동 덤프 내부 문을 실제 HTTP 로 돈다. 수집기는 가짜 2대, PG · ClickHouse 는 Testcontainers. 서비스 이름 접두 td-
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = ["monimo.internal-token=test-internal-token"],
+)
 @Import(TestInfraConfig::class, ThreadDumpTestConfig::class)
 class ThreadDumpApiTest(
     rest: TestRestTemplate,
@@ -90,6 +93,7 @@ class ThreadDumpApiTest(
     dataSource: DataSource,
     fakes: FakeCollectors,
     tokenProps: InternalTokenProperties,
+    dumps: ThreadDumpRepository,
 ) : BehaviorSpec({
 
     val jdbc = JdbcTemplate(dataSource)
@@ -102,6 +106,12 @@ class ThreadDumpApiTest(
     jdbc.update(
         "INSERT INTO agents (agent_uuid, application_id, agent_key, hostname, status) VALUES (?, ?, ?, ?, 'UP')",
         podUuid, order.id, "td-order-pod-1", "td-order-pod-1",
+    )
+    // 자동 덤프용 파드. 15번 시험이 pod-1 에 덤프를 남겨 쿨다운이 걸리므로 따로 둔다
+    val autoPodUuid = UUID.randomUUID()
+    jdbc.update(
+        "INSERT INTO agents (agent_uuid, application_id, agent_key, hostname, status) VALUES (?, ?, ?, ?, 'UP')",
+        autoPodUuid, order.id, "td-order-pod-2", "td-order-pod-2",
     )
 
     fun json(response: ResponseEntity<String>): JsonNode = objectMapper.readTree(response.body)
@@ -138,6 +148,15 @@ class ThreadDumpApiTest(
 
     fun request(token: String, uuid: UUID = podUuid, timeoutMs: Long? = 3000) =
         call(HttpMethod.POST, "/api/v1/agents/$uuid/thread-dumps", token, mapOf("timeout_ms" to timeoutMs))
+
+    fun autoRequest(uuid: UUID = autoPodUuid, token: String? = "test-internal-token", requestedBy: String? = null): ResponseEntity<String> {
+        val headers = HttpHeaders().apply {
+            contentType = MediaType.APPLICATION_JSON
+            token?.let { set("X-Internal-Token", it) }
+        }
+        val body = mapOf("agent_uuid" to uuid.toString(), "requested_by" to requestedBy)
+        return plain.exchange(rest.rootUri + "/api/v1/internal/thread-dumps", HttpMethod.POST, HttpEntity(objectMapper.writeValueAsString(body), headers), String::class.java)
+    }
 
     lateinit var firstDumpUuid: String
 
@@ -250,6 +269,76 @@ class ThreadDumpApiTest(
             Then("400 INVALID_REQUEST") {
                 response.statusCode.value() shouldBe 400
                 json(response)["error"]["code"].asText() shouldBe "INVALID_REQUEST"
+            }
+        }
+    }
+
+    Given("자동 덤프 내부 문 (#164)") {
+        When("내부 토큰으로 처음 부르면") {
+            fakes.reset()
+            fakes.a.status = 200
+            fakes.a.body = extensionResult(11)
+            val response = autoRequest()
+            val data = json(response)["data"]
+
+            Then("덤프를 떠서 저장하고 requested_by 는 detector 다") {
+                response.statusCode.value() shouldBe 200
+                data["skipped"].asBoolean() shouldBe false
+                data["agent_key"].asText() shouldBe "td-order-pod-2"
+                data["thread_count"].asInt() shouldBe 11
+                fakes.receivedCount shouldBe 2
+                val saved = json(call(HttpMethod.GET, "/api/v1/thread-dumps/${data["dump_uuid"].asText()}", viewer))["data"]
+                saved["requested_by"].asText() shouldBe "detector"
+            }
+        }
+
+        When("쿨다운 안에 같은 파드로 다시 부르면") {
+            fakes.reset()
+            val response = autoRequest()
+            val data = json(response)["data"]
+
+            Then("200 skipped 이고 수집기를 부르지 않는다") {
+                response.statusCode.value() shouldBe 200
+                data["skipped"].asBoolean() shouldBe true
+                data["dump_uuid"].isNull shouldBe true
+                data["last_dump_at"].isNull shouldBe false
+                fakes.receivedCount shouldBe 0
+            }
+        }
+
+        When("직전 덤프가 쿨다운보다 오래된 파드로 부르면") {
+            // pod-3 에 6분 전 덤프를 직접 넣어 둔다 — 쿨다운(5분)이 지난 상태
+            val oldPodUuid = UUID.randomUUID()
+            jdbc.update(
+                "INSERT INTO agents (agent_uuid, application_id, agent_key, hostname, status) VALUES (?, ?, ?, ?, 'UP')",
+                oldPodUuid, order.id, "td-order-pod-3", "td-order-pod-3",
+            )
+            dumps.insert(ThreadDumpRow(UUID.randomUUID(), "td-order-pod-3", "td-order", "detector", Instant.now().minusSeconds(360).toEpochMilli(), 1, "old"))
+            fakes.reset()
+            fakes.b.status = 200
+            fakes.b.body = extensionResult(5)
+            val data = json(autoRequest(uuid = oldPodUuid, requestedBy = "detector:cpu"))["data"]
+
+            Then("다시 뜬다") {
+                data["skipped"].asBoolean() shouldBe false
+                data["thread_count"].asInt() shouldBe 5
+                fakes.receivedCount shouldBe 2
+            }
+        }
+
+        When("토큰 없이 부르면") {
+            val response = autoRequest(token = null)
+
+            Then("401 UNAUTHENTICATED") {
+                response.statusCode.value() shouldBe 401
+            }
+        }
+
+        When("없는 파드로 부르면") {
+            val response = autoRequest(uuid = UUID.randomUUID())
+
+            Then("404 NOT_FOUND") {
+                response.statusCode.value() shouldBe 404
             }
         }
     }
