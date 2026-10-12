@@ -37,6 +37,20 @@ monimo:
     otlp:
       grpc:
         port: 4317
+        # 에이전트 인증 (mTLS, #159 · ADR #64). 손님(에이전트) 신분증을 얼마나 요구하나 :
+        #   none     = TLS 꺼짐(평문). 기본값. 받은 사람이 아무것도 안 해도 지금처럼 돈다
+        #   optional = TLS 로 받되 신분증은 있으면 도장을 확인하고 없어도 받는다. 전환 1단계 : 빠뜨린 쪽을 찾는 자리.
+        #              평문으로 오는 손님은 이 단계에서도 못 붙는다 (평문 → TLS 전환은 한 번은 끊긴다)
+        #   require  = 신분증 없거나 도장이 틀리거나 기간이 지난 손님은 악수 단계에서 끊긴다. 전환 2단계
+        # 환경변수 MONIMO_COLLECTOR_OTLP_GRPC_TLS_CLIENT_AUTH 로 덮어쓴다 (compose 는 COLLECTOR_TLS_CLIENT_AUTH 로 받는다).
+        # optional · require 면 아래 파일 셋을 기동할 때 한 번 읽는다. 하나라도 못 읽으면 기동이 실패한다 (평문으로 대신 뜨지 않는다).
+        # 갱신은 파일을 바꾸고 재시작하는 것이다. 다시 읽는 장치는 없다.
+        # 손님 신분증의 이름은 검사하지 않는다. 우리 기관 도장이 찍혔는지만 본다
+        tls:
+          client-auth: none
+          server-certificate:     # 수집기 신분증 (PEM). compose 는 /certs/server.crt
+          server-key:             # 수집기 열쇠 (PKCS8 PEM). compose 는 /certs/server.key
+          ca-certificate:         # 기관 인증서 (PEM). 손님 도장을 이것으로 검사한다. compose 는 /certs/ca.crt
     # 트레이스 샘플링. 에이전트는 100% 보내고(always_on) 고르는 일은 수집기가 한다 (ADR #33).
     # 카나리 표시(trace_state 의 monimon=canary)가 붙은 것은 비율과 무관하게 통과한다 (ADR #41).
     #
