@@ -2,6 +2,7 @@ package com.monimo.ingester.inbound.kafka
 
 import com.clickhouse.client.api.Client
 import com.google.protobuf.ByteString
+import com.monimo.common.kafka.RawHeaders
 import com.monimo.common.kafka.RawSignal
 import com.monimo.ingester.support.TestInfraConfig
 import io.kotest.core.spec.style.BehaviorSpec
@@ -64,9 +65,12 @@ class RawConsumerTest(
         counter.count(signal) shouldBe expected // 10초 안에 안 오르면 여기서 실패한다
     }
 
-    // 만든 요청을 protobuf 바이트로 바꿔 raw 토픽에 넣는다. .get() = 브로커가 받을 때까지 기다린다
-    fun sendToRaw(signal: RawSignal, payload: ByteArray) {
-        producer.send(ProducerRecord(RawSignal.TOPIC, signal.key, payload)).get()
+    // 만든 요청을 protobuf 바이트로 바꿔 raw 토픽에 넣는다. .get() = 브로커가 받을 때까지 기다린다.
+    // peerAddress 를 주면 수집기가 붙이는 봉투 메모를 흉내 낸다 (`#149`)
+    fun sendToRaw(signal: RawSignal, payload: ByteArray, peerAddress: String? = null) {
+        val record = ProducerRecord(RawSignal.TOPIC, signal.key, payload)
+        peerAddress?.let { record.headers().add(RawHeaders.PEER_ADDRESS, it.toByteArray()) }
+        producer.send(record).get()
     }
 
     fun attr(key: String, value: String): KeyValue =
@@ -141,7 +145,7 @@ class RawConsumerTest(
         val agentKey = "$service-pod-1"
         jdbc.update("INSERT INTO applications (name) VALUES (?)", service)
 
-        When("그 서비스 이름과 파드 식별자가 담긴 트레이스를 넣으면") {
+        When("그 서비스 이름과 파드 식별자가 담긴 트레이스를 주소 메모와 함께 넣으면") {
             val request = ExportTraceServiceRequest.newBuilder()
                 .addResourceSpans(
                     ResourceSpans.newBuilder()
@@ -155,7 +159,7 @@ class RawConsumerTest(
                         .addScopeSpans(ScopeSpans.newBuilder().addSpans(Span.newBuilder().setName("POST /orders"))),
                 )
                 .build()
-            sendToRaw(RawSignal.TRACES, request.toByteArray())
+            sendToRaw(RawSignal.TRACES, request.toByteArray(), peerAddress = "172.19.0.11")
 
             Then("적재와 함께 파드가 agents 표에 등록된다") {
                 awaitAgent(agentKey) shouldBe 1
@@ -165,6 +169,10 @@ class RawConsumerTest(
                 val row = jdbc.queryForMap("SELECT hostname, jvm_version FROM agents WHERE agent_key = ?", agentKey)
                 row["hostname"] shouldBe "node-7"
                 row["jvm_version"] shouldBe "17.0.9"
+            }
+
+            Then("봉투 메모로 온 주소가 ip 칸에 들어간다 : 데이터 안에는 주소가 없다 (`#149`)") {
+                jdbc.queryForObject("SELECT host(ip) FROM agents WHERE agent_key = ?", String::class.java, agentKey) shouldBe "172.19.0.11"
             }
         }
     }

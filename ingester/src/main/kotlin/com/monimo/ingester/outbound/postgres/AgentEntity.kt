@@ -29,6 +29,12 @@ class AgentEntity(
     @Column(length = 255)
     val hostname: String?, // 표가 NULL 을 허용하므로 Kotlin 도 ?
 
+    // 주소 전용 타입(INET)이라 columnDefinition 을 같이 준다. Hibernate 는 String 을 varchar 로 보는데
+    // 실제 칸은 inet 이라, 이것 없이는 기동할 때 ddl-auto=validate 가 "타입이 다르다" 로 서버를 안 띄운다.
+    // 넣고 고치는 것은 AgentRepository 의 네이티브 SQL 이 CAST(... AS inet) 으로 하므로 이 칸으로 저장하지는 않는다
+    @Column(columnDefinition = "inet")
+    val ip: String?,
+
     @Column(name = "jvm_version", length = 50)
     val jvmVersion: String?,
 
@@ -54,7 +60,4 @@ class AgentEntity(
 
     @Column(name = "agent_uuid", nullable = false, unique = true)
     val agentUuid: UUID = UUID.randomUUID() // 화면 주소에 나가는 값. 표의 DEFAULT gen_random_uuid() 와 같은 역할
-
-    // ip(INET)는 매핑하지 않는다. 수집기가 연결 통로에서 알아내 메시지에 붙여야 하는데(ERD) 그 코드가 아직 없다.
-    // Hibernate 가 INET 을 기본으로 못 다루기도 해서, 채우는 코드가 생길 때 columnDefinition 과 함께 넣는다
 }

@@ -1,6 +1,13 @@
 spring:
   application:
     name: api-server
+  # PG 가 커넥션은 주고 응답은 안 하는 경우에 영구히 기다리지 않게 한다 (ADR #54).
+  # 끊긴 PG 는 Hikari connectionTimeout(기본 30초)이 이미 막는다. 이 값은 그 다음 구간이다.
+  # 단위는 밀리초가 아니라 초다. 10000 을 넣으면 2.8시간이 되어 조용히 안 듣는다.
+  datasource:
+    hikari:
+      data-source-properties:
+        socketTimeout: 10
   jpa:
     open-in-view: false          # ADR #42 가드레일 ②
     hibernate:
@@ -26,6 +33,9 @@ monimo:
   # 채널 시험 발송(#13)이 부르는 알림 서비스. X-Internal-Token 은 위 값을 그대로 보낸다
   notifier:
     base-url: ${MONIMO_NOTIFIER_URL:http://localhost:8084}
+  # 카나리 신선도 기준(초). 가장 최근 카나리가 이보다 오래됐으면 canary/freshness 가 fresh=false 로 답하고 파수꾼이 알린다
+  canary:
+    threshold-sec: ${MONIMO_CANARY_THRESHOLD_SEC:180}
   # 스레드 덤프 팬아웃(#124)이 부르는 수집기 전부. 쉼표로 나눈다. 1a 는 한 대, K8s 는 헤드리스 Service 의 파드 주소들 (배포 파트와 맞춘다)
   collector:
     urls: ${MONIMO_COLLECTOR_URLS:http://localhost:8081}

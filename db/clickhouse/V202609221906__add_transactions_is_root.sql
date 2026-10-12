@@ -1,0 +1,15 @@
+-- #118 이전에 만든 ClickHouse 를 가진 사람을 위한 호환 마이그레이션 (#119, ADR #57).
+--
+-- 왜 필요한가 : 바로 다음 파일(V202609221907)의
+--   CREATE MATERIALIZED VIEW IF NOT EXISTS monimo.mv_transactions TO monimo.transactions AS SELECT ... is_root ...
+-- 는 MV 가 이미 있어도 **존재 검사보다 SELECT 분석을 먼저** 한다. 그래서 타깃 표에 is_root 가
+-- 없으면 "SELECT query outputs column with name 'is_root', which is not found in the target table" 로
+-- 터지고, clickhouse-migrate 가 비정상 종료해 infra-ready 가 안 켜져 스택 전체가 안 뜬다.
+--
+-- 그 상황은 #118(1c93f1b) 머지 뒤 docker compose down -v 를 한 번도 안 한 로컬에서 난다.
+-- #118 과 #121 이 전원에게 down -v 를 안내했지만, 워크트리가 둘이거나 그 주에 안 켠 사람이 걸린다.
+--
+-- 이미 is_root 가 있는 DB(= #118 이후에 만든 DB)에서는 IF NOT EXISTS 라 아무 일도 안 한다.
+-- 번호가 1906 인 이유 : 표 만들기(1905)와 MV 만들기(1907) 사이에 끼워야 한다.
+-- Flyway 는 버전을 숫자로 비교하므로 1905900 같은 자릿수를 늘린 번호는 1906 보다 뒤로 간다.
+ALTER TABLE monimo.transactions ADD COLUMN IF NOT EXISTS is_root UInt8;

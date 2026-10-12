@@ -8,6 +8,9 @@ import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.opentelemetry.proto.collector.trace.v1.ExportTraceServiceRequest
+import io.opentelemetry.proto.common.v1.AnyValue
+import io.opentelemetry.proto.common.v1.KeyValue
+import io.opentelemetry.proto.resource.v1.Resource
 import io.opentelemetry.proto.trace.v1.ResourceSpans
 import io.opentelemetry.proto.trace.v1.ScopeSpans
 import io.opentelemetry.proto.trace.v1.Span
@@ -15,10 +18,16 @@ import kotlin.random.Random
 
 // 샘플링 규칙만 확인하는 단위 테스트. 스프링도 컨테이너도 띄우지 않아 빠르다.
 // SimpleMeterRegistry = 메모리에만 값을 쌓는 가벼운 계량기 창고 (테스트용)
+//
+// 비율은 PG 에서 오므로(ADR #53) 포트 자리에 가짜를 끼운다. PG 조회 쪽 동작은
+// PostgresSamplingRateSourceTest 가 따로 본다
 class TraceSamplerTest : BehaviorSpec({
 
+    // 비율 하나를 그대로 주는 가짜 공급자. 서비스 한 줄만 있으면 최댓값이 그 값이다
+    fun fixedRate(ratio: Double) = SamplingRateSource { SamplingRates.of(mapOf("shop-gateway" to ratio), ratio) }
+
     // 비율을 바꿔 가며 샘플러를 만드는 도우미
-    fun samplerOf(ratio: Double) = TraceSampler(SamplingProperties(ratio = ratio), SimpleMeterRegistry())
+    fun samplerOf(ratio: Double) = TraceSampler(SamplingProperties(), fixedRate(ratio), SimpleMeterRegistry())
 
     // 스팬 하나 만들기. traceId 는 16바이트, traceState 는 W3C 형식 문자열
     fun span(traceId: ByteArray = Random.nextBytes(16), traceState: String = ""): Span =
@@ -111,9 +120,79 @@ class TraceSamplerTest : BehaviorSpec({
         }
     }
 
+    Given("공급자가 주는 비율이 중간에 바뀌면") {
+        // upperBound 를 생성 시점에 한 번 계산해 두면 이 시험이 깨진다 (ADR #53 구현 주의)
+        var ratio = 0.0
+        val sampler = TraceSampler(
+            SamplingProperties(),
+            SamplingRateSource { SamplingRates.of(mapOf("shop-gateway" to ratio), ratio) },
+            SimpleMeterRegistry(),
+        )
+
+        When("0.0 일 때 스팬 3개를 넣으면") {
+            Then("하나도 안 남는다") {
+                sampler.sample(requestOf(span(), span(), span())).spanCount() shouldBe 0
+            }
+        }
+
+        When("공급자가 1.0 으로 바뀐 뒤 다시 넣으면") {
+            ratio = 1.0
+
+            Then("3개가 그대로 남는다") {
+                sampler.sample(requestOf(span(), span(), span())).spanCount() shouldBe 3
+            }
+        }
+    }
+
+    Given("등록 안 된 서비스에서 온 스팬") {
+        val registry = SimpleMeterRegistry()
+        val sampler = TraceSampler(
+            SamplingProperties(),
+            SamplingRateSource { SamplingRates.of(mapOf("shop-gateway" to 1.0), 0.01) },
+            registry,
+        )
+
+        // resource 에 service.name 을 붙인 요청. 서비스 이름은 스팬이 아니라 한 겹 위에 있다
+        fun requestFrom(serviceName: String, vararg spans: Span): ExportTraceServiceRequest =
+            ExportTraceServiceRequest.newBuilder()
+                .addResourceSpans(
+                    ResourceSpans.newBuilder()
+                        .setResource(
+                            Resource.newBuilder().addAttributes(
+                                KeyValue.newBuilder()
+                                    .setKey("service.name")
+                                    .setValue(AnyValue.newBuilder().setStringValue(serviceName)),
+                            ),
+                        )
+                        .addScopeSpans(ScopeSpans.newBuilder().addAllSpans(spans.toList())),
+                )
+                .build()
+
+        When("목록에 없는 이름으로 2개를 보내면") {
+            val result = sampler.sample(requestFrom("stranger-app", span(), span()))
+
+            Then("비율은 그대로 적용되어 남는다 (최댓값 하나를 쓰므로 판정에 영향이 없다)") {
+                result.spanCount() shouldBe 2
+            }
+
+            Then("미등록 카운터가 2건 센다") {
+                registry.get("${TraceSampler.METRIC}.unknown_service").counter().count() shouldBe 2.0
+            }
+        }
+
+        When("목록에 있는 이름으로 보내면") {
+            val before = registry.get("${TraceSampler.METRIC}.unknown_service").counter().count()
+            sampler.sample(requestFrom("shop-gateway", span()))
+
+            Then("미등록 카운터가 안 늘어난다") {
+                registry.get("${TraceSampler.METRIC}.unknown_service").counter().count() shouldBe before
+            }
+        }
+    }
+
     Given("계량기") {
         val registry = SimpleMeterRegistry()
-        val sampler = TraceSampler(SamplingProperties(ratio = 0.0), registry)
+        val sampler = TraceSampler(SamplingProperties(), fixedRate(0.0), registry)
 
         When("스팬 2개가 전부 버려지면") {
             sampler.sample(requestOf(span(), span()))

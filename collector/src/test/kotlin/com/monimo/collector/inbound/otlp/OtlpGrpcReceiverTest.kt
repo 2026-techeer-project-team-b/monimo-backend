@@ -1,9 +1,11 @@
 package com.monimo.collector.inbound.otlp
 
 import com.monimo.collector.support.TestInfraConfig
+import com.monimo.common.kafka.RawHeaders
 import com.monimo.common.kafka.RawSignal
 import io.grpc.ManagedChannelBuilder
 import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.opentelemetry.proto.collector.logs.v1.ExportLogsServiceRequest
 import io.opentelemetry.proto.collector.logs.v1.LogsServiceGrpc
@@ -21,6 +23,7 @@ import io.opentelemetry.proto.trace.v1.ResourceSpans
 import io.opentelemetry.proto.trace.v1.ScopeSpans
 import io.opentelemetry.proto.trace.v1.Span
 import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -32,6 +35,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 // 연결 약속 검증: OTLP gRPC 로 보낸 스팬 · 메트릭 · 로그를 수집기가 받아 세고, raw 토픽에 protobuf 그대로 넣는다.
+// 보낸 쪽 주소도 봉투 메모(헤더)로 같이 붙는다 (`#149`, ADR `#63`). 값 바이트는 그대로고 메모만 늘어난다.
 // 포트 0 = 빈 포트 아무거나. 테스트끼리 · 로컬 4317 과 겹치지 않는다.
 // 샘플링 비율 1.0 = 전부 통과. 이 테스트가 보는 것은 "받은 것이 raw 에 그대로 들어가는가" 라서
 // 샘플링이 끼어들면 안 된다. 샘플링 자체는 TraceSamplerTest 가 확인한다
@@ -70,14 +74,22 @@ class OtlpGrpcReceiverTest(
 
     // 키가 signal 인 메시지가 올 때까지 최대 10초 기다린다.
     // 발행이 비동기라 보낸 직후에는 아직 안 와 있을 수 있어서 기다리는 코드가 필요하다
-    fun receivedFromRaw(signal: RawSignal): ByteArray {
+    fun receivedFromRaw(signal: RawSignal): ConsumerRecord<String, ByteArray> {
         val deadline = System.currentTimeMillis() + 10_000 // 지금부터 10초 뒤 시각 (10_000 = 10000, 밑줄은 읽기용)
         while (System.currentTimeMillis() < deadline) { // 시간이 남아 있는 동안 반복
-            // poll = 0.5초 동안 온 메시지들을 가져온다. 그중 키가 맞는 첫 메시지의 값을 돌려주고 함수 종료
-            consumer.poll(Duration.ofMillis(500)).forEach { if (it.key() == signal.key) return it.value() }
+            // poll = 0.5초 동안 온 메시지들을 가져온다. 그중 키가 맞는 첫 메시지를 돌려주고 함수 종료
+            consumer.poll(Duration.ofMillis(500)).forEach { if (it.key() == signal.key) return it }
         }
         error("raw 토픽에 ${signal.key} 메시지가 10초 안에 안 옴") // 10초 안에 못 찾으면 테스트 실패
     }
+
+    // 봉투 메모에서 주소를 꺼낸다. 적재 처리기가 하는 것과 같은 방식(마지막 것 · UTF-8)
+    fun peerAddressOf(record: ConsumerRecord<String, ByteArray>): String? =
+        record.headers().lastHeader(RawHeaders.PEER_ADDRESS)?.value()?.toString(Charsets.UTF_8)
+
+    // 테스트는 localhost 로 붙으므로 되돌이 주소가 나온다. IPv4 · IPv6 중 어느 쪽으로 붙을지는
+    // 플랫폼과 이름 풀이에 달려 있어 둘 다 받는다. 여기서 보는 것은 "연결에서 읽은 값이 메모로 붙는가" 다
+    val loopback = listOf("127.0.0.1", "0:0:0:0:0:0:0:1")
 
     Given("OTLP gRPC 수신을 켠 수집기") {
         When("스팬 2개를 TraceService.Export 로 보내면") {
@@ -99,9 +111,12 @@ class OtlpGrpcReceiverTest(
                 counter.count(OtlpReceiveCounter.Signal.TRACES) - before shouldBe 2.0 // 스팬 2개를 보냈으니 2 증가
             }
 
-            Then("raw 토픽에 키 traces · 값은 받은 protobuf 그대로 들어간다") {
+            Then("raw 토픽에 키 traces · 값은 받은 protobuf 그대로 · 보낸 쪽 주소가 메모로 붙는다") {
                 // 읽은 바이트를 다시 풀어(parseFrom) 처음 보낸 요청과 같은지 본다 = 중간에 건드리지 않았다는 증거
-                ExportTraceServiceRequest.parseFrom(receivedFromRaw(RawSignal.TRACES)) shouldBe request
+                val record = receivedFromRaw(RawSignal.TRACES)
+                ExportTraceServiceRequest.parseFrom(record.value()) shouldBe request
+                // 메모는 값 바이트를 건드리지 않는다. 위 단언이 그것을 증명하고 아래가 메모를 본다
+                loopback shouldContain peerAddressOf(record)
             }
         }
 
@@ -121,8 +136,11 @@ class OtlpGrpcReceiverTest(
                 counter.count(OtlpReceiveCounter.Signal.METRICS) - before shouldBe 1.0
             }
 
-            Then("raw 토픽에 키 metrics · 값은 받은 protobuf 그대로 들어간다") {
-                ExportMetricsServiceRequest.parseFrom(receivedFromRaw(RawSignal.METRICS)) shouldBe request
+            Then("raw 토픽에 키 metrics · 값은 받은 protobuf 그대로 · 보낸 쪽 주소가 메모로 붙는다") {
+                val record = receivedFromRaw(RawSignal.METRICS)
+                ExportMetricsServiceRequest.parseFrom(record.value()) shouldBe request
+                // 메모는 값 바이트를 건드리지 않는다. 위 단언이 그것을 증명하고 아래가 메모를 본다
+                loopback shouldContain peerAddressOf(record)
             }
         }
 
@@ -144,8 +162,11 @@ class OtlpGrpcReceiverTest(
                 counter.count(OtlpReceiveCounter.Signal.LOGS) - before shouldBe 3.0
             }
 
-            Then("raw 토픽에 키 logs · 값은 받은 protobuf 그대로 들어간다") {
-                ExportLogsServiceRequest.parseFrom(receivedFromRaw(RawSignal.LOGS)) shouldBe request
+            Then("raw 토픽에 키 logs · 값은 받은 protobuf 그대로 · 보낸 쪽 주소가 메모로 붙는다") {
+                val record = receivedFromRaw(RawSignal.LOGS)
+                ExportLogsServiceRequest.parseFrom(record.value()) shouldBe request
+                // 메모는 값 바이트를 건드리지 않는다. 위 단언이 그것을 증명하고 아래가 메모를 본다
+                loopback shouldContain peerAddressOf(record)
             }
         }
     }

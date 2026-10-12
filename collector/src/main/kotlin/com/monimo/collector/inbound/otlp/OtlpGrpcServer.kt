@@ -17,6 +17,7 @@ class OtlpGrpcServer(
     private val traceService: OtlpTraceService,
     private val metricsService: OtlpMetricsService,
     private val logsService: OtlpLogsService,
+    private val peerAddressInterceptor: PeerAddressInterceptor, // 연결 상대 주소를 Context 에 담는다 (`#149`)
 ) : SmartLifecycle {
 
     private var server: Server? = null
@@ -27,6 +28,8 @@ class OtlpGrpcServer(
 
     override fun start() {
         val started = ServerBuilder.forPort(properties.port)
+            // 서비스마다 붙이지 않고 서버에 한 번 건다. 뒤에 서비스를 더해도 자동으로 걸린다
+            .intercept(peerAddressInterceptor)
             .addService(traceService)
             .addService(metricsService)
             .addService(logsService)

@@ -4,6 +4,7 @@ import com.monimo.ingester.support.TestInfraConfig
 import com.monimo.ingester.transform.AgentSighting
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
@@ -15,20 +16,31 @@ import java.time.Instant
 @Import(TestInfraConfig::class)
 class PostgresAgentRegistryTest(
     registry: PostgresAgentRegistry,
+    repository: AgentRepository, // 주소 고치는 SQL 의 조건을 직접 확인할 때만 쓴다
     counter: AgentRegisterCounter,
     jdbc: JdbcTemplate,
 ) : BehaviorSpec({
 
     val seenAt = Instant.parse("2026-10-01T03:04:05Z")
+    val laterAt = Instant.parse("2026-10-02T06:07:08Z") // 주소가 바뀐 뒤에 본 시각
 
-    fun sighting(service: String, key: String) = AgentSighting(
+    // ip 는 수집기가 봉투 메모로 보내 주는 값이라 기본값을 null 로 둔다. 메모가 없는 메시지가 그 모양이다
+    fun sighting(service: String, key: String, ip: String? = null, at: Instant = seenAt) = AgentSighting(
         serviceName = service,
         agentKey = key,
         hostname = "$key.pod",
+        ip = ip,
         jvmVersion = "17.0.9",
         agentVersion = "2.11.0",
-        seenAt = seenAt,
+        seenAt = at,
     )
+
+    // INET 칸은 글자로 읽는다. 조회 API 도 host() 로 글자를 만들어 내보낸다
+    fun ipOf(key: String): String? =
+        jdbc.queryForObject("SELECT host(ip) FROM agents WHERE agent_key = ?", String::class.java, key)
+
+    fun updatedAtOf(key: String): Instant =
+        jdbc.queryForObject("SELECT updated_at FROM agents WHERE agent_key = ?", java.sql.Timestamp::class.java, key)!!.toInstant()
 
     fun rows(key: String): Int =
         jdbc.queryForObject("SELECT count(*) FROM agents WHERE agent_key = ?", Int::class.java, key)!!
@@ -68,8 +80,8 @@ class PostgresAgentRegistryTest(
                 (row["first_seen_at"] as java.sql.Timestamp).toInstant() shouldBe seenAt
             }
 
-            Then("ip 는 비어 있다 — 수집기가 채워 줄 코드가 아직 없다") {
-                jdbc.queryForObject("SELECT ip FROM agents WHERE agent_key = ?", String::class.java, key) shouldBe null
+            Then("주소 메모가 없는 메시지였으니 ip 는 비어 있다") {
+                ipOf(key) shouldBe null
             }
         }
 
@@ -106,9 +118,9 @@ class PostgresAgentRegistryTest(
         When("그 서비스의 파드를 등록하면") {
             val before = counter.count(AgentRegisterCounter.Outcome.UNKNOWN_SERVICE)
             val key = "ghost-pod-${System.nanoTime()}"
-            registry.register(listOf(sighting("not-registered-${System.nanoTime()}", key)))
+            registry.register(listOf(sighting("not-registered-${System.nanoTime()}", key, ip = "172.19.0.23")))
 
-            Then("줄이 생기지 않는다 — applications 에 이름이 없으면 FK 를 채울 수 없다") {
+            Then("주소가 있어도 줄이 생기지 않는다 — applications 에 이름이 없으면 FK 를 채울 수 없다") {
                 rows(key) shouldBe 0
             }
 
@@ -132,16 +144,79 @@ class PostgresAgentRegistryTest(
         }
     }
 
+    // 주소는 다른 칸과 성격이 다르다. 처음 값이 영구히 남으면 안 되고, 바뀌면 그 줄을 고쳐야 한다 (`#149`, ADR `#63`).
+    // 적재 처리기가 이 표를 **고치는** 첫 자리다
+    Given("주소가 담긴 목격") {
+        val service = newService("shop-payment")
+
+        When("처음 보는 파드를 주소와 함께 등록하면") {
+            val key = "$service-pod-ip"
+            registry.register(listOf(sighting(service, key, ip = "172.19.0.11")))
+
+            Then("ip 칸에 그 주소가 들어간다") {
+                ipOf(key) shouldBe "172.19.0.11"
+            }
+        }
+
+        When("그 파드가 재생성돼 다른 주소로 다시 보이면") {
+            val key = "$service-pod-moved"
+            registry.register(listOf(sighting(service, key, ip = "172.19.0.12")))
+            val before = counter.count(AgentRegisterCounter.Outcome.IP_UPDATED)
+            registry.register(listOf(sighting(service, key, ip = "172.19.0.99", at = laterAt)))
+
+            Then("줄은 늘지 않고 주소만 바뀐다 : 이름표가 같으면 같은 파드다") {
+                rows(key) shouldBe 1
+                ipOf(key) shouldBe "172.19.0.99"
+            }
+
+            Then("고친 시각도 같이 움직인다 : 상태를 고치는 쪽(탐지)과 모양을 맞췄다") {
+                updatedAtOf(key) shouldBe laterAt
+            }
+
+            Then("고친 것을 센다") {
+                counter.count(AgentRegisterCounter.Outcome.IP_UPDATED) shouldBe before + 1
+            }
+        }
+
+        When("주소가 그대로인 목격이 또 들어오면") {
+            val key = "$service-pod-same"
+            registry.register(listOf(sighting(service, key, ip = "172.19.0.13")))
+            val before = counter.count(AgentRegisterCounter.Outcome.IP_UPDATED)
+            registry.register(listOf(sighting(service, key, ip = "172.19.0.13", at = laterAt)))
+
+            Then("아무것도 고치지 않는다 : 캐시가 걸러 낸다") {
+                counter.count(AgentRegisterCounter.Outcome.IP_UPDATED) shouldBe before
+                updatedAtOf(key) shouldNotBe laterAt
+            }
+
+            Then("캐시가 비어 있어도 SQL 이 한 번 더 막는다 : IS DISTINCT FROM 이 0줄을 돌려준다") {
+                // 캐시를 비운 직후(상한 초과)에는 모든 파드가 한 번씩 미스라 그때 쓰기가 몰린다. 그 자리를 SQL 로도 막아 뒀다
+                repository.updateIp(agentKey = key, ip = "172.19.0.13", now = laterAt) shouldBe 0
+                repository.updateIp(agentKey = key, ip = "172.19.0.77", now = laterAt) shouldBe 1
+            }
+        }
+
+        When("주소를 채운 뒤 주소 메모가 없는 메시지가 오면") {
+            val key = "$service-pod-noheader"
+            registry.register(listOf(sighting(service, key, ip = "172.19.0.14")))
+            registry.register(listOf(sighting(service, key, ip = null, at = laterAt)))
+
+            Then("칸을 비우지 않는다 : 메모 없는 메시지(telemetrygen 등)가 멀쩡한 주소를 지우면 안 된다") {
+                ipOf(key) shouldBe "172.19.0.14"
+            }
+        }
+    }
+
     Given("파드 식별자나 서비스 이름이 없는 목격") {
         When("등록을 시도하면") {
             registry.register(
                 listOf(
-                    sighting("some-service", ""), // 파드 식별자 없음
-                    sighting("", "orphan-pod"), // 서비스 이름 없음 (unknown_service 포함)
+                    sighting("some-service", "", ip = "172.19.0.21"), // 파드 식별자 없음
+                    sighting("", "orphan-pod", ip = "172.19.0.22"), // 서비스 이름 없음 (unknown_service 포함)
                 ),
             )
 
-            Then("아무 줄도 생기지 않는다 — ClickHouse 와 이을 수 없는 줄은 만들지 않는다") {
+            Then("주소가 있어도 아무 줄도 생기지 않는다 — ClickHouse 와 이을 수 없는 줄은 만들지 않는다") {
                 rows("") shouldBe 0
                 rows("orphan-pod") shouldBe 0
             }

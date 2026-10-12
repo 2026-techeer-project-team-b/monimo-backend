@@ -1,0 +1,57 @@
+run=153046 service=exp-reprocess-153046 bucket=06:20
+ok: 90 spans → raw-0@7 service=exp-reprocess-153046
+-- [정상 90 커밋 뒤] 06:31:34.203
+kafka: committed=8 end=8 lag=0
+   ┌─raw_rows─┬─unique_spans─┬─err_rows─┐
+1. │       90 │           90 │        0 │
+   └──────────┴──────────────┴──────────┘
+   ┌─service_name─────────┬─cnt─┬─err_cnt─┬─err_pct─┐
+1. │ exp-reprocess-153046 │  90 │       0 │       0 │
+   └──────────────────────┴─────┴─────────┴─────────┘
+error: 10 spans → raw-0@8 service=exp-reprocess-153046
+== 중단점: Breakpoint hit: "thread=org.springframework.kafka.KafkaListenerEndpointContainer#0-0-C-1", org.apache.kafka.clients.consumer.KafkaConsumer.commitSync(), line=1,
+-- [오류 10 CH 저장 · 커밋 전 (멈춘 상태)] 06:31:39.704
+kafka: committed=8 end=9 lag=1
+   ┌─raw_rows─┬─unique_spans─┬─err_rows─┐
+1. │      100 │          100 │       10 │
+   └──────────┴──────────────┴──────────┘
+   ┌─service_name─────────┬─cnt─┬─err_cnt─┬─err_pct─┐
+1. │ exp-reprocess-153046 │ 100 │      10 │      10 │
+   └──────────────────────┴─────┴─────────┴─────────┘
+== kill -9 06:31:41.086
+-- [kill 직후] 06:31:42.125
+kafka: committed=8 end=9 lag=1
+   ┌─raw_rows─┬─unique_spans─┬─err_rows─┐
+1. │      100 │          100 │       10 │
+   └──────────┴──────────────┴──────────┘
+   ┌─service_name─────────┬─cnt─┬─err_cnt─┬─err_pct─┐
+1. │ exp-reprocess-153046 │ 100 │      10 │      10 │
+   └──────────────────────┴─────┴─────────┴─────────┘
+-- [같은 그룹으로 재시작 뒤] 06:32:26.876
+kafka: committed=9 end=9 lag=0
+   ┌─raw_rows─┬─unique_spans─┬─err_rows─┐
+1. │      110 │          100 │       20 │
+   └──────────┴──────────────┴──────────┘
+   ┌─service_name─────────┬─cnt─┬─err_cnt─┬─err_pct─┐
+1. │ exp-reprocess-153046 │ 110 │      20 │   18.18 │
+   └──────────────────────┴─────┴─────────┴─────────┘
+2026-10-11T15:32:22.572+09:00 DEBUG 86110 --- [ingester] [ntainer#0-0-C-1] c.m.ingester.inbound.kafka.RawConsumer   : raw 소비: traces 10건 (오프셋 8)
+2026-10-11T15:32:22.573+09:00 DEBUG 86110 --- [ingester] [ntainer#0-0-C-1] o.s.k.l.KafkaMessageListenerContainer    : Committing: {raw-0=OffsetAndMetadata{offset=9, leaderEpoch=null, metadata=''}}
+-- 중복 스팬 (같은 trace_id·span_id 가 2줄 이상)
+   ┌─status_code─┬─spans─┬─rows─┐
+1. │ ERROR       │    10 │   20 │
+   └─────────────┴───────┴──────┘
+-- 스택 (중단점에서)
+org.springframework.kafka.KafkaListenerEndpointContainer#0-0-C-1[1]   [1] org.apache.kafka.clients.consumer.KafkaConsumer.commitSync (KafkaConsumer.java:1,057)
+  [2] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.doCommitSync (KafkaMessageListenerContainer.java:3,422)
+  [3] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.commitSync (KafkaMessageListenerContainer.java:3,417)
+  [4] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.commitOffsets (KafkaMessageListenerContainer.java:3,400)
+  [5] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.commitIfNecessary (KafkaMessageListenerContainer.java:3,376)
+  [6] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.processCommits (KafkaMessageListenerContainer.java:3,148)
+  [7] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.doProcessCommits (KafkaMessageListenerContainer.java:1,532)
+  [8] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.pollAndInvoke (KafkaMessageListenerContainer.java:1,458)
+  [9] org.springframework.kafka.listener.KafkaMessageListenerContainer$ListenerConsumer.run (KafkaMessageListenerContainer.java:1,362)
+  [10] java.util.concurrent.CompletableFuture$AsyncRun.run (CompletableFuture.java:1,804)
+  [11] java.lang.Thread.runWith (Thread.java:1,596)
+  [12] java.lang.Thread.run (Thread.java:1,583)
+org.springframework.kafka.KafkaListenerEndpointContainer#0-0-C-1[1] Input stream closed.

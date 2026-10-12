@@ -30,7 +30,8 @@ docker network create monimo-dev     # 처음 한 번만. backend · shop 의 co
 # 서비스 하나 실행: 로컬 인프라를 먼저 켜고 local 프로필로
 docker compose up -d --wait
 ./gradlew :collector:bootRun --args='--spring.profiles.active=local'
-curl localhost:8081/actuator/health  # DB별 연결 상태까지 보인다
+curl localhost:18081/actuator/health # 관리 포트(업무 포트 + 10000). DB별 연결 상태까지 보인다
+curl localhost:8081/readyz           # 쿠버네티스가 쏘는 주소. 업무 포트에 있고 저장소는 안 본다
 
 # API 서버를 local 프로필로 켜면 REST 명세 · Swagger UI 가 열린다 (다른 프로필에서는 404)
 ./gradlew :api-server:bootRun --args='--spring.profiles.active=local'
@@ -44,7 +45,7 @@ docker build -f collector/Dockerfile -t monimo/collector .
 
 ```bash
 docker compose up -d           # 켜기 (레포 루트에서)
-docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL 마이그레이션이 끝날 때까지 기다리기
+docker compose up -d --wait    # 켜기 + 토픽 · PostgreSQL · ClickHouse 마이그레이션이 끝날 때까지 기다리기
 ./scripts/check-dev-infra.sh   # 제대로 떴는지 확인
 ./scripts/seed-clickhouse.sh   # ClickHouse에 가짜 신호 데이터 넣기 (최근 1시간치, 다시 돌리면 비우고 새로 넣음)
 docker compose down            # 끄기 (ClickHouse · PostgreSQL 데이터는 남음)
@@ -64,9 +65,9 @@ docker compose --profile collector --profile ingester down
 - Kafka 토픽 `raw`(7일 보관, 파티션 3) · `raw.dlq`(30일 보관)는 켤 때 자동으로 만든다. 그 외 토픽은 자동으로 생기지 않는다.
 - Kafka 메시지는 컨테이너 안에만 있어서 `down` 하면 지워진다.
 - **PostgreSQL 표는 `db/postgres/` 한 곳**에 파트별 폴더(`config/` · `alert/` · `ingest/`)로 추가하고, 켤 때 Flyway가 자동 적용한다. 서비스는 마이그레이션을 돌리지 않는다. 규칙은 [`db/postgres/README.md`](db/postgres/README.md) (ADR #49)
-- **ClickHouse 표는 `db/clickhouse/`** 에 있다. 원본 4표(`002`) → 집계 7표(`003`) → MV 7개(`004`) 순서이고, 정본은 노션 ERD「CH 영역」이다. **데이터가 비어 있을 때(처음 켤 때)만** 실행되므로, 바꾼 DDL을 다시 적용하려면 `down -v` 후 켠다.
+- **ClickHouse 표도 `db/clickhouse/`** 한 곳에 `V{년월일시분}__{동사}_{대상}.sql` 로 두고, 켤 때 Flyway(`clickhouse-migrate`)가 자동 적용한다. 원본 4표 → 집계 7표 → MV 7개 순서이고 정본은 노션 ERD「CH 영역」이다. **바꾼 DDL 을 적용하려고 `down -v` 할 필요가 없다** : 떠 있는 서버에 안 돌린 파일만 적용된다. 규칙과 표 정의를 바꿀 때의 절차는 [`db/clickhouse/README.md`](db/clickhouse/README.md) (ADR `#57`)
 - 집계 7표는 사람이 넣지 않는다. 원본(`spans` · `metrics_raw`)에 줄이 들어오면 MV가 자동으로 채운다.
-- 가짜 데이터(`db/clickhouse/seed/`)는 쇼핑몰 서비스 4개(`shop-gateway` · `shop-order` · `shop-inventory` · `shop-payment`)의 최근 1시간이다. 결제 5xx 급증(5~15분 전) · 느린 결제 · 404 · 힙이 새는 파드 1대가 들어 있어 화면 · 경보를 바로 시험할 수 있다. 모양은 OTel Java Agent 2.x 형식에 맞췄고, 쇼핑몰이 붙으면 진짜 데이터와 비교해 고친다.
+- 가짜 데이터(`scripts/seed/clickhouse-fake-signals.sql`)는 쇼핑몰 서비스 4개(`shop-gateway` · `shop-order` · `shop-inventory` · `shop-payment`)의 최근 1시간이다. 결제 5xx 급증(5~15분 전) · 느린 결제 · 404 · 힙이 새는 파드 1대가 들어 있어 화면 · 경보를 바로 시험할 수 있다. 모양은 OTel Java Agent 2.x 형식에 맞췄고, 쇼핑몰이 붙으면 진짜 데이터와 비교해 고친다.
 - 포트가 다른 프로젝트와 겹치면 `.env.example` 을 `.env` 로 복사해서 바꾼다.
 - **연결 약속 (개발환경 6단계)**: 모든 compose 는 공용 네트워크 `monimo-dev` 를 쓴다. 쇼핑몰 에이전트는 컨테이너끼리 `collector:4317`, 내 컴퓨터에서 실행한 앱은 `localhost:4317` 로 보낸다. 수집기를 IDE 로 직접 실행할 때는 `--profile collector` 를 켜지 않는다 (포트가 겹친다).
 
@@ -142,8 +143,8 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `CLICKHOUSE_HTTP_PORT` | 18123 | ClickHouse HTTP 호스트 포트 |
 | `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
-| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` | 4317 · 8081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트 |
-| `INGESTER_HTTP_PORT` | 8082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트 |
+| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` · `COLLECTOR_MANAGEMENT_PORT` | 4317 · 8081 · 18081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트. 관리 포트(`/actuator/**`)는 업무 포트 + 10000 (#148) |
+| `INGESTER_HTTP_PORT` · `INGESTER_MANAGEMENT_PORT` | 8082 · 18082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트. 관리 포트는 업무 포트 + 10000 |
 | `COLLECTOR_SAMPLING_RATIO` | 1.0 | 수집기 트레이스 샘플링 비율 (로컬은 전부 통과. 운영 정본은 1%, ADR #33). 카나리 표시는 비율과 무관하게 통과 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
@@ -155,6 +156,7 @@ api-server 인증용 (bootRun 환경변수):
 | `MONIMO_JWT_SECRET` | (없음) | access JWT 서명 키, 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트만) |
 | `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다. 채널 시험 발송 때 알림 서비스에도 이 값을 보낸다 |
 | `MONIMO_NOTIFIER_URL` | `http://localhost:8084` | 채널 시험 발송(#13)이 부르는 알림 서비스 주소 |
+| `MONIMO_CANARY_THRESHOLD_SEC` | `180` | 카나리 신선도 기준(초). 가장 최근 카나리가 이보다 오래됐으면 `GET /api/v1/internal/canary/freshness` 가 `fresh: false` 로 답한다. 파수꾼은 판정하지 않고 이 값을 따른다 |
 
 detector 스케줄 평가용 (bootRun 환경변수):
 
@@ -171,23 +173,23 @@ notifier 용 (bootRun 환경변수):
 
 ## 포트
 
-HTTP 포트(상태 확인 `/actuator/health`). 개발환경 6단계(로컬 연결 약속)에서 확정.
+업무 HTTP 포트는 개발환경 6단계(로컬 연결 약속)에서 확정. 관리 포트(`/actuator/**`)는 수집기 · 적재 처리기가 업무 포트 + 10 으로 나눴고(`#135`), 쿠버네티스 probe 는 업무 포트의 `/livez` · `/readyz` 를 쏜다.
 
-| 서비스 | 포트 |
-|---|---|
-| api-server | 8080 |
-| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) |
-| ingester | 8082 |
-| detector | 8083 |
-| notifier | 8084 |
+| 서비스 | 업무 포트 | 관리 포트 (`/actuator/**`) |
+|---|---|---|
+| api-server | 8080 | 아직 안 나눔 |
+| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) | 18081 |
+| ingester | 8082 | 18082 |
+| detector | 8083 | 8081 (로컬은 8083) |
+| notifier | 8084 | 8081 (로컬은 8084) |
 
 어느 compose 가 무엇을 켜는지:
 
 | compose | 켜는 것 | 네트워크 |
 |---|---|---|
-| `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(표 · MV) · PostgreSQL(마이그레이션) | `monimo-dev` |
-| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081`) | `monimo-dev` |
-| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082`) | `monimo-dev` |
+| `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(마이그레이션) · PostgreSQL(마이그레이션) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081` · 관리 `:18081`) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082` · 관리 `:18082`) | `monimo-dev` |
 | `monimo-shop/docker-compose.dev.yml` (예정) | 쇼핑몰 4개 + MySQL. OTel 에이전트는 `collector:4317` 로 보낸다 | `monimo-dev` (external) |
 | (없음) | api-server · detector · notifier 는 `bootRun` 또는 IDE 로 실행. 컨테이너 프로필은 구현 때 추가 | |
 

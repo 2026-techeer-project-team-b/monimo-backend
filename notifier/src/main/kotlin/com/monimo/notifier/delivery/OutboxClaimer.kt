@@ -1,5 +1,6 @@
 package com.monimo.notifier.delivery
 
+import com.monimo.notifier.channel.FIRING_UNCONFIRMED
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -15,7 +16,10 @@ data class Claim(
     val payload: Map<String, Any?>,
     val attemptCount: Int,
     val createdAt: Instant,
-)
+) {
+    // 그룹 키 (D15): 같은 채널 · 같은 서비스
+    val groupKey: Pair<Long, String> get() = alertChannelId to (payload["service_name"]?.toString() ?: "")
+}
 
 // 짧은 트랜잭션 두 개. 외부 호출은 이 둘 사이, 트랜잭션 밖에서 한다
 @Component
@@ -31,14 +35,21 @@ class OutboxClaimer(
     @Transactional
     fun claim(): List<Claim> {
         val now = clock.instant()
-        val rows = outbox.lockDue(now, props.batchSize)
+        outbox.cancelResolvedBeforeSend(now)
+        val rows = outbox.lockDue(now, now.minus(props.groupWait), props.batchSize)
+        // 발화 줄이 FAILED(수신 거부 · 재시도 한도 · 서킷 중 최대 나이 · 어댑터 없음)로 끝났는데 복구가 생긴 경우, 사람은 "터졌다"를
+        // 받지 못했을 수 있다. 응답 없음(Unknown)으로 한도에 닿았으면 받았을 수도 있으므로 "못 받았다"가 아니라 "확인 안 됨"이다.
+        // 복구를 숨기면 장애가 있었다는 사실 자체가 사라지므로 보내되, 발화 알림의 전달 성공이 확인되지 않았다고 적는다 (D18-보강)
+        val resolvedIds = rows.filter { it.transition == "RESOLVED" }.map { it.id }
+        val firingUnconfirmed = if (resolvedIds.isEmpty()) emptySet() else outbox.resolvedWhoseFiringFailed(resolvedIds).toSet()
         return rows.map { row ->
             val token = UUID.randomUUID()
             row.status = DeliveryStatus.IN_FLIGHT
             row.claimToken = token
             row.leaseUntil = now.plus(props.lease)
             row.updatedAt = now
-            Claim(row.id, token, row.alertEventId, row.alertChannelId, row.payload, row.attemptCount, row.createdAt)
+            val payload = if (row.id in firingUnconfirmed) row.payload + (FIRING_UNCONFIRMED to true) else row.payload
+            Claim(row.id, token, row.alertEventId, row.alertChannelId, payload, row.attemptCount, row.createdAt)
         }
     }
 
@@ -83,3 +94,4 @@ data class Finish(
     val response: String? = null,
     val error: String? = null,
 )
+
