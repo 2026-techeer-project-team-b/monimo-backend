@@ -29,6 +29,22 @@ data class ThreadDumpSummary(
     val threadCount: Int,
 )
 
+// 탐지가 경보 때 부르는 자동 덤프 요청 (#164). requestedBy 는 없으면 "detector"
+data class AutoThreadDumpRequest(
+    val agentUuid: UUID,
+    val requestedBy: String? = null,
+)
+
+// 자동 덤프 응답. skipped 면 dumpUuid · threadCount 는 null 이고 lastDumpAt 은 쿨다운을 건 직전 덤프 시각(지금 뜨는 중이면 null)
+data class AutoThreadDumpResponse(
+    val skipped: Boolean,
+    val agentKey: String,
+    val serviceName: String,
+    val dumpUuid: UUID?,
+    val threadCount: Int?,
+    val lastDumpAt: String?,
+)
+
 // 목록 커서. requested_at(ms) 내림차순 · dump_uuid 내림차순 키셋
 data class ThreadDumpCursor(
     val ts: Long,
