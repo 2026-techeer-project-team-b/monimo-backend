@@ -605,3 +605,44 @@ TLS 어디서 풀어?
 ```
 
 ## 9. 프롬프트를 가지고 실제 구현
+
+8절 프롬프트대로 구현했다 (2026-10-13). 코드 · 시험 · compose · 점검 스크립트 · 문서는 [`README.md`](README.md) 「결정」 표에, 숫자는 여기에 적는다.
+
+### 관통 (로컬 compose, 쇼핑몰 넷 + 수집기 + 적재 처리기)
+
+게이지는 수집기 관리 포트 `/actuator/metrics/monimo.collector.otlp.{connections,agents}?tag=auth:{plaintext,tls,mtls}`.
+
+| 단계 | 수집기 `client-auth` | 쇼핑몰 | `connections` | `agents` | 에이전트 `Failed to export` |
+|---|---|---|---|---|---|
+| 1 꺼짐 | `none` | 평문 | plaintext **12** | (게이지 추가 전 이미지) | 0 |
+| 2 올림 | `optional` | 평문 그대로 | **0** | 0 | 넷 다 |
+| 3 심기 | `optional` | `MONIMO_OTLP_CERTS_DIR` 켬 | mtls **12** | : | 0 |
+| 4 반드시 | `require` | 그대로 | mtls **8** | mtls **4** | 0 |
+| 5 하나 빼기 | `require` | inventory 만 env 파일 뺌 | mtls **6** | mtls **3** | inventory 3건 · 나머지 셋 **0** |
+| 6 되돌림 | `require` | 넷 다 | mtls 8 ~ 9 | mtls **4** | 0 |
+
+- 연결 수가 12 → 8 → 9 로 흔들린 이유 : 에이전트 하나가 신호마다 연결을 따로 열고(트레이스 · 지표 · 로그 = 3), 로그 연결은 보낼 로그가 생겨야 연다. 기동 직후에는 기동 로그가 있어 12, 수집기를 재시작하면 8(트레이스 · 지표만), 그 뒤 로그가 생기면 9. 그래서 주소를 묶은 `agents` 를 더했다
+- 5 단계 "나머지 셋 0" 의 근거 : 처음 센 값은 4건이었는데 전부 `20:09:18 ~ 28Z` 의 `UnknownHostException: collector` 였다. 그 시각은 새 이미지로 수집기를 다시 만든 구간이다(`docker compose logs --since` 에 `Z` 없는 시각을 줘서 한국 시간으로 읽혀 창이 9시간 넓어졌다). inventory 를 뺀 창(`20:10:59Z` 이후) 안에서는 inventory 의 `Failed to export` 3건뿐이다
+- 4 단계 명부 : `agents` 표 네 줄의 `host(ip)` = gateway `172.19.0.14` · order `.13` · payment `.12` · inventory `.8`, `docker inspect` 와 네 줄 다 일치. payment · inventory 는 재생성으로 주소가 바뀌었는데(`.11` → `.12`, `.15` → `.8`) TLS 뒤에서도 `#149` 가 고쳐 넣었다(`updated_at` 이 그 둘만 움직임)
+- 주문 `POST /api/orders` (`P-100`) : 3 · 4 · 6 단계에서 201 × 3
+- 수집기 열쇠 경로를 `/certs/nope.key` 로 : `Failed to start bean 'otlpGrpcServer'` · `IllegalStateException: OTLP gRPC TLS 를 REQUIRE 로 켰는데 읽을 수 없는 파일이 있다 : [수집기 열쇠(server-key)=/certs/nope.key]. 평문으로 대신 뜨지 않는다` · 종료 코드 1
+- 기동 로그 : `OTLP gRPC 수신 시작: 포트 4317 · TLS 켜짐 · 손님 신분증 요구 REQUIRE · 수집기 신분증 /certs/server.crt · 수집기 열쇠 /certs/server.key · 기관 인증서 /certs/ca.crt (파일은 기동 때 한 번 읽었다. 바꾸면 재시작)`
+- 점검 스크립트 : `check-wiring.sh` · `check-pipeline.sh` 가 `none` · `optional` · `require` 세 번 다 통과. require 때 pipeline 은 traces 6 · metrics 30 · logs 3 (metrics 30 은 쇼핑몰 지표가 같은 창에 들어온 것, 스크립트는 수신 ↔ 소비 대조라 통과)
+- 인증서 생성 : 호스트(OpenSSL 3.6) **1.0초**에 8벌(기관 · 수집기 · 손님 5 · 만료 1), 컨테이너(alpine 3.21 · OpenSSL 3.3)도 같은 결과, 두 번째 실행은 "이미 있음, 아무것도 안 했다". 손님 열쇠는 `-----BEGIN PRIVATE KEY-----`(PKCS8). 만료 벌은 `notBefore 2024-01-01 · notAfter 2024-01-02`, `openssl verify` 가 `certificate has expired`
+
+### 시험
+
+수집기 **138건**, 실패 0. 새로 든 것 : `OtlpGrpcPropertiesTest` 7 · `OtlpConnectionGaugeTest` 5 · `OtlpGrpcMtlsRequireTest` 8 · `OtlpGrpcMtlsOptionalTest` 5. 기존 110건은 기본값 `none` 으로 그대로 평문 통과. 시험용 인증서는 compose 와 같은 `scripts/certs/make-certs.sh` 를 임시 폴더에 두 번 돌려(우리 기관 · 다른 기관) 만들고 JVM 이 끝날 때 지운다.
+
+### 내가 틀렸던 것 (관통이 잡음)
+
+1. **5절 묶음 6 "끊김 없이 옮길 수 있다" 는 과장이었다.** 2 단계에서 평문 에이전트는 전부 떨어졌다. `optional` 이 봐주는 것은 "TLS 로 왔는데 신분증이 없는 손님" 이지 평문이 아니다. 평문 → TLS 는 에이전트 설정을 바꾸고 재시작하는 한 번이 반드시 든다. 두 단계의 값은 "끊김 없음" 이 아니라 **"빠뜨린 쪽이 조용히 멈추지 않음"** 이다. `OtlpGrpcMtlsOptionalTest` 가 "평문은 끊긴다" 를 고정한다
+2. **8절 관통 항목 "게이지 4" 는 연결 수로는 안 나온다.** 위 표대로 12 · 8 · 9 다. "넷이 다 붙었나" 에 답하는 것은 에이전트 수다. 프롬프트에 없던 게이지를 하나 더했고 README 에 그 사실을 적었다
+3. **에이전트가 빈 환경변수를 "없음" 으로 본다고 가정했다.** 쇼핑몰 compose 에 `OTEL_EXPORTER_OTLP_CERTIFICATE: ${MONIMO_OTLP_CERTS_DIR:+...}` 로 넣어 기본값일 때 빈 값이 가게 했더니 네 에이전트가 `ConfigurationException: Invalid OTLP certificate/key path:` 로 멈추고 주문이 502 였다. `env_file` 의 `required: false` 로 바꿔 켤 때만 파일째 넣게 했고, 그러자 `OTEL_EXPORTER_OTLP_ENDPOINT` 를 environment 에 두면 null 항목이 env_file 의 https 값을 덮는 것(실측 : `docker compose run env`)이 드러나 그 변수를 뺐다
+4. **8절 ⑦ 목록에 점검 스크립트용 손님이 없었다.** ⑩ 이 "손님 신분증을 넘긴다" 고만 적어 어느 것인지 정하지 않았다. `check` 한 벌을 더했다
+
+### 열어 둔 것
+
+- 거절 수는 여전히 못 센다. 붙어 있는 수가 줄어든 것으로 본다 (ADR `#64` ⑦ · 기각 ⑨)
+- 자기 감시(파수꾼 · 우리 모듈)에 에이전트를 붙일 때 9벌로 늘린다 (되돌림 ③). 지금은 4 + 점검용 1
+- 운영(EKS)에서 인증서를 어떻게 넣나는 배포 7~9단계 몫이다. 로컬은 compose 일회성 컨테이너, 운영은 Secrets Manager + External Secrets(`#62` ⑦)가 자연스럽다. 이 작업은 수집기가 파일 셋을 읽는 것까지만 정했다
