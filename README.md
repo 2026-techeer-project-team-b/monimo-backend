@@ -156,6 +156,7 @@ api-server 인증용 (bootRun 환경변수):
 | `MONIMO_JWT_SECRET` | (없음) | access JWT 서명 키, 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트만) |
 | `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다. 채널 시험 발송 때 알림 서비스에도 이 값을 보낸다 |
 | `MONIMO_NOTIFIER_URL` | `http://localhost:8084` | 채널 시험 발송(#13)이 부르는 알림 서비스 주소 |
+| `MONIMO_CANARY_THRESHOLD_SEC` | `180` | 카나리 신선도 기준(초). 가장 최근 카나리가 이보다 오래됐으면 `GET /api/v1/internal/canary/freshness` 가 `fresh: false` 로 답한다. 파수꾼은 판정하지 않고 이 값을 따른다 |
 
 detector 스케줄 평가용 (bootRun 환경변수):
 
