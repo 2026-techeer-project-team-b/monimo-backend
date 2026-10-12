@@ -36,6 +36,9 @@ monimo:
   # 카나리 신선도 기준(초). 가장 최근 카나리가 이보다 오래됐으면 canary/freshness 가 fresh=false 로 답하고 파수꾼이 알린다
   canary:
     threshold-sec: ${MONIMO_CANARY_THRESHOLD_SEC:180}
+  # 스레드 덤프 팬아웃(#124)이 부르는 수집기 전부. 쉼표로 나눈다. 1a 는 한 대, K8s 는 헤드리스 Service 의 파드 주소들 (배포 파트와 맞춘다)
+  collector:
+    urls: ${MONIMO_COLLECTOR_URLS:http://localhost:8081}
 
 # 관리 포트 (#162). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10000 (ADR #61)
 management:
