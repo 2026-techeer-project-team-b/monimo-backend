@@ -144,6 +144,7 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
 | `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` · `COLLECTOR_MANAGEMENT_PORT` | 4317 · 8081 · 18081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트. 관리 포트(`/actuator/**`)는 업무 포트 + 10000 (#148) |
+| `COLLECTOR_TLS_CLIENT_AUTH` | none | 에이전트 mTLS (#159 · ADR #64). 수집기가 손님(에이전트) 신분증을 얼마나 요구하나 : `none`(평문, 지금까지와 같다) · `optional`(TLS 로 받되 신분증은 없어도 받는다, 전환 1단계) · `require`(없거나 도장이 다르거나 기간이 지나면 끊는다). 인증서는 compose 가 켤 때 `certs/`(gitignore)에 만든다(`otlp-certs`, 멱등). 켜면 쇼핑몰 `.env` 의 `MONIMO_OTLP_CERTS_DIR` 도 같이 연다(monimo-shop README). 평문 에이전트는 `optional` 에서도 못 붙는다 : 전환에 에이전트 재시작 한 번이 든다. 붙었는지는 `/actuator/metrics/monimo.collector.otlp.agents?tag=auth:mtls` 로 본다(쇼핑몰이 넷이면 4). 점검 스크립트 둘은 이 값을 읽어 같은 방식으로 보낸다 |
 | `INGESTER_HTTP_PORT` · `INGESTER_MANAGEMENT_PORT` | 8082 · 18082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트. 관리 포트는 업무 포트 + 10000 |
 | `COLLECTOR_SAMPLING_RATIO` | 1.0 | 수집기 트레이스 샘플링 비율 (로컬은 전부 통과. 운영 정본은 1%, ADR #33). 카나리 표시는 비율과 무관하게 통과 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
