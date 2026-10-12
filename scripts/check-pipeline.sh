@@ -22,6 +22,21 @@ WAIT_SECONDS=20   # 적재 처리기가 소비할 때까지 기다리는 최대 
 ok() { echo "✓ $1"; }
 fail() { echo "✗ $1"; exit 1; }
 
+# 수집기의 TLS 상태에 맞춰 보낸다 (#159 · ADR #64). 수집기와 같은 .env 를 읽는다 :
+#   COLLECTOR_TLS_CLIENT_AUTH 가 none(기본)이면 지금까지처럼 평문(--otlp-insecure),
+#   optional · require 면 ./certs 의 점검용 신분증(clients/check)을 내고 기관 인증서로 수집기 신분증을 검사한다(--mtls).
+# 수집기만 켜고 .env 를 안 바꾸면 여기서 바로 끊긴다. 그것도 점검이다 : 쇼핑몰 에이전트가 겪을 일을 먼저 겪는다
+TLS=${COLLECTOR_TLS_CLIENT_AUTH:-none}
+send() {   # $1 = 신호 (traces · metrics · logs). 컨테이너 안에서 collector:4317 로 보낸다 = 쇼핑몰 에이전트가 쓸 주소 그대로
+  if [ "$TLS" = "none" ]; then
+    docker run --rm --network "$NET" "$TELEMETRYGEN" "$1" --otlp-endpoint collector:4317 --otlp-insecure "--$1" 3
+  else
+    [ -f certs/clients/check.crt ] || fail "certs/clients/check.crt 가 없다. docker compose up 이 otlp-certs 로 만든다 (COLLECTOR_TLS_CLIENT_AUTH=$TLS)"
+    docker run --rm --network "$NET" -v "$PWD/certs:/certs:ro" "$TELEMETRYGEN" "$1" --otlp-endpoint collector:4317 \
+      --mtls --ca-cert /certs/ca.crt --client-cert /certs/clients/check.crt --client-key /certs/clients/check.key "--$1" 3
+  fi
+}
+
 docker network inspect "$NET" > /dev/null 2>&1 && ok "공용 네트워크 $NET" || fail "공용 네트워크 $NET 없음 (docker network create $NET)"
 
 # 두 컨테이너가 다 떠 있어야 한다
@@ -86,9 +101,8 @@ for signal in traces metrics logs; do
     before_rows=$(rows "$table") || fail "ClickHouse $table 조회 실패 (docker compose ps clickhouse)"
   fi
 
-  # 컨테이너 안에서 collector:4317 로 보낸다 = 쇼핑몰 에이전트가 쓸 주소 그대로
-  docker run --rm --network "$NET" "$TELEMETRYGEN" "$signal" --otlp-endpoint collector:4317 --otlp-insecure "--$signal" 3 > /dev/null 2>&1 \
-    || fail "telemetrygen $signal 전송 실패 (collector:4317)"
+  send "$signal" > /dev/null 2>&1 \
+    || fail "telemetrygen $signal 전송 실패 (collector:4317, TLS=$TLS). 수집기 로그의 'OTLP gRPC 수신 시작' 줄과 .env 의 COLLECTOR_TLS_CLIENT_AUTH 가 맞는지 보라"
 
   # 소비는 비동기라 바로 안 보인다. 기댓값(받은 수 - 버린 수)에 도달할 때까지 기다린다.
   #

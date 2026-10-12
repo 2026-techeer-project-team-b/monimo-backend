@@ -178,7 +178,19 @@ services:
     command: migrate
     restart: "no"
 
-  # 준비 완료 표시등: 토픽 만들기 · 마이그레이션이 "끝나야" 켜진다.
+  # 에이전트 mTLS 인증서 (#159 · ADR #64). 없으면 만들고 있으면 아무것도 안 한다 (멱등, 마이그레이션 컨테이너와 같은 성격).
+  # ./certs/ 에 기관 1벌 · 수집기 1벌 · 손님(쇼핑몰 넷 + 점검 스크립트) 5벌 · 만료된 손님 1벌을 둔다. 그 폴더는 .gitignore 에 있다.
+  # 수집기는 /certs 로 읽기 전용 마운트하고, 쇼핑몰 compose 는 같은 폴더를 MONIMO_OTLP_CERTS_DIR 로 가리킨다.
+  # 수집기 TLS 가 꺼져 있어도(기본) 만들어 둔다 : 켜는 것은 .env 한 줄(COLLECTOR_TLS_CLIENT_AUTH)이라 파일이 먼저 있어야 한다
+  otlp-certs:
+    build:
+      context: ./scripts/certs
+    image: monimo/otlp-certs:dev
+    volumes:
+      - ./certs:/certs
+    restart: "no"
+
+  # 준비 완료 표시등: 토픽 만들기 · 마이그레이션 · 인증서가 "끝나야" 켜진다.
   # up --wait 은 이게 healthy 가 될 때까지 기다리므로, 끝나면 바로 앱을 띄워도 된다.
   infra-ready:
     image: postgres:17.11-alpine
@@ -188,6 +200,8 @@ services:
       postgres-migrate:
         condition: service_completed_successfully
       clickhouse-migrate:
+        condition: service_completed_successfully
+      otlp-certs:
         condition: service_completed_successfully
     entrypoint: ["tail", "-f", "/dev/null"]
     healthcheck:
@@ -232,6 +246,16 @@ services:
       MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
       # 명령의 reply_to (Extension 이 결과를 보낼 이 수집기 주소). 수집기가 한 대라 compose 서비스 이름 그대로
       MONIMO_COLLECTOR_ADVERTISED_URL: http://collector:8081
+      # 에이전트 mTLS (#159 · ADR #64). 손님 신분증을 얼마나 요구하나 : none(기본, 평문) · optional · require.
+      # 두 단계로 올린다 : optional 로 켜고 쇼핑몰 넷이 전부 mtls 칸(/actuator/metrics/monimo.collector.otlp.connections?tag=auth:mtls)에
+      # 오는 것을 확인한 뒤 require 로. 쇼핑몰 쪽은 .env 의 MONIMO_OTLP_CERTS_DIR 과 https 주소를 같이 켠다 (monimo-shop README).
+      # 파일 셋은 otlp-certs 가 만든 ./certs 를 /certs 로 읽는다. none 이면 읽지 않고, 켰는데 못 읽으면 기동이 실패한다 (평문으로 대신 뜨지 않는다)
+      MONIMO_COLLECTOR_OTLP_GRPC_TLS_CLIENT_AUTH: ${COLLECTOR_TLS_CLIENT_AUTH:-none}
+      MONIMO_COLLECTOR_OTLP_GRPC_TLS_SERVER_CERTIFICATE: /certs/server.crt
+      MONIMO_COLLECTOR_OTLP_GRPC_TLS_SERVER_KEY: /certs/server.key
+      MONIMO_COLLECTOR_OTLP_GRPC_TLS_CA_CERTIFICATE: /certs/ca.crt
+    volumes:
+      - ./certs:/certs:ro
     depends_on:
       infra-ready:
         condition: service_healthy
