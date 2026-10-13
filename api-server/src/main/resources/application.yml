@@ -28,7 +28,7 @@ monimo:
     refresh-ttl: 14d
     # refresh 쿠키의 Secure 속성. HTTPS 가 아닌 로컬에서만 끈다
     cookie-secure: true
-  # 내부 문 5개(/api/v1/internal/**)의 X-Internal-Token 값. 비우면 내부 문이 전부 닫힌다
+  # 내부 문 4개(/api/v1/internal/**)의 X-Internal-Token 값. 비우면 내부 문이 전부 닫힌다
   internal-token: ${MONIMO_INTERNAL_TOKEN:}
   # 채널 시험 발송(#13)이 부르는 알림 서비스. X-Internal-Token 은 위 값을 그대로 보낸다
   notifier:

@@ -72,6 +72,17 @@ class ThreadDumpRepository(
         return jdbc.query(sql, params) { rs, _ -> summary(rs) }
     }
 
+    // 그 파드의 sinceMs 이후 가장 최근 덤프 시각(ms). 없으면 null. 자동 덤프 쿨다운 판단용
+    fun findLatestRequestedAtMs(agentKey: String, sinceMs: Long): Long? =
+        jdbc.query(
+            """
+            SELECT toUnixTimestamp64Milli(max(requested_at)) AS last_ms, count() AS cnt
+            FROM thread_dumps
+            WHERE agent_id = :agentKey AND requested_at >= fromUnixTimestamp64Milli(:sinceMs)
+            """.trimIndent(),
+            mapOf("agentKey" to agentKey, "sinceMs" to sinceMs),
+        ) { rs, _ -> if (rs.getLong("cnt") == 0L) null else rs.getLong("last_ms") }.single()
+
     fun findOne(dumpUuid: UUID): ThreadDumpRow? =
         jdbc.query(
             "SELECT $SUMMARY_COLUMNS, dump FROM thread_dumps WHERE dump_uuid = :dumpUuid LIMIT 1",
