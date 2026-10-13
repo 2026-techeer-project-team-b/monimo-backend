@@ -3,6 +3,15 @@
 # 준비: setup_isolated.sh. 결과는 $OUT/result-<RUN>.txt · 실행 환경은 $OUT/env-<RUN>.txt
 # 기대값과 다르면 실패(종료 코드 1)한다. 재시작 뒤 기대값은 환경변수로 바꿀 수 있다 (2단계에서 중복 제거를 켠 비교용):
 #   EXPECT_AFTER_ROWS (기본 110) · EXPECT_AFTER_ERR (기본 20)  — 고유 스팬은 언제나 100 이어야 한다
+#
+# 도구 v3 (#187, 수집 파트): 스팬에서 갈라져 나오는 집계 표를 전부 본다.
+#   v2 는 service_health_1m 하나만 봤다. 중복 제거 기억은 표마다 따로 있어야 하고(2단계 계획 §2 의 B vs G),
+#   transactions -> heatmap_1m 은 **다리가 둘**이라 하나만 보면 연쇄 2단을 못 본다.
+#   더 본 것: transactions · heatmap_1m · url_stats_1m · server_map_1m.
+#   기대값은 새 환경변수 없이 원본 줄 수(er)와 오류 줄 수(ee)에서 바로 나온다 (스팬이 전부 SERVER 라서다):
+#     transactions count = er · heatmap_1m sum(cnt) = er · url_stats_1m countMerge = er · sumMerge(err) = ee ·
+#     server_map_1m count = 0 (CLIENT 전용 MV 라 SERVER 스팬은 안 들어온다)
+#   v1 · v2 원자료는 그대로 보존한다. 이 판으로 돈 결과는 result-*-tool-v3.txt 로 남긴다.
 set -euo pipefail
 S=${OUT:-/tmp/monimo-kafka-exp}; mkdir -p "$S"; HERE=$(cd "$(dirname "$0")" && pwd); ROOT=$(cd "$HERE/../../.." && pwd)
 PY=${PY:-python3}; WAIT=${WAIT_TIMEOUT:-90}
@@ -28,6 +37,14 @@ end_offset(){ local out; out=$(docker exec exp-kafka /opt/kafka/bin/kafka-get-of
 wait_for(){ local desc=$1; shift; local deadline=$(( $(date +%s) + WAIT ))
   until "$@"; do [ "$(date +%s)" -ge $deadline ] && die "${WAIT}초 안에 '$desc' 안 됨"; sleep 0.3; done; }
 rows(){ CH "SELECT count() FROM monimo.spans WHERE service_name='$SVC'"; }
+# 스팬에서 갈라져 나오는 집계 표 전부 (#187 v3). heatmap_1m 은 transactions 를 거친 **연쇄 2단**이다
+aggs(){ CH "SELECT
+    (SELECT count() FROM monimo.transactions WHERE service_name='$SVC'),
+    (SELECT sum(cnt) FROM monimo.heatmap_1m WHERE service_name='$SVC'),
+    (SELECT countMerge(cnt) FROM monimo.url_stats_1m WHERE service_name='$SVC'),
+    (SELECT sumMerge(err_cnt) FROM monimo.url_stats_1m WHERE service_name='$SVC'),
+    (SELECT count() FROM monimo.server_map_1m WHERE caller_service='$SVC')
+    FORMAT TSV"; }
 committed_is(){ [ "$(committed)" = "$1" ]; }
 rows_is(){ [ "$(rows)" = "$1" ]; }
 
@@ -41,9 +58,13 @@ check(){ local label=$1 er=$2 eu=$3 ee=$4 ec=$5 eerr=$6 ecommit=$7 eend=$8
   echo "kafka: committed=$c end=$e lag=$((e-c))"
   printf 'spans: rows=%s unique=%s err_rows=%s\n' $got
   printf 'service_health_1m: cnt=%s err_cnt=%s' $agg; echo " err_pct=$pct"
+  local five; five=$(aggs)
+  printf 'transactions=%s heatmap_1m=%s url_stats_1m=%s url_err=%s server_map_1m=%s\n' $five
   local want="$er	$eu	$ee"; local wantagg="$ec	$eerr"
-  if [ "$got" != "$want" ] || [ "$agg" != "$wantagg" ] || [ "$c" != "$ecommit" ] || [ "$e" != "$eend" ]; then
-    echo "!! 기대와 다름: spans=($want) agg=($wantagg) committed=$ecommit end=$eend"; FAILS=$((FAILS+1)); fi; }
+  # 스팬이 전부 SERVER 라 네 표는 원본 줄 수와 같고, server_map_1m 은 CLIENT 전용이라 0 이다
+  local wantfive="$er	$er	$er	$ee	0"
+  if [ "$got" != "$want" ] || [ "$agg" != "$wantagg" ] || [ "$five" != "$wantfive" ] || [ "$c" != "$ecommit" ] || [ "$e" != "$eend" ]; then
+    echo "!! 기대와 다름: spans=($want) agg=($wantagg) five=($wantfive) committed=$ecommit end=$eend"; FAILS=$((FAILS+1)); fi; }
 
 # ---- 실행 환경 기록 (이 실행에서 실제로 쓴 값) ----
 JAR=${JAR:-$ROOT/ingester/build/libs/ingester-0.0.1-SNAPSHOT.jar}
