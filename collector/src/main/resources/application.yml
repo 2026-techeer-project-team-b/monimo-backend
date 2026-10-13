@@ -21,7 +21,7 @@ spring:
   flyway:
     enabled: false               # 서비스는 마이그레이션을 돌리지 않는다 (ADR #49)
   kafka:
-    # 임시 메시지 형식: OTLP protobuf 바이트 그대로 (개발환경 9단계에서 확정)
+    # 메시지 형식: OTLP protobuf 바이트 그대로, 메타는 봉투 겉면(Kafka 헤더). 개발환경 9단계에서 고정했다 (ADR #65)
     producer:
       # 브로커가 저장을 끝낸 뒤에만 성공으로 친다
       acks: all
