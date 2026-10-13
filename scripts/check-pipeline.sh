@@ -169,8 +169,14 @@ done
 #
 # 최근 10분으로 범위를 좁힌다 : 공유 로컬 DB 에는 MV 정의가 바뀌기 전(#118)에 들어온 옛 줄이 남아 있을 수 있고,
 # 그것까지 세면 멀쩡한데도 어긋난 것처럼 보인다. MV 는 insert 와 같은 시점에 채우므로 기다릴 필요는 없다.
-echo "중복 대조 (최근 10분)"
-RECENT="start_time >= now() - INTERVAL 10 MINUTE"
+#
+# **시작 시각을 분 경계로 내린다.** 집계 표의 칸은 1분 단위(`ts_min`)라, 원본을 초 단위로 자르면
+# 집계 쪽 창이 최대 59초 더 넓어져 **멀쩡한데도 어긋난 것처럼 보인다.** 처음에 원본만 `now() - 10분` 으로
+# 두고 집계를 `toStartOfMinute(now() - 10분)` 으로 둬서 CI 에서 952줄 차이로 걸렸다(가짜 데이터가 빽빽한
+# 러너에서만 드러났다. 로컬은 그 구간에 6건뿐이라 통과했다). 양쪽을 같은 분 경계에서 시작한다.
+echo "중복 대조 (최근 10분, 분 경계)"
+FROM_TS="toStartOfMinute(now() - INTERVAL 10 MINUTE)"
+RECENT="start_time >= $FROM_TS"
 
 # ① spans 자체 : 같은 (trace_id, span_id) 가 두 줄이면 중복이다
 dup=$(ch_query "SELECT count() - uniqExact(trace_id, span_id) FROM monimo.spans WHERE $RECENT") \
@@ -180,14 +186,14 @@ ok "spans 중복 0줄"
 
 # ② spans(SERVER) ↔ service_health_1m : 탐지가 읽는 집계다. MV 조건(span_kind = 'SERVER')을 그대로 맞춘다
 src=$(ch_query "SELECT count() FROM monimo.spans WHERE span_kind = 'SERVER' AND $RECENT") || fail "spans SERVER 조회 실패"
-agg=$(ch_query "SELECT countMerge(cnt) FROM monimo.service_health_1m WHERE ts_min >= toStartOfMinute(now() - INTERVAL 10 MINUTE)") || fail "service_health_1m 조회 실패"
+agg=$(ch_query "SELECT countMerge(cnt) FROM monimo.service_health_1m WHERE ts_min >= $FROM_TS") || fail "service_health_1m 조회 실패"
 [ "$src" = "$agg" ] || fail "집계가 원본과 다르다: spans(SERVER) ${src}줄인데 service_health_1m 은 ${agg}건으로 센다. 집계만 중복되면 에러율 · P95 가 틀어진다 (탐지가 이 표를 읽는다)"
 ok "spans(SERVER) ${src} = service_health_1m ${agg}"
 
 # ③ transactions ↔ heatmap_1m : **연쇄 2단**이다 (spans -> transactions -> heatmap_1m).
 # 중복 제거 판정이 다리 하나는 넘는 것이 확인됐고 두 번째 다리가 이 대조로 드러난다
 src=$(ch_query "SELECT count() FROM monimo.transactions WHERE $RECENT") || fail "transactions 조회 실패"
-agg=$(ch_query "SELECT sum(cnt) FROM monimo.heatmap_1m WHERE ts_min >= toStartOfMinute(now() - INTERVAL 10 MINUTE)") || fail "heatmap_1m 조회 실패"
+agg=$(ch_query "SELECT sum(cnt) FROM monimo.heatmap_1m WHERE ts_min >= $FROM_TS") || fail "heatmap_1m 조회 실패"
 [ "$src" = "$agg" ] || fail "연쇄 집계가 원본과 다르다: transactions ${src}줄인데 heatmap_1m 은 ${agg}건으로 센다. 다리 둘짜리 MV 사슬에서 중복 제거가 두 번째 다리를 못 넘었다는 뜻이다"
 ok "transactions ${src} = heatmap_1m ${agg}"
 
