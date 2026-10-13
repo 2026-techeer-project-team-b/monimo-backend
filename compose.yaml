@@ -209,13 +209,14 @@ services:
       interval: 2s
       retries: 3
 
-  # 수집기 (프로필 collector 일 때만). 이미지는 레포 루트의 collector/Dockerfile 로 그 자리에서 만든다.
+  # 수집기 (프로필 collector 일 때만). 이미지는 레포 루트 Dockerfile 의 collector 단계로 그 자리에서 만든다 (#170).
   # 컨테이너끼리는 collector:4317 · 내 컴퓨터에서는 localhost:4317 (IDE 로 직접 실행하면 이 프로필을 켜지 않는다)
   collector:
     profiles: ["collector"]
     build:
       context: .
-      dockerfile: collector/Dockerfile
+      dockerfile: Dockerfile
+      target: collector
     image: monimo/collector:dev
     ports:
       - "${COLLECTOR_OTLP_PORT:-4317}:4317"
@@ -274,7 +275,8 @@ services:
     profiles: ["ingester"]
     build:
       context: .
-      dockerfile: ingester/Dockerfile
+      dockerfile: Dockerfile
+      target: ingester
     image: monimo/ingester:dev
     ports:
       - "${INGESTER_HTTP_PORT:-8082}:8082"

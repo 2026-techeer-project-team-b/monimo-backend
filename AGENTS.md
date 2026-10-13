@@ -80,6 +80,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - PG 마이그레이션 틀과 전용 Flyway 컨테이너 (`#5`), 서비스 5개 로컬 프로필과 Testcontainers 테스트 (`#6`)
 - 테스트를 Kotest BehaviorSpec 으로 교체 (`#4`), ClickHouse 표 11개 · MV 7개 · 가짜 신호 데이터 (`#10`)
 - 공용 네트워크 `monimo-dev`, 수집기 컨테이너 프로필, `check-wiring.sh` (`#13`)
+- 수집기 · 적재 처리기 이미지를 루트 `Dockerfile` 하나(멀티스테이지 · `--target collector|ingester`)로, Gradle 캐시 마운트, `.dockerignore` 에 `db` · `scripts` (`#170`, monimo-shop `#42` 와 같은 방식). 둘 다 빌드 : 캐시 없이 54 → 47초, 수집기 코드 한 줄 뒤 53 → 11초, 마이그레이션 파일만 바뀌면 다시 안 돈다(1초). 다른 모듈을 이미지로 만들 때도 이 파일에 target 을 더한다
 - api-server 에 springdoc — REST 명세와 Swagger UI 를 local 프로필에서만 (`#12`)
 - CODEOWNERS 파트별 담당자 (`#15`)
 - `docs/seungjo/`(승조가 AI 와 일한 기록 : `harness.md` 구성 · 흐름 · 토큰 기준값 · AI 가 틀린 것, 이슈 폴더마다 `research.md` · `prompts.md` · `decision.md` · `tables.md`. 코드와 같은 PR 에) · README 「AI 와 일한 방법」 절. 2026-10-04 에 `docs/harness` · `docs/research` · `docs/prompts` 를 이 한 폴더로 합쳤다. 옛 자리에 남겨 둔 안내용 포인터는 다른 네 레포의 링크를 다 돌린 뒤 지웠다(`#102`). **승조 담당 파트에만 해당**, 다른 파트의 방식은 적지 않는다
