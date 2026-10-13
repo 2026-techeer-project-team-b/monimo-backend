@@ -38,7 +38,7 @@ curl localhost:8081/readyz           # 쿠버네티스가 쏘는 주소. 업무 
 open http://localhost:8080/swagger-ui.html
 
 # Docker 이미지 (레포 루트에서)
-docker build -f collector/Dockerfile -t monimo/collector .
+docker build --target collector -t monimo/collector .   # 루트 Dockerfile 하나에 collector · ingester 단계 (#170)
 ```
 
 ### 로컬 인프라 (Kafka · ClickHouse · PostgreSQL)

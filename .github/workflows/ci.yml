@@ -41,7 +41,10 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ matrix.module }}/Dockerfile
+          file: Dockerfile
+          target: ${{ matrix.module }}
+          # 러너마다 이미지 하나라 그 모듈만 Gradle 로 만든다 (Dockerfile BOOT_JARS)
+          build-args: BOOT_JARS=:${{ matrix.module }}:bootJar
           push: false
           tags: monimo/${{ matrix.module }}:ci
           cache-from: type=gha,scope=${{ matrix.module }}
