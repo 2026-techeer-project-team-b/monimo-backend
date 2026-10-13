@@ -162,6 +162,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#174`** 로그 검색 `GET /logs`. 시각 역순 · 커서 페이징. `level` 은 쉼표로 여러 개, `logger` 는 앞부분 일치, `q` 는 본문 포함(대소문자 무관), `service_name` 없이 `trace_id` 만으로도 부른다(트레이스 상세의 연결 로그). `from` 이 보관 97일보다 오래되면 404 `SIGNAL_EXPIRED`. 로그는 고유 번호가 없어 커서가 (시각, 그 시각에서 이미 준 줄 수)다
 - **`#176`** 지표 시계열 `GET /metrics/series`. `step` 으로 표를 고른다(60 미만 `metrics_raw` · 60 이상 `metrics_1m` · 3600 이상 `metrics_1h`), 롤업은 `*Merge` 로 풀어 step 칸으로 다시 합친다. `step` 이 없으면 기간에 맞춰 서버가 고른다(점 400개 이하). 줄은 파드 × 속성 조합. 범위 상한은 표마다 7일 · 90일 · 365일, 한 줄 2000점까지
 - **`#178`** 히트맵 `GET /traces/heatmap`. `heatmap_1m` 을 `step` 칸으로 다시 묶어 시간 칸 × 50ms 구간 × 성공/실패의 요청 수를 준다(읽을 때 `sum` · `GROUP BY`). 스캐터는 점이 많으면 접지만 히트맵은 빠짐없이 세어 합계가 스캐터 `total_count` 와 같다. `step` 은 60의 배수, 가로 칸 2000개까지
+- **`#180`** 파드 현재 스레드 수 `GET /agents/{agentUuid}/active-threads`. 주소의 `agent_uuid` 를 인증 설정 파트의 `AgentRepository.findOne` 으로 `agent_key` 로 바꾼 뒤 `metrics_1m` 에서 `jvm.thread.count` 가장 최근 1분을 읽는다. OTel 이 이 지표를 데몬 여부 · 상태별 줄로 나눠 보내 줄별 마지막 값을 더한다. 최근 1시간 안에 값이 없으면 404
 
 - **Kafka 재처리 기준선 (2026-10-11, 알림 · 1단계)**: 적재 처리기가 CH 저장 뒤 · 오프셋 커밋 전에 죽으면 같은 레코드를 다시 넣는다. 격리 Kafka · CH 에서 정상 90 커밋 → 오류 10 저장 후 커밋 전 `kill -9`(`jdb` 로 `commitSync` 중단점) → 같은 그룹 재시작을 3회 해 모두 **`spans` 110줄 / 고유 100, `service_health_1m` 에러율 10% → 18.18%**. 오류 로그 없이 조용히 틀린다. 원인: 커밋은 기본 BATCH(poll 처리 뒤), `spans` 는 `MergeTree` 에 `non_replicated_deduplication_window=0` · 중복 제거 토큰 없음. 해결책은 2단계에서 비교 (`docs/kafka-reprocess/10-baseline.md`)
 
