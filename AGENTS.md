@@ -161,6 +161,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#172`** 트랜잭션 목록 `GET /traces/transactions`. 스캐터(`#110`)와 같은 `transactions` 표에서 조건(파드 · 응답시간 범위 · 성공/실패)에 맞는 요청을 **느린 순**으로 커서 페이징한다. 스캐터에서 드래그한 사각형이 `from` · `to` · `min_duration_ms` · `max_duration_ms` 로 온다
 - **`#174`** 로그 검색 `GET /logs`. 시각 역순 · 커서 페이징. `level` 은 쉼표로 여러 개, `logger` 는 앞부분 일치, `q` 는 본문 포함(대소문자 무관), `service_name` 없이 `trace_id` 만으로도 부른다(트레이스 상세의 연결 로그). `from` 이 보관 97일보다 오래되면 404 `SIGNAL_EXPIRED`. 로그는 고유 번호가 없어 커서가 (시각, 그 시각에서 이미 준 줄 수)다
 - **`#176`** 지표 시계열 `GET /metrics/series`. `step` 으로 표를 고른다(60 미만 `metrics_raw` · 60 이상 `metrics_1m` · 3600 이상 `metrics_1h`), 롤업은 `*Merge` 로 풀어 step 칸으로 다시 합친다. `step` 이 없으면 기간에 맞춰 서버가 고른다(점 400개 이하). 줄은 파드 × 속성 조합. 범위 상한은 표마다 7일 · 90일 · 365일, 한 줄 2000점까지
+- **`#178`** 히트맵 `GET /traces/heatmap`. `heatmap_1m` 을 `step` 칸으로 다시 묶어 시간 칸 × 50ms 구간 × 성공/실패의 요청 수를 준다(읽을 때 `sum` · `GROUP BY`). 스캐터는 점이 많으면 접지만 히트맵은 빠짐없이 세어 합계가 스캐터 `total_count` 와 같다. `step` 은 60의 배수, 가로 칸 2000개까지
 
 - **Kafka 재처리 기준선 (2026-10-11, 알림 · 1단계)**: 적재 처리기가 CH 저장 뒤 · 오프셋 커밋 전에 죽으면 같은 레코드를 다시 넣는다. 격리 Kafka · CH 에서 정상 90 커밋 → 오류 10 저장 후 커밋 전 `kill -9`(`jdb` 로 `commitSync` 중단점) → 같은 그룹 재시작을 3회 해 모두 **`spans` 110줄 / 고유 100, `service_health_1m` 에러율 10% → 18.18%**. 오류 로그 없이 조용히 틀린다. 원인: 커밋은 기본 BATCH(poll 처리 뒤), `spans` 는 `MergeTree` 에 `non_replicated_deduplication_window=0` · 중복 제거 토큰 없음. 해결책은 2단계에서 비교 (`docs/kafka-reprocess/10-baseline.md`)
 
