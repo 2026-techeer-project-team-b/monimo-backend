@@ -88,6 +88,11 @@ rows() {
   docker compose exec -T clickhouse bash -c \
     'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --query "SELECT count() FROM monimo.'"$1"'"'
 }
+# 아무 조회나 한 줄로. $1 = SQL. 중복 대조(아래)가 쓴다
+ch_query() {
+  docker compose exec -T clickhouse bash -c \
+    'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --query "'"$1"'"'
+}
 # 신호별로 적재되는 표. 비어 있으면 적재가 없는 신호라 ClickHouse 확인을 건너뛴다 (지금은 셋 다 있다)
 table_of() { case "$1" in traces) echo spans ;; metrics) echo metrics_raw ;; logs) echo logs ;; esac; }
 
@@ -150,5 +155,54 @@ for signal in traces metrics logs; do
     && ok "$signal ${sent}건: 수집기 수신 → Kafka raw → 적재 처리기 소비 → ClickHouse $table (+${added}줄)" \
     || fail "$signal 을 적재 처리기가 풀었지만 ClickHouse $table 에 안 들어갔다 (${before_rows}줄 그대로, ${WAIT_SECONDS}초 대기). 적재 처리기 로그의 insert 오류를 확인하라"
 done
+
+# ── 중복 대조 (#187)
+#
+# 왜 필요한가 : 적재 처리기가 ClickHouse 에 넣은 뒤 Kafka 오프셋을 커밋하기 전에 죽으면 같은 레코드를
+# 다시 넣는다. 그것은 ClickHouse 쪽 중복 제거 기억이 막는데(db/clickhouse 의 창 설정), **놓치는 경우가 있다** :
+# 같은 레코드라도 적재 처리기가 내는 바이트가 달라지면 기억이 못 알아본다(research.md 2.2 의 peer_service).
+# 그래서 "고쳤는데 가끔 그대로" 인 상태를 알아낼 장치가 따로 필요하다.
+#
+# 틀어지는 모양이 둘이라 둘 다 본다 :
+#   ① 원본과 집계가 같이 중복 (기억이 아예 못 걸렀다)        -> 원본 자체 대조로 보인다
+#   ② 원본은 깨끗한데 집계만 중복 (표마다 따로인 기억이 빠졌다) -> **원본만 세면 안 보인다.** 그래서 집계와 대조한다
+#
+# 최근 10분으로 범위를 좁힌다 : 공유 로컬 DB 에는 MV 정의가 바뀌기 전(#118)에 들어온 옛 줄이 남아 있을 수 있고,
+# 그것까지 세면 멀쩡한데도 어긋난 것처럼 보인다. MV 는 insert 와 같은 시점에 채우므로 기다릴 필요는 없다.
+echo "중복 대조 (최근 10분)"
+RECENT="start_time >= now() - INTERVAL 10 MINUTE"
+
+# ① spans 자체 : 같은 (trace_id, span_id) 가 두 줄이면 중복이다
+dup=$(ch_query "SELECT count() - uniqExact(trace_id, span_id) FROM monimo.spans WHERE $RECENT") \
+  || fail "spans 중복 대조 조회 실패"
+[ "$dup" = "0" ] || fail "spans 에 중복 ${dup}줄 (같은 trace_id·span_id 가 두 번 들어왔다). ClickHouse 중복 제거 기억이 못 걸렀다는 뜻이다 : db/clickhouse 의 non_replicated_deduplication_window 설정과 적재 처리기 재시작 이력을 보라"
+ok "spans 중복 0줄"
+
+# ② spans(SERVER) ↔ service_health_1m : 탐지가 읽는 집계다. MV 조건(span_kind = 'SERVER')을 그대로 맞춘다
+src=$(ch_query "SELECT count() FROM monimo.spans WHERE span_kind = 'SERVER' AND $RECENT") || fail "spans SERVER 조회 실패"
+agg=$(ch_query "SELECT countMerge(cnt) FROM monimo.service_health_1m WHERE ts_min >= toStartOfMinute(now() - INTERVAL 10 MINUTE)") || fail "service_health_1m 조회 실패"
+[ "$src" = "$agg" ] || fail "집계가 원본과 다르다: spans(SERVER) ${src}줄인데 service_health_1m 은 ${agg}건으로 센다. 집계만 중복되면 에러율 · P95 가 틀어진다 (탐지가 이 표를 읽는다)"
+ok "spans(SERVER) ${src} = service_health_1m ${agg}"
+
+# ③ transactions ↔ heatmap_1m : **연쇄 2단**이다 (spans -> transactions -> heatmap_1m).
+# 중복 제거 판정이 다리 하나는 넘는 것이 확인됐고 두 번째 다리가 이 대조로 드러난다
+src=$(ch_query "SELECT count() FROM monimo.transactions WHERE $RECENT") || fail "transactions 조회 실패"
+agg=$(ch_query "SELECT sum(cnt) FROM monimo.heatmap_1m WHERE ts_min >= toStartOfMinute(now() - INTERVAL 10 MINUTE)") || fail "heatmap_1m 조회 실패"
+[ "$src" = "$agg" ] || fail "연쇄 집계가 원본과 다르다: transactions ${src}줄인데 heatmap_1m 은 ${agg}건으로 센다. 다리 둘짜리 MV 사슬에서 중복 제거가 두 번째 다리를 못 넘었다는 뜻이다"
+ok "transactions ${src} = heatmap_1m ${agg}"
+
+# 지표(metrics_raw · metrics_1m · metrics_1h)와 로그(logs)는 대조하지 않는다. 이유가 둘 다 있다.
+#
+# ㄱ 거짓 경보가 난다. 처음에 "한 계열(series_hash)의 한 시각에 점은 하나" 로 보고 지표 중복을 세게 만들었는데
+#   바로 걸렸다 : telemetrygen 이 같은 이름 · 같은 꼬리표의 지표 셋을 보내고 metrics_raw.ts 가 **초 단위**라
+#   둘이 같은 초에 떨어졌다. 값은 서로 달랐으니(0 과 1) 중복이 아니라 **진짜 점 둘**이다(실측).
+#   값까지 키에 넣어도 안 낫다 : 안 변하는 게이지가 같은 초에 두 번 찍히면 진짜와 구분이 안 된다.
+#   로그도 같은 이유다 : 같은 글자가 같은 시각에 두 번 찍히는 것이 진짜일 수 있다.
+#
+# ㄴ 지표는 중복이 집계를 틀어뜨리지 못한다. metrics_1m · metrics_1h 의 롤업이 avg · min · max · argMax 라
+#   **같은 값이 두 번 들어와도 결과가 안 바뀐다**(멱등). 즉 중복의 영향이 metrics_raw 줄 수뿐이고
+#   그 줄은 창 설정이 막는다. 로그는 MV 가 아예 없다.
+#
+# 그래서 대조는 스팬 쪽만 본다. 틀어졌을 때 사람이 보는 숫자(에러율 · P95 · 히트맵)가 전부 그쪽이다.
 
 echo "파이프라인 관통 정상: 에이전트 → 수집기 → Kafka raw → 적재 처리기 → ClickHouse"
