@@ -461,6 +461,7 @@
 |  | series_hash | 꾸러미 요약 숫자 | UInt64 | 🔑4 | 같은 지표라도 'G1 Old'와 'G1 Young'처럼 갈래가 다르면 다른 줄이어야 한다. 원본의 주머니를 숫자로 접어 그 갈래를 구분한다 |
 |  | ts_min | 1분 단위 시각 | DateTime | 🔑5 | 1분에 한 줄로 접는 시각 기준. 15초짜리 원본 네 줄이 여기서 한 줄이 되고, 인스펙터 그래프의 가로축이 된다 |
 | 표시 | is_counter | 총합 표시 | SimpleAggregateFunction(max, UInt8) |  | 원본 `metrics_raw.is_counter` 를 그대로 흘린 것. 시계열 안에서 늘 같은 값이라 max 로 접는다. 1 이면 `last_v` 끼리 앞 분을 빼서 "그 1분에 얼마" 를 만든다 (`#189`) |
+|  | attributes | 지표 부가 정보 | SimpleAggregateFunction(any, Map(String, String)) |  | 원본 `metrics_raw.attributes` 를 그대로 흘린 것(`LowCardinality` 가 빠진 이유 : `any` 가 그것을 벗긴 타입을 돌려줘서 칸 타입과 맞춰야 한다). 같은 `series_hash` 면 늘 같은 주머니라 any 로 접는다. 원본이 105일에 지워진 뒤에도 어느 갈래(G1 Old Gen · Eden)인지 알려고 둔다. `#193` 이전 줄은 빈 Map (`#193`, ADR `#70`) |
 | 접어 둔 값 | avg_v | 평균(중간 상태) | AggregateFunction(avg, Float64) |  | 평균을 숫자로 굳히지 않고 계산 중간 상태로 접어 둔다. 볼 때 `avgMerge`로 펼친다. 평균끼리는 더할 수 없어서, 결과를 바로 저장하면 1시간 롤업에서 값이 틀어진다 |
 |  | min_v | 최소(중간 상태) | AggregateFunction(min, Float64) |  | 1분 안의 최솟값 중간 상태. 볼 때 `minMerge`로 펼쳐 그래프의 아래 띠를 그린다 |
 |  | max_v | 최대(중간 상태) | AggregateFunction(max, Float64) |  | 1분 안의 최댓값 중간 상태. 볼 때 `maxMerge`로 펼친다. 평균만 두면 순간 최고점이 깎여 사라진다 |
@@ -491,6 +492,7 @@
 |  | series_hash | 꾸러미 요약 숫자 | UInt64 | 🔑4 | 같은 지표의 갈래 구분. 1분 표에서 쓰던 숫자를 그대로 이어받아 접는다 |
 |  | ts_hour | 1시간 단위 시각 | DateTime | 🔑5 | 한 시간을 한 줄로 접는 시각 기준. 1년을 담아도 줄 수가 1분 표의 60분의 1이라 추세 그래프가 가볍다 |
 | 표시 | is_counter | 총합 표시 | SimpleAggregateFunction(max, UInt8) |  | `metrics_1m.is_counter` 를 그대로 흘린 것 (`#189`) |
+|  | attributes | 지표 부가 정보 | SimpleAggregateFunction(any, Map(String, String)) |  | `metrics_1m.attributes` 를 그대로 흘린 것. 같은 `series_hash` 면 늘 같은 주머니라 any 로 접는다. 원본이 105일에 지워진 뒤에도 어느 갈래(G1 Old Gen · Eden)인지 알려고 둔다. `#193` 이전 줄은 빈 Map (`#193`, ADR `#70`) |
 | 접어 둔 값 | avg_v | 평균(중간 상태) | AggregateFunction(avg, Float64) |  | 1분 표의 중간 상태를 다시 합친 평균 중간 상태. 결과 숫자가 아니라 중간 상태라서 60개를 합쳐도 값이 정확하다. 볼 때 `avgMerge`로 펼친다 |
 |  | min_v | 최소(중간 상태) | AggregateFunction(min, Float64) |  | 한 시간 안의 최솟값 중간 상태. 볼 때 `minMerge`로 펼친다 |
 |  | max_v | 최대(중간 상태) | AggregateFunction(max, Float64) |  | 한 시간 안의 최댓값 중간 상태. 볼 때 `maxMerge`로 펼쳐 1년 중 최고점을 찾는다 |

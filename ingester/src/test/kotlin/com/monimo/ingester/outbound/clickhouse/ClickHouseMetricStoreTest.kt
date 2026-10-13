@@ -86,6 +86,11 @@ class ClickHouseMetricStoreTest(
                 countWhere("metrics_1m", "metric_name = '$name' AND is_counter = 1") shouldBe 1L
                 countWhere("metrics_1h", "metric_name = '$name' AND is_counter = 1") shouldBe 1L
             }
+
+            Then("롤업 metrics_1m · metrics_1h 에 꼬리표도 따라간다 : 원본이 105일에 지워져도 갈래를 알 수 있다 (#193)") {
+                countWhere("metrics_1m", "metric_name = '$name' AND attributes['jvm.gc.name'] = 'G1 Young Generation'") shouldBe 1L
+                countWhere("metrics_1h", "metric_name = '$name' AND attributes['jvm.gc.name'] = 'G1 Young Generation'") shouldBe 1L
+            }
         }
     }
 })
