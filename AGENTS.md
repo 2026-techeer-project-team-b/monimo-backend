@@ -158,6 +158,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#108`** 에러 타임라인 `GET /errors/timeline`. 에러 목록(`#106`)과 같은 스팬을 `step` 칸 × 상태코드 대역(5xx · 4xx · other) × 예외 타입으로 센다. 합계가 목록 줄 수와 같다. `step` 은 60 이상 · 60의 배수, 0건 칸은 행 없음
 - **`#110`** 스캐터 `GET /traces/scatter`. `transactions` 의 요청을 점으로. 요청 수가 `limit`(기본 5000) 이하면 전부(`raw`), 넘으면 (시간 × 응답시간(로그 간격) × 성공/실패) 격자마다 가장 느린 실제 요청 하나를 대표로(`bucketed`) — 점 모양이 같아 눌러서 트레이스 상세로 간다
 - **`#160`** 내부 문 `GET /internal/canary/freshness`. 카나리 표식(`attributes['monimo.canary']`)이 있는 스팬 중 가장 최근 것이 몇 초 전인지와 기준(`MONIMO_CANARY_THRESHOLD_SEC`, 기본 180초) 안인지(`fresh`)를 낸다. 파수꾼(`monimo-watchdog`)이 1분마다 묻는다. 최근 24시간에 카나리가 없으면 404 가 아니라 200 · `fresh: false`
+- **`#172`** 트랜잭션 목록 `GET /traces/transactions`. 스캐터(`#110`)와 같은 `transactions` 표에서 조건(파드 · 응답시간 범위 · 성공/실패)에 맞는 요청을 **느린 순**으로 커서 페이징한다. 스캐터에서 드래그한 사각형이 `from` · `to` · `min_duration_ms` · `max_duration_ms` 로 온다
 
 - **Kafka 재처리 기준선 (2026-10-11, 알림 · 1단계)**: 적재 처리기가 CH 저장 뒤 · 오프셋 커밋 전에 죽으면 같은 레코드를 다시 넣는다. 격리 Kafka · CH 에서 정상 90 커밋 → 오류 10 저장 후 커밋 전 `kill -9`(`jdb` 로 `commitSync` 중단점) → 같은 그룹 재시작을 3회 해 모두 **`spans` 110줄 / 고유 100, `service_health_1m` 에러율 10% → 18.18%**. 오류 로그 없이 조용히 틀린다. 원인: 커밋은 기본 BATCH(poll 처리 뒤), `spans` 는 `MergeTree` 에 `non_replicated_deduplication_window=0` · 중복 제거 토큰 없음. 해결책은 2단계에서 비교 (`docs/kafka-reprocess/10-baseline.md`)
 
