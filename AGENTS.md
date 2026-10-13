@@ -159,6 +159,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#110`** 스캐터 `GET /traces/scatter`. `transactions` 의 요청을 점으로. 요청 수가 `limit`(기본 5000) 이하면 전부(`raw`), 넘으면 (시간 × 응답시간(로그 간격) × 성공/실패) 격자마다 가장 느린 실제 요청 하나를 대표로(`bucketed`) — 점 모양이 같아 눌러서 트레이스 상세로 간다
 - **`#160`** 내부 문 `GET /internal/canary/freshness`. 카나리 표식(`attributes['monimo.canary']`)이 있는 스팬 중 가장 최근 것이 몇 초 전인지와 기준(`MONIMO_CANARY_THRESHOLD_SEC`, 기본 180초) 안인지(`fresh`)를 낸다. 파수꾼(`monimo-watchdog`)이 1분마다 묻는다. 최근 24시간에 카나리가 없으면 404 가 아니라 200 · `fresh: false`
 - **`#172`** 트랜잭션 목록 `GET /traces/transactions`. 스캐터(`#110`)와 같은 `transactions` 표에서 조건(파드 · 응답시간 범위 · 성공/실패)에 맞는 요청을 **느린 순**으로 커서 페이징한다. 스캐터에서 드래그한 사각형이 `from` · `to` · `min_duration_ms` · `max_duration_ms` 로 온다
+- **`#174`** 로그 검색 `GET /logs`. 시각 역순 · 커서 페이징. `level` 은 쉼표로 여러 개, `logger` 는 앞부분 일치, `q` 는 본문 포함(대소문자 무관), `service_name` 없이 `trace_id` 만으로도 부른다(트레이스 상세의 연결 로그). `from` 이 보관 97일보다 오래되면 404 `SIGNAL_EXPIRED`. 로그는 고유 번호가 없어 커서가 (시각, 그 시각에서 이미 준 줄 수)다
 
 - **Kafka 재처리 기준선 (2026-10-11, 알림 · 1단계)**: 적재 처리기가 CH 저장 뒤 · 오프셋 커밋 전에 죽으면 같은 레코드를 다시 넣는다. 격리 Kafka · CH 에서 정상 90 커밋 → 오류 10 저장 후 커밋 전 `kill -9`(`jdb` 로 `commitSync` 중단점) → 같은 그룹 재시작을 3회 해 모두 **`spans` 110줄 / 고유 100, `service_health_1m` 에러율 10% → 18.18%**. 오류 로그 없이 조용히 틀린다. 원인: 커밋은 기본 BATCH(poll 처리 뒤), `spans` 는 `MergeTree` 에 `non_replicated_deduplication_window=0` · 중복 제거 토큰 없음. 해결책은 2단계에서 비교 (`docs/kafka-reprocess/10-baseline.md`)
 
@@ -219,6 +220,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - 스캐터 · 트랜잭션의 `is_error` 는 `true` / `false` 로 준다(`#110`). 명세 예시는 `0` / `1` 이었지만 화면(`monimo-web src/api/traces.ts`)이 boolean 으로 읽는다
 
 - `canary/freshness` 가 명세와 다르게 간 것 셋(`#160`, 파수꾼 코드에 맞춤): ① 찾는 기준은 `service_name=canary-probe` 가 아니라 표식 `attributes['monimo.canary']` — 카나리는 쇼핑몰 서비스 이름으로 들어온다(ADR `#41`) ② `threshold_sec` 기본 180(명세 예시 120) — 파수꾼은 기다리지 않고 직전 주기(60초 전) 카나리를 본다 ③ 카나리가 한 건도 없으면 404 가 아니라 200 · `fresh: false` · `last_signal_at` · `age_sec` `null` — 파수꾼은 조회 실패를 "API 서버 쪽 문제" 로 알리는데, 카나리가 없는 것은 파이프라인이 끊긴 것이라 STALE 로 가야 한다
+
+- 로그 검색(`#174`)이 명세에 없어 화면(`monimo-web src/api/logs.ts`)에 맞춘 것: `level` 은 쉼표로 여러 개(명세는 하나), `logger` 는 앞부분 일치, `q` 는 대소문자 무관 포함, `SIGNAL_EXPIRED` 는 `from` 이 97일(`logs` TTL)보다 오래됐을 때. 97일은 `LogService.RETENTION` 상수라 표 TTL 을 바꾸면 같이 고친다
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
