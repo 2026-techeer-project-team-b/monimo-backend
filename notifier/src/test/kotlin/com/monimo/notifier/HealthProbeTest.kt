@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 
 // 헬스체크 규약: liveness · readiness 를 관리 포트로 열고, readiness 는 PostgreSQL(db)까지 본다.
-// RANDOM_PORT 면 스프링이 관리 포트도 빈 포트로 바꿔 준다 (운영 8081 과 부딪치지 않는다)
+// RANDOM_PORT 면 스프링이 관리 포트도 빈 포트로 바꿔 준다 (운영 18084 과 부딪치지 않는다)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = ["monimo.notifier.delivery.enabled=false"])
 @Import(TestInfraConfig::class)
 class HealthProbeTest(
@@ -41,6 +41,15 @@ class HealthProbeTest(
             Then("readiness 는 db 를 보고, liveness 는 자기 자신만 본다 (DB 가 죽었다고 재시작하지 않는다)") {
                 readiness.isMember("db") shouldBe true
                 liveness.isMember("db") shouldBe false
+            }
+        }
+
+        When("관리 포트로 낡음 게이지를 부르면 (ADR #54)") {
+            val gauge = rest.getForEntity("$management/actuator/metrics/monimo.notifier.delivery.poll.age", String::class.java)
+
+            Then("200 이고 단위는 초") {
+                gauge.statusCode.value() shouldBe 200
+                (gauge.body!!.contains("\"baseUnit\":\"seconds\"")) shouldBe true
             }
         }
 

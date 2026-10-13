@@ -1,6 +1,7 @@
 package com.monimo.detector.alert.evaluate
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -20,6 +21,11 @@ class EvaluationConfig {
         objectMapper: ObjectMapper,
     ): ServiceHealthClient = HttpServiceHealthClient(props.query, internalToken, objectMapper)
 
+    // 평가 주기가 마지막으로 끝까지 돈 뒤 흐른 초 (ADR #54). 스케줄러를 끈 테스트에서도 빈은 만든다
+    @Bean
+    fun evaluationAge(registry: MeterRegistry) =
+        LastSuccessAge(registry, "monimo.detector.evaluation.age", "평가 주기(규칙 읽기 · 판정 · 기록)가 마지막으로 끝까지 돈 뒤 흐른 시간")
+
     // agents/active 도 같은 API 서버 · 같은 내부 토큰
     @Bean
     fun agentActivityClient(
@@ -35,5 +41,6 @@ class EvaluationConfig {
 @ConditionalOnProperty(prefix = "monimo.alert.schedule", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 class EvaluationSchedulingConfig {
     @Bean
-    fun evaluationScheduler(runner: EvaluationRunner, agentDown: AgentDownRunner) = EvaluationScheduler(runner, agentDown)
+    fun evaluationScheduler(runner: EvaluationRunner, agentDown: AgentDownRunner, age: LastSuccessAge) =
+        EvaluationScheduler(runner, agentDown, age)
 }

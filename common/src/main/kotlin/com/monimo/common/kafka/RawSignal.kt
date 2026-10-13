@@ -1,8 +1,12 @@
 package com.monimo.common.kafka // 이 파일의 소속. 폴더 경로와 같아야 한다. 다른 모듈은 import 해서 쓴다
 
-// Kafka raw 토픽의 임시 메시지 형식 
+// Kafka raw 토픽의 메시지 형식. 개발환경 9단계에서 고정했다 (ADR `#65`) : 이후 변경은 PR + ADR 로만 한다.
 // 값 = 수집기가 받은 OTLP Export*ServiceRequest 의 protobuf 바이트 그대로 · 키 = 신호 이름.
 // 적재 처리기는 키를 보고 어느 protobuf 로 풀지 정한다.
+//
+// 아래 글자(토픽 이름 · 키 셋)와 "바이트 그대로" 는 common 시험이 쇼핑몰 실데이터 표본으로 고정한다
+// (RawMessageFormatTest · OtlpProtobufRoundTripTest). 글자를 바꾸면 그 시험이 먼저 빨개진다 :
+// 토픽 이름은 코드 밖(compose kafka-init · 점검 스크립트)에서도 쓰이므로 같이 고쳐야 한다
 //
 // 키가 traces · metrics · logs 어느 것도 아닐 때. IllegalArgumentException 의 한 종류지만 타입을 따로 둔 이유 :
 // 적재 처리기가 이 예외만 "독성(재시도 소용없음)" 으로 분류한다. IllegalArgumentException 을 통째로 잡으면 변환기의

@@ -30,7 +30,7 @@ docker network create monimo-dev     # 처음 한 번만. backend · shop 의 co
 # 서비스 하나 실행: 로컬 인프라를 먼저 켜고 local 프로필로
 docker compose up -d --wait
 ./gradlew :collector:bootRun --args='--spring.profiles.active=local'
-curl localhost:8091/actuator/health  # 관리 포트(업무 포트 + 10). DB별 연결 상태까지 보인다
+curl localhost:18081/actuator/health # 관리 포트(업무 포트 + 10000). DB별 연결 상태까지 보인다
 curl localhost:8081/readyz           # 쿠버네티스가 쏘는 주소. 업무 포트에 있고 저장소는 안 본다
 
 # API 서버를 local 프로필로 켜면 REST 명세 · Swagger UI 가 열린다 (다른 프로필에서는 404)
@@ -38,7 +38,7 @@ curl localhost:8081/readyz           # 쿠버네티스가 쏘는 주소. 업무 
 open http://localhost:8080/swagger-ui.html
 
 # Docker 이미지 (레포 루트에서)
-docker build -f collector/Dockerfile -t monimo/collector .
+docker build --target collector -t monimo/collector .   # 루트 Dockerfile 하나에 collector · ingester 단계 (#170)
 ```
 
 ### 로컬 인프라 (Kafka · ClickHouse · PostgreSQL)
@@ -143,8 +143,9 @@ class CollectorApplicationTest(environment: Environment) : BehaviorSpec({
 | `CLICKHOUSE_HTTP_PORT` | 18123 | ClickHouse HTTP 호스트 포트 |
 | `CLICKHOUSE_NATIVE_PORT` | 19000 | ClickHouse 네이티브 호스트 포트 |
 | `POSTGRES_PORT` | 15432 | PostgreSQL 호스트 포트 |
-| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` · `COLLECTOR_MANAGEMENT_PORT` | 4317 · 8081 · 8091 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트. 관리 포트(`/actuator/**`)는 업무 포트 + 10 |
-| `INGESTER_HTTP_PORT` · `INGESTER_MANAGEMENT_PORT` | 8082 · 8092 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트. 관리 포트는 업무 포트 + 10 |
+| `COLLECTOR_OTLP_PORT` · `COLLECTOR_HTTP_PORT` · `COLLECTOR_MANAGEMENT_PORT` | 4317 · 8081 · 18081 | `--profile collector` 로 수집기를 컨테이너로 띄울 때 호스트 포트. 관리 포트(`/actuator/**`)는 업무 포트 + 10000 (#148) |
+| `COLLECTOR_TLS_CLIENT_AUTH` | none | 에이전트 mTLS (#159 · ADR #64). 수집기가 손님(에이전트) 신분증을 얼마나 요구하나 : `none`(평문, 지금까지와 같다) · `optional`(TLS 로 받되 신분증은 없어도 받는다, 전환 1단계) · `require`(없거나 도장이 다르거나 기간이 지나면 끊는다). 인증서는 compose 가 켤 때 `certs/`(gitignore)에 만든다(`otlp-certs`, 멱등). 켜면 쇼핑몰 `.env` 의 `MONIMO_OTLP_CERTS_DIR` 도 같이 연다(monimo-shop README). 평문 에이전트는 `optional` 에서도 못 붙는다 : 전환에 에이전트 재시작 한 번이 든다. 붙었는지는 `/actuator/metrics/monimo.collector.otlp.agents?tag=auth:mtls` 로 본다(쇼핑몰이 넷이면 4). 점검 스크립트 둘은 이 값을 읽어 같은 방식으로 보낸다 |
+| `INGESTER_HTTP_PORT` · `INGESTER_MANAGEMENT_PORT` | 8082 · 18082 | `--profile ingester` 로 적재 처리기를 컨테이너로 띄울 때 호스트 포트. 관리 포트는 업무 포트 + 10000 |
 | `COLLECTOR_SAMPLING_RATIO` | 1.0 | 수집기 트레이스 샘플링 비율 (로컬은 전부 통과. 운영 정본은 1%, ADR #33). 카나리 표시는 비율과 무관하게 통과 |
 | `CLICKHOUSE_USER` · `CLICKHOUSE_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
 | `POSTGRES_USER` · `POSTGRES_PASSWORD` | monimo · monimo | 로컬 전용 계정 |
@@ -156,6 +157,7 @@ api-server 인증용 (bootRun 환경변수):
 | `MONIMO_JWT_SECRET` | (없음) | access JWT 서명 키, 32바이트 이상. 비우면 기동 때 임시 키를 만들어 재시작마다 토큰이 전부 무효가 된다 (로컬 · 테스트만) |
 | `MONIMO_INTERNAL_TOKEN` | (없음, local 프로필은 `local-internal-token`) | 내부 문 공유 비밀값. 탐지 · 파수꾼이 같은 값을 보낸다. 비우면 내부 문이 전부 닫힌다. 채널 시험 발송 때 알림 서비스에도 이 값을 보낸다 |
 | `MONIMO_NOTIFIER_URL` | `http://localhost:8084` | 채널 시험 발송(#13)이 부르는 알림 서비스 주소 |
+| `MONIMO_CANARY_THRESHOLD_SEC` | `180` | 카나리 신선도 기준(초). 가장 최근 카나리가 이보다 오래됐으면 `GET /api/v1/internal/canary/freshness` 가 `fresh: false` 로 답한다. 파수꾼은 판정하지 않고 이 값을 따른다 |
 
 detector 스케줄 평가용 (bootRun 환경변수):
 
@@ -172,13 +174,13 @@ notifier 용 (bootRun 환경변수):
 
 ## 포트
 
-업무 HTTP 포트는 개발환경 6단계(로컬 연결 약속)에서 확정. 관리 포트(`/actuator/**`)는 수집기 · 적재 처리기가 업무 포트 + 10 으로 나눴고(`#135`), 쿠버네티스 probe 는 업무 포트의 `/livez` · `/readyz` 를 쏜다.
+업무 HTTP 포트는 개발환경 6단계(로컬 연결 약속)에서 확정. 관리 포트(`/actuator/**`)는 수집기 · 적재 처리기 · API 서버가 업무 포트 + 10000 으로 나눴고(`#135` · `#148` · `#162`), 쿠버네티스 probe 는 업무 포트의 `/livez` · `/readyz` 를 쏜다.
 
 | 서비스 | 업무 포트 | 관리 포트 (`/actuator/**`) |
 |---|---|---|
-| api-server | 8080 | 아직 안 나눔 |
-| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) | 8091 |
-| ingester | 8082 | 8092 |
+| api-server | 8080 | 18080 |
+| collector | 8081 · **OTLP gRPC 4317** (에이전트 수신) | 18081 |
+| ingester | 8082 | 18082 |
 | detector | 8083 | 8081 (로컬은 8083) |
 | notifier | 8084 | 8081 (로컬은 8084) |
 
@@ -187,8 +189,8 @@ notifier 용 (bootRun 환경변수):
 | compose | 켜는 것 | 네트워크 |
 |---|---|---|
 | `monimo-backend/compose.yaml` | Kafka(토픽 2개) · ClickHouse(마이그레이션) · PostgreSQL(마이그레이션) | `monimo-dev` |
-| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081` · 관리 `:8091`) | `monimo-dev` |
-| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082` · 관리 `:8092`) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile collector` | 위 + 수집기 컨테이너 (`collector:4317` · `:8081` · 관리 `:18081`) | `monimo-dev` |
+| `monimo-backend/compose.yaml --profile ingester` | 위 + 적재 처리기 컨테이너 (`:8082` · 관리 `:18082`) | `monimo-dev` |
 | `monimo-shop/docker-compose.dev.yml` (예정) | 쇼핑몰 4개 + MySQL. OTel 에이전트는 `collector:4317` 로 보낸다 | `monimo-dev` (external) |
 | (없음) | api-server · detector · notifier 는 `bootRun` 또는 IDE 로 실행. 컨테이너 프로필은 구현 때 추가 | |
 

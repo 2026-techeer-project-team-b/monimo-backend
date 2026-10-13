@@ -1,5 +1,6 @@
 package com.monimo.ingester.inbound.kafka
 
+import com.monimo.common.kafka.RawHeaders // 봉투 메모(헤더) 이름 약속
 import com.monimo.common.kafka.RawSignal // 토픽 이름 · 키 약속 (수집기가 넣을 때 쓴 것과 같은 파일)
 import com.monimo.ingester.transform.AgentRegistry // 처음 본 파드를 명단에 올리는 곳
 import com.monimo.ingester.transform.AgentSighting
@@ -81,7 +82,7 @@ class RawConsumer(
 
         // 적재 뒤에 등록한다. PG 가 죽어도 ClickHouse 적재는 되어야 하기 때문이다.
         // 등록은 어댑터 안에서 실패를 잡아 로그와 카운터만 남기므로, 여기서 메시지 처리가 멈추지 않는다
-        agentRegistry.register(sightingsOf(resources))
+        agentRegistry.register(sightingsOf(resources, record.peerAddress()))
 
         counter.consumed(signal, count) // 센다
         // 오프셋 = 토픽 안에서 이 메시지의 자리 번호. 어디까지 읽었는지 추적할 때 쓴다
@@ -89,9 +90,9 @@ class RawConsumer(
     }
 
     // resource 마다 "이 파드를 봤다" 기록 하나. 본 시각은 지금으로 둔다 (신호 안의 시각은 에이전트 시계라 믿지 않는다)
-    private fun sightingsOf(resources: List<Resource>): List<AgentSighting> {
+    private fun sightingsOf(resources: List<Resource>, peerAddress: String?): List<AgentSighting> {
         val now = Instant.now()
-        return resources.map { it.sighting(now) }
+        return resources.map { it.sighting(now, peerAddress) }
     }
 
     // 요청 안의 메트릭 개수. 수집기(OtlpExportServices)가 세는 것과 같은 식
@@ -102,3 +103,15 @@ class RawConsumer(
         val log = LoggerFactory.getLogger(RawConsumer::class.java) // 클래스가 있으니 클래스를 넘긴다 (로거 이름 자동)
     }
 }
+
+// 봉투 메모에서 보낸 쪽 주소를 꺼낸다. 수집기가 gRPC 연결에서 읽어 붙여 준 값이다 (ADR `#63`).
+//
+// 메모가 없으면 null 이다 : 옛 수집기가 넣은 메시지 · 점검 스크립트(telemetrygen)가 직접 넣은 메시지가 그렇다.
+// 그때도 적재와 등록은 그대로 돌고 주소 칸만 비어 있다.
+//
+// 한 메시지 = 한 gRPC 호출 = 에이전트 하나라, 안에 resource 묶음이 여럿이어도 전부 같은 파드의 것이다.
+// 그래서 메모 하나를 모든 목격에 나눠 준다. 중간에 다른 수집기를 끼우면 깨지는 전제인데 우리는 끼우지 않는다.
+//
+// 클래스 밖에 둔 이유 : 컨테이너를 띄우지 않고 레코드 하나로 시험한다 (RawErrorHandlerConfig.backOffFor 와 같은 이유)
+internal fun ConsumerRecord<String, ByteArray>.peerAddress(): String? =
+    headers().lastHeader(RawHeaders.PEER_ADDRESS)?.value()?.toString(Charsets.UTF_8)?.takeIf { it.isNotBlank() }

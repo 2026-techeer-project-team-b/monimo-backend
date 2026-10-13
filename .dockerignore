@@ -8,3 +8,7 @@ docs
 *.md
 .env
 .env.*
+# bootJar 에 안 쓰는 것 (테스트 · 별도 이미지 용). 넣어 두면 마이그레이션 파일만 바뀌어도 Java 빌드가 다시 돈다 (#170)
+# db/clickhouse · scripts/certs 이미지는 그 폴더가 context 라 이 파일과 상관없다
+db
+scripts

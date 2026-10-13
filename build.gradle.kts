@@ -46,6 +46,8 @@ subprojects {
         // Entity와 표가 맞는지 검증한다. 스프링이 뜨기 전에 정해져야 해서 테스트 JVM 옵션으로 넘긴다.
         systemProperty("spring.flyway.enabled", "true")
         systemProperty("spring.flyway.locations", "filesystem:${rootDir}/db/postgres")
+        // 수집기 mTLS 시험이 scripts/certs/make-certs.sh 로 임시 인증서를 만든다 (#159). compose 와 같은 스크립트를 쓰려고 레포 루트를 넘긴다
+        systemProperty("monimo.rootDir", rootDir.absolutePath)
     }
 
     val modulePath = path

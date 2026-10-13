@@ -51,6 +51,10 @@ interface AgentRepository : Repository<Application, Long> {
 
     @Query(value = "select count(*) from agents where application_id = :applicationId", nativeQuery = true)
     fun countByApplicationId(@Param("applicationId") applicationId: Long): Int
+
+    // CH 에는 agent_key 만 남아 있어, 스레드 덤프 상세가 agent_uuid 를 돌려줄 때 되찾는다. 파드가 지워졌으면 null
+    @Query(value = "select agent_uuid from agents where agent_key = :agentKey", nativeQuery = true)
+    fun findUuidByAgentKey(@Param("agentKey") agentKey: String): UUID?
 }
 
 // 네이티브 조회 결과를 받는 창. 위 별칭과 이름이 같아야 한다
