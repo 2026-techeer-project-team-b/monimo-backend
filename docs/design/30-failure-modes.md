@@ -51,6 +51,8 @@ pause 는 `poll()` 을 계속 돌리므로 `max.poll.interval.ms`(5분) 천장�
 
 **아직 남은 것** : `raw.dlq` 에 들어간 것을 다시 `raw` 로 흘려보내는 **재처리 잡**(ADR `#34` : 같은 이미지 · K8s Job · 다른 `group-id`). 그리고 DLQ 에 쌓이는 것을 **알리는 경보**는 없다.
 
+`#195` 가 되넣기를 실제로 돌려 보고 넷을 쟀다([`../seungjo/195-dlq-reprocess/research.md`](../seungjo/195-dlq-reprocess/research.md) 2절) : ① 되넣으면 돌아온다 ② 두 번 돌려도 중복이 안 생긴다(`#187` 의 기억이 블록을 버린다) ③ **되넣기로 집계는 못 고친다** : 원본에 줄이 있으면 블록이 버려지고 `deduplicate_blocks_in_dependent_materialized_views = 1` 때문에 MV 가 아예 안 돈다. 즉 부분 쓰기(원본 O · 집계 X)는 되넣기로 영원히 안 메워지고 **재집계가 같이 있어야 한다** ④ 머리말은 `x-dlq-attempt` · `x-dlq-reason` · `network.peer.address` 만 가져간다(첫째를 버리면 횟수가 매번 1 로 돌아간다). 깊이는 끝 오프셋이 아니라 **그 잡 그룹의 lag** 이라 잡이 생기기 전에는 셀 수 없다.
+
 ## 아직 답하지 못하는 것
 
 `02-open-questions.md` 로 올릴 것들이다.
