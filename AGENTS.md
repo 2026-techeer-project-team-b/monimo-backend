@@ -160,6 +160,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#160`** 내부 문 `GET /internal/canary/freshness`. 카나리 표식(`attributes['monimo.canary']`)이 있는 스팬 중 가장 최근 것이 몇 초 전인지와 기준(`MONIMO_CANARY_THRESHOLD_SEC`, 기본 180초) 안인지(`fresh`)를 낸다. 파수꾼(`monimo-watchdog`)이 1분마다 묻는다. 최근 24시간에 카나리가 없으면 404 가 아니라 200 · `fresh: false`
 - **`#172`** 트랜잭션 목록 `GET /traces/transactions`. 스캐터(`#110`)와 같은 `transactions` 표에서 조건(파드 · 응답시간 범위 · 성공/실패)에 맞는 요청을 **느린 순**으로 커서 페이징한다. 스캐터에서 드래그한 사각형이 `from` · `to` · `min_duration_ms` · `max_duration_ms` 로 온다
 - **`#174`** 로그 검색 `GET /logs`. 시각 역순 · 커서 페이징. `level` 은 쉼표로 여러 개, `logger` 는 앞부분 일치, `q` 는 본문 포함(대소문자 무관), `service_name` 없이 `trace_id` 만으로도 부른다(트레이스 상세의 연결 로그). `from` 이 보관 97일보다 오래되면 404 `SIGNAL_EXPIRED`. 로그는 고유 번호가 없어 커서가 (시각, 그 시각에서 이미 준 줄 수)다
+- **`#176`** 지표 시계열 `GET /metrics/series`. `step` 으로 표를 고른다(60 미만 `metrics_raw` · 60 이상 `metrics_1m` · 3600 이상 `metrics_1h`), 롤업은 `*Merge` 로 풀어 step 칸으로 다시 합친다. `step` 이 없으면 기간에 맞춰 서버가 고른다(점 400개 이하). 줄은 파드 × 속성 조합. 범위 상한은 표마다 7일 · 90일 · 365일, 한 줄 2000점까지
 
 - **Kafka 재처리 기준선 (2026-10-11, 알림 · 1단계)**: 적재 처리기가 CH 저장 뒤 · 오프셋 커밋 전에 죽으면 같은 레코드를 다시 넣는다. 격리 Kafka · CH 에서 정상 90 커밋 → 오류 10 저장 후 커밋 전 `kill -9`(`jdb` 로 `commitSync` 중단점) → 같은 그룹 재시작을 3회 해 모두 **`spans` 110줄 / 고유 100, `service_health_1m` 에러율 10% → 18.18%**. 오류 로그 없이 조용히 틀린다. 원인: 커밋은 기본 BATCH(poll 처리 뒤), `spans` 는 `MergeTree` 에 `non_replicated_deduplication_window=0` · 중복 제거 토큰 없음. 해결책은 2단계에서 비교 (`docs/kafka-reprocess/10-baseline.md`)
 
@@ -188,6 +189,7 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 | **NFR "경보 조건 충족 → 알림 60초"의 기준 시각이 팀 합의가 안 됐다** | 팀 전원 (알림이 제안) | 알림 파트는 `fired_at`(N 번째 나쁜 버킷 끝)부터 재서 32~46초로 통과라고 보지만, "에러가 처음 난 순간"으로 읽으면 1분 버킷 구조상 맞출 수 없다(실측 168~207초, N=3). 수집 경로가 멈춘 시간을 어느 NFR 로 볼지도 정해야 한다 (`docs/alert/10-state-machine.md` D1-실측-2) |
 | **`api-server` 의 ClickHouse DataSource 에는 소켓 타임아웃이 없다** | 조회 | `#127`(ADR `#54`)이 PG 를 치는 다섯 모듈에 pgjdbc `socketTimeout` 10초를 넣었는데, `api-server` 가 따로 들고 있는 ClickHouse 쪽(`DataSourceConfig.clickHouseDataSource`, 접두 `monimo.clickhouse`)은 **드라이버가 달라 속성 이름과 단위가 달라서** 범위에서 뺐다. 그쪽은 주기 작업이 아니라 요청 경로라 쿼리가 멈추면 요청 스레드 하나가 묶이고 나머지는 계속 돈다(영구 정지가 아니다). 다만 한도가 없는 것은 같다. 조회가 멈추는 일이 실측되면 ADR `#54` 되돌림 ③ 으로 그 드라이버 이름으로 넣는다 |
 | **자동 스레드 덤프의 호출 쪽이 없다** | 알림 (탐지 CPU · HEAP · GC 평가) | 문(`#164`)은 열렸는데 탐지의 CPU · HEAP · GC 평가가 아직 없어(`AlertTarget.Agent(` 생성 0곳) 경보 때 덤프가 안 뜬다. 평가가 들어올 때 경보가 **열리는 순간** 한 번 `POST /api/v1/internal/thread-dumps {agent_uuid}` 를 부르면 된다. 덤프 실패 · 쿨다운(200 + `skipped`)은 경보에 영향을 주지 않게 짧게 끊는다 |
+| 조회가 누적 지표를 차이로 바꿀 수 없다 · 롤업 표에 속성이 없다 | 수집(적재 · CH 스키마) · 조회 | ① 아래 "누적 → 델타는 조회가" 는 지금 못 한다 : `metrics_raw` 에 지표 종류(Gauge · Sum · 누적 여부) 칸이 없어 `GET /metrics/series`(`#176`)가 어느 지표가 누적인지 모른다. 값을 들어온 그대로 준다. 누적 카운터(`.count` · `.sum` 등)는 그래프가 계속 오르는 선으로 보인다 ② `metrics_1m` · `metrics_1h` 에는 `attributes` 가 없고 `series_hash` 만 있어, 조회가 `metrics_raw` 에서 같은 해시로 속성을 찾아 붙인다. 원본 보관 기간이 지난 줄은 속성이 빈 객체다 |
 
 **이 과정에서 정한 것**
 
@@ -222,6 +224,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - `canary/freshness` 가 명세와 다르게 간 것 셋(`#160`, 파수꾼 코드에 맞춤): ① 찾는 기준은 `service_name=canary-probe` 가 아니라 표식 `attributes['monimo.canary']` — 카나리는 쇼핑몰 서비스 이름으로 들어온다(ADR `#41`) ② `threshold_sec` 기본 180(명세 예시 120) — 파수꾼은 기다리지 않고 직전 주기(60초 전) 카나리를 본다 ③ 카나리가 한 건도 없으면 404 가 아니라 200 · `fresh: false` · `last_signal_at` · `age_sec` `null` — 파수꾼은 조회 실패를 "API 서버 쪽 문제" 로 알리는데, 카나리가 없는 것은 파이프라인이 끊긴 것이라 STALE 로 가야 한다
 
 - 로그 검색(`#174`)이 명세에 없어 화면(`monimo-web src/api/logs.ts`)에 맞춘 것: `level` 은 쉼표로 여러 개(명세는 하나), `logger` 는 앞부분 일치, `q` 는 대소문자 무관 포함, `SIGNAL_EXPIRED` 는 `from` 이 97일(`logs` TTL)보다 오래됐을 때. 97일은 `LogService.RETENTION` 상수라 표 TTL 을 바꾸면 같이 고친다
+
+- 지표 시계열(`#176`)이 명세와 다르게 간 것: ① `step` 이 없으면 기본 60 이 아니라 **기간에 맞춰 자동** — 화면이 `step` 없이 부른다 ② 데이터가 없으면 404 가 아니라 **200 · 빈 `series`** — 죽은 파드 · 아직 안 들어온 지표의 차트는 오류가 아니라 비어 있어야 한다. 404 는 등록되지 않은 서비스에만
 
 **팀이 결정해야 하는 것** (`02-open-questions.md` 로 옮길 것)
 
