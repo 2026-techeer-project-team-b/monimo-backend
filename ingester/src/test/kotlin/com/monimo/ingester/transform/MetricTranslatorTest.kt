@@ -8,6 +8,10 @@ import io.kotest.matchers.shouldNotBe
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest
 import io.opentelemetry.proto.common.v1.AnyValue
 import io.opentelemetry.proto.common.v1.KeyValue
+import io.opentelemetry.proto.metrics.v1.AggregationTemporality.AGGREGATION_TEMPORALITY_CUMULATIVE
+import io.opentelemetry.proto.metrics.v1.AggregationTemporality.AGGREGATION_TEMPORALITY_DELTA
+import io.opentelemetry.proto.metrics.v1.ExponentialHistogram
+import io.opentelemetry.proto.metrics.v1.ExponentialHistogramDataPoint
 import io.opentelemetry.proto.metrics.v1.Gauge
 import io.opentelemetry.proto.metrics.v1.Histogram
 import io.opentelemetry.proto.metrics.v1.HistogramDataPoint
@@ -16,6 +20,8 @@ import io.opentelemetry.proto.metrics.v1.NumberDataPoint
 import io.opentelemetry.proto.metrics.v1.ResourceMetrics
 import io.opentelemetry.proto.metrics.v1.ScopeMetrics
 import io.opentelemetry.proto.metrics.v1.Sum
+import io.opentelemetry.proto.metrics.v1.Summary
+import io.opentelemetry.proto.metrics.v1.SummaryDataPoint
 import io.opentelemetry.proto.resource.v1.Resource
 import java.time.Instant
 
@@ -71,6 +77,11 @@ class MetricTranslatorTest : BehaviorSpec({
             Then("갈래가 다르면 series_hash 가 다르다") {
                 rows[0].seriesHash shouldNotBe rows[1].seriesHash
             }
+
+            Then("종류는 gauge 이고 총합이 아니다 : '지금 얼마' 라 앞 값을 빼면 안 된다") {
+                rows.map { it.metricType }.toSet() shouldBe setOf(MetricType.GAUGE)
+                rows.map { it.isCounter }.toSet() shouldBe setOf(false)
+            }
         }
     }
 
@@ -87,9 +98,11 @@ class MetricTranslatorTest : BehaviorSpec({
         }
     }
 
-    Given("Sum 에 정수 값(as_int) 포인트") {
+    Given("누적이지만 단조가 아닌 Sum (UpDownCounter : jvm.thread.count) 에 정수 값(as_int) 포인트") {
         val metric = Metric.newBuilder().setName("jvm.thread.count").setSum(
-            Sum.newBuilder().addDataPoints(NumberDataPoint.newBuilder().setTimeUnixNano(at).setAsInt(42)),
+            Sum.newBuilder()
+                .setAggregationTemporality(AGGREGATION_TEMPORALITY_CUMULATIVE).setIsMonotonic(false)
+                .addDataPoints(NumberDataPoint.newBuilder().setTimeUnixNano(at).setAsInt(42)),
         )
 
         When("옮기면") {
@@ -98,6 +111,47 @@ class MetricTranslatorTest : BehaviorSpec({
             Then("Double 로 들어간다 (CH value 는 Float64)") {
                 row.value shouldBe 42.0
             }
+
+            Then("종류는 sum 인데 총합이 아니다 : 스레드 수는 오르내리는 현재값이라 앞 값을 빼면 틀어진다") {
+                row.metricType shouldBe MetricType.SUM
+                row.isCounter shouldBe false
+            }
+        }
+    }
+
+    Given("누적이고 단조인 Sum (Counter : jvm.cpu.time, OTel Java SDK 기본값)") {
+        val metric = Metric.newBuilder().setName("jvm.cpu.time").setSum(
+            Sum.newBuilder()
+                .setAggregationTemporality(AGGREGATION_TEMPORALITY_CUMULATIVE).setIsMonotonic(true)
+                .addDataPoints(doublePoint(1234.5)),
+        )
+
+        Then("총합이다 : 켜진 뒤로 쌓인 값이라 읽는 쪽이 앞 값을 빼야 한다. 값은 바꾸지 않는다") {
+            val row = MetricTranslator.toRows(requestOf(metric)).single()
+            row.isCounter shouldBe true
+            row.value shouldBe 1234.5
+        }
+    }
+
+    Given("단조이지만 델타인 Sum (에이전트가 delta 로 보내도록 설정한 경우)") {
+        val metric = Metric.newBuilder().setName("jvm.cpu.time").setSum(
+            Sum.newBuilder()
+                .setAggregationTemporality(AGGREGATION_TEMPORALITY_DELTA).setIsMonotonic(true)
+                .addDataPoints(doublePoint(0.7)),
+        )
+
+        Then("총합이 아니다 : 이미 '이 구간에 얼마' 라 또 빼면 0 근처가 된다") {
+            MetricTranslator.toRows(requestOf(metric)).single().isCounter shouldBe false
+        }
+    }
+
+    Given("temporality 가 안 적힌 Sum (UNSPECIFIED)") {
+        val metric = Metric.newBuilder().setName("x").setSum(
+            Sum.newBuilder().setIsMonotonic(true).addDataPoints(doublePoint(1.0)),
+        )
+
+        Then("총합으로 치지 않는다 : 모르는데 빼면 값이 사라지는 쪽으로 틀린다") {
+            MetricTranslator.toRows(requestOf(metric)).single().isCounter shouldBe false
         }
     }
 
@@ -111,9 +165,9 @@ class MetricTranslatorTest : BehaviorSpec({
         }
     }
 
-    Given("히스토그램 포인트 (count · sum · min · max 전부 있음)") {
+    Given("누적 히스토그램 포인트 (count · sum · min · max 전부 있음, OTel Java SDK 기본값)") {
         val metric = Metric.newBuilder().setName("jvm.gc.duration").setHistogram(
-            Histogram.newBuilder().addDataPoints(
+            Histogram.newBuilder().setAggregationTemporality(AGGREGATION_TEMPORALITY_CUMULATIVE).addDataPoints(
                 HistogramDataPoint.newBuilder()
                     .setTimeUnixNano(at)
                     .setCount(3).setSum(0.041).setMin(0.004).setMax(0.025)
@@ -138,6 +192,61 @@ class MetricTranslatorTest : BehaviorSpec({
                 rows.map { it.seriesHash }.toSet() shouldHaveSize 1
                 rows[0].attributes shouldBe mapOf("jvm.gc.name" to "G1 Young Generation")
             }
+
+            Then("4줄 전부 종류는 histogram 이다 : 분포에서 나온 줄이라는 표시") {
+                rows.map { it.metricType }.toSet() shouldBe setOf(MetricType.HISTOGRAM)
+            }
+
+            Then("count · sum 만 총합이다 : GC 횟수와 GC 시간 합은 켜진 뒤로 쌓이고, min · max 는 쌓이는 값이 아니다") {
+                rows.associate { it.metricName to it.isCounter } shouldBe mapOf(
+                    "jvm.gc.duration.count" to true,
+                    "jvm.gc.duration.sum" to true,
+                    "jvm.gc.duration.min" to false,
+                    "jvm.gc.duration.max" to false,
+                )
+            }
+        }
+    }
+
+    Given("델타 히스토그램 포인트") {
+        val metric = Metric.newBuilder().setName("jvm.gc.duration").setHistogram(
+            Histogram.newBuilder().setAggregationTemporality(AGGREGATION_TEMPORALITY_DELTA).addDataPoints(
+                HistogramDataPoint.newBuilder().setTimeUnixNano(at).setCount(3).setSum(0.041),
+            ),
+        )
+
+        Then("count · sum 도 총합이 아니다 : 구간마다 0 부터 다시 센 값이다") {
+            MetricTranslator.toRows(requestOf(metric)).map { it.isCounter }.toSet() shouldBe setOf(false)
+        }
+    }
+
+    Given("누적 지수 히스토그램 포인트") {
+        val metric = Metric.newBuilder().setName("http.server.request.duration").setExponentialHistogram(
+            ExponentialHistogram.newBuilder().setAggregationTemporality(AGGREGATION_TEMPORALITY_CUMULATIVE).addDataPoints(
+                ExponentialHistogramDataPoint.newBuilder().setTimeUnixNano(at).setCount(10).setSum(2.5).setMax(0.9),
+            ),
+        )
+
+        Then("히스토그램과 같은 규칙 : count · sum 은 총합, max 는 아니다. 종류는 exponential_histogram") {
+            val rows = MetricTranslator.toRows(requestOf(metric))
+            rows.map { it.metricType }.toSet() shouldBe setOf(MetricType.EXPONENTIAL_HISTOGRAM)
+            rows.associate { it.metricName to it.isCounter } shouldBe mapOf(
+                "http.server.request.duration.count" to true,
+                "http.server.request.duration.sum" to true,
+                "http.server.request.duration.max" to false,
+            )
+        }
+    }
+
+    Given("Summary 포인트 (temporality 칸이 없는 종류)") {
+        val metric = Metric.newBuilder().setName("legacy.latency").setSummary(
+            Summary.newBuilder().addDataPoints(SummaryDataPoint.newBuilder().setTimeUnixNano(at).setCount(7).setSum(1.4)),
+        )
+
+        Then("규약상 항상 누적이라 count · sum 이 총합이다") {
+            val rows = MetricTranslator.toRows(requestOf(metric))
+            rows.map { it.metricType }.toSet() shouldBe setOf(MetricType.SUMMARY)
+            rows.associate { it.metricName to it.isCounter } shouldBe mapOf("legacy.latency.count" to true, "legacy.latency.sum" to true)
         }
     }
 

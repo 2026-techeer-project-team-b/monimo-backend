@@ -11,6 +11,10 @@ data class MetricRow(
     val serviceName: String, // resource 의 service.name. PG applications.name 과 같은 글자여야 화면이 잇는다
     val agentId: String, // 파드 식별자 (SpanRow 와 같은 규칙)
     val metricName: String, // 예: jvm.memory.used. 히스토그램은 jvm.gc.duration.count 처럼 접미가 붙는다
+    val metricType: MetricType, // OTel 이 보낸 종류 그대로 (Gauge · Sum · Histogram · ExponentialHistogram · Summary)
+    // 켜진 뒤로 줄지 않는 총합인가 (프로메테우스의 counter). true 면 읽는 쪽이 같은 시계열의 앞 값을 빼야
+    // "이 구간에 얼마" 가 된다. 적재는 값을 바꾸지 않는다 (ADR #38) : 빼는 일은 조회 · 경보 몫이고 여기는 표시만 남긴다
+    val isCounter: Boolean,
     val attributes: Map<String, String>, // 같은 지표를 갈래로 나누는 꼬리표. 예: jvm.memory.pool.name=G1 Old Gen
     val ts: Instant, // 측정 시각. CH 컬럼은 DateTime(초) 이라 넣을 때 초 아래는 잘린다
     val value: Double, // 측정값
