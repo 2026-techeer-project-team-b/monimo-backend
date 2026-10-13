@@ -20,6 +20,8 @@ class ClickHouseMetricStore(private val client: Client) : MetricStore {
         field("service_name", serviceName)
         field("agent_id", agentId)
         field("metric_name", metricName)
+        field("metric_type", metricType.column) // LowCardinality(String)
+        number("is_counter", if (isCounter) 1 else 0) // UInt8. 롤업 metrics_1m · metrics_1h 에는 MV 가 max 로 흘린다
         number("series_hash", seriesHash) // UInt64. ULong 의 toString 은 부호 없는 숫자 글자
         map("attributes", attributes)
         field("ts", ClickHouseTime.seconds(ts)) // DateTime(초). 초 아래는 여기서 잘린다

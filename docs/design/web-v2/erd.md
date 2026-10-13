@@ -235,6 +235,8 @@
 | 어디서 | service_name | 서비스 이름 | LowCardinality(String) | 🔑1 | 어느 서비스의 몸 상태인지 가르는 값. 이게 없으면 인스펙터에서 서비스를 골라도 그래프를 못 찾는다. PG `applications.name`과 글자가 같다 |
 |  | agent_id | 파드 식별자 | LowCardinality(String) | 🔑2 | 인스펙터는 파드 한 대를 골라서 본다. 파드마다 힙 사용량이 다른데 이게 없으면 여러 대 값이 한 그래프에 뒤엉킨다 |
 | 무엇을 쟀나 | metric_name | 지표 이름 | LowCardinality(String) | 🔑3 | '힙 사용량'인지 'CPU'인지를 적는 칸. 한 줄에 지표 하나만 담는 구조라, 이 이름이 없으면 그 숫자가 무엇을 잰 값인지 알 수 없다 |
+|  | metric_type | 지표 종류 | LowCardinality(String) DEFAULT '' |  | OTel 이 보낸 종류 그대로 : `gauge` · `sum` · `histogram` · `exponential_histogram` · `summary`. 히스토그램을 편 네 줄(`.count` · `.sum` · `.min` · `.max`)은 전부 `histogram`. "왜 총합 표시가 1 인가" 를 되짚는 칸이다 (`#189`, ADR `#68`) |
+|  | is_counter | 총합 표시 | UInt8 DEFAULT 0 |  | 1 = 켜진 뒤로 줄지 않는 총합(프로메테우스의 counter. 횟수 count 와 다르다, GC 시간 합도 counter). **읽는 쪽이 같은 파드 · 같은 시계열 안에서 앞 값을 빼야 "이 구간에 얼마" 가 되고, 뺀 값이 음수면 파드 재시작이라 건너뛴다.** 0 이면 그대로 그린다. 적재 처리기가 OTel 의 종류 · temporality · is_monotonic 과 접미로 정한다. `#189` 이전 줄은 0 이다 |
 |  | series_hash | 꾸러미 요약 숫자 | UInt64 | 🔑4 | `attributes` 주머니를 숫자 하나로 요약한 값. 주머니(Map)는 정렬 키에 못 들어가는데 'G1 Old' GC와 'G1 Young' GC를 다른 줄로 나눠야 해서 이 숫자를 정렬 키에 넣는다 |
 |  | attributes | 지표 부가 정보 | Map(LowCardinality(String), String) |  | 같은 지표를 더 잘게 나누는 꼬리표. 'GC 시간'만 봐서는 어느 GC인지 모르는데 이 주머니가 'G1 Old Generation'이라고 알려 준다 |
 | 언제 | ts | 측정 시각 | DateTime CODEC(DoubleDelta, ZSTD(1)) | 🔑5 | 15초마다 찍히는 측정 시각. 인스펙터 그래프의 가로축이고, 1분 롤업도 이 시각을 1분 칸으로 접어 만든다 |
@@ -458,6 +460,7 @@
 |  | metric_name | 지표 이름 | LowCardinality(String) | 🔑3 | 무슨 지표를 접은 줄인지. CPU와 힙 사용량이 한 줄로 합쳐지면 값이 뒤섞여 아무 의미가 없다 |
 |  | series_hash | 꾸러미 요약 숫자 | UInt64 | 🔑4 | 같은 지표라도 'G1 Old'와 'G1 Young'처럼 갈래가 다르면 다른 줄이어야 한다. 원본의 주머니를 숫자로 접어 그 갈래를 구분한다 |
 |  | ts_min | 1분 단위 시각 | DateTime | 🔑5 | 1분에 한 줄로 접는 시각 기준. 15초짜리 원본 네 줄이 여기서 한 줄이 되고, 인스펙터 그래프의 가로축이 된다 |
+| 표시 | is_counter | 총합 표시 | SimpleAggregateFunction(max, UInt8) |  | 원본 `metrics_raw.is_counter` 를 그대로 흘린 것. 시계열 안에서 늘 같은 값이라 max 로 접는다. 1 이면 `last_v` 끼리 앞 분을 빼서 "그 1분에 얼마" 를 만든다 (`#189`) |
 | 접어 둔 값 | avg_v | 평균(중간 상태) | AggregateFunction(avg, Float64) |  | 평균을 숫자로 굳히지 않고 계산 중간 상태로 접어 둔다. 볼 때 `avgMerge`로 펼친다. 평균끼리는 더할 수 없어서, 결과를 바로 저장하면 1시간 롤업에서 값이 틀어진다 |
 |  | min_v | 최소(중간 상태) | AggregateFunction(min, Float64) |  | 1분 안의 최솟값 중간 상태. 볼 때 `minMerge`로 펼쳐 그래프의 아래 띠를 그린다 |
 |  | max_v | 최대(중간 상태) | AggregateFunction(max, Float64) |  | 1분 안의 최댓값 중간 상태. 볼 때 `maxMerge`로 펼친다. 평균만 두면 순간 최고점이 깎여 사라진다 |
@@ -487,6 +490,7 @@
 |  | metric_name | 지표 이름 | LowCardinality(String) | 🔑3 | 1분 표와 같은 이름을 그대로 쓴다. 이름이 달라지면 1분 그래프와 1년 그래프가 서로 다른 지표가 된다 |
 |  | series_hash | 꾸러미 요약 숫자 | UInt64 | 🔑4 | 같은 지표의 갈래 구분. 1분 표에서 쓰던 숫자를 그대로 이어받아 접는다 |
 |  | ts_hour | 1시간 단위 시각 | DateTime | 🔑5 | 한 시간을 한 줄로 접는 시각 기준. 1년을 담아도 줄 수가 1분 표의 60분의 1이라 추세 그래프가 가볍다 |
+| 표시 | is_counter | 총합 표시 | SimpleAggregateFunction(max, UInt8) |  | `metrics_1m.is_counter` 를 그대로 흘린 것 (`#189`) |
 | 접어 둔 값 | avg_v | 평균(중간 상태) | AggregateFunction(avg, Float64) |  | 1분 표의 중간 상태를 다시 합친 평균 중간 상태. 결과 숫자가 아니라 중간 상태라서 60개를 합쳐도 값이 정확하다. 볼 때 `avgMerge`로 펼친다 |
 |  | min_v | 최소(중간 상태) | AggregateFunction(min, Float64) |  | 한 시간 안의 최솟값 중간 상태. 볼 때 `minMerge`로 펼친다 |
 |  | max_v | 최대(중간 상태) | AggregateFunction(max, Float64) |  | 한 시간 안의 최댓값 중간 상태. 볼 때 `maxMerge`로 펼쳐 1년 중 최고점을 찾는다 |
