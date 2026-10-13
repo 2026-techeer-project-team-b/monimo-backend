@@ -69,7 +69,7 @@
 | 18 | API 서버 | GET | /api/v1/applications | 감시 대상 서비스 목록(드롭다운) (권한 VIEWER+) | cursor?, limit? | application 목록 + page | FN-17, FN-52, applications |
 | 19 | API 서버 | POST | /api/v1/alert-channels/{alertChannelUuid}/test | 채널로 시험 메시지 한 번 발송 (권한 ADMIN) | (본문 없음) | alert_channel_uuid, type, result(SUCCESS/FAILED), response, tested_at | FN-30, alert_channels |
 | 20 | API 서버 | GET | /api/v1/auth/me | 로그인한 사용자 이름·역할 조회 (권한 VIEWER+) | 없음 | user_uuid, email, name, role, created_at | FN-17, users |
-| 21 | API 서버 | GET | /api/v1/agents/{agentUuid}/active-threads | 현재 스레드 수(jvm.thread.count 최신값) (권한 VIEWER+) | (경로만) | agent_uuid, agent_key, service_name, metric_name, ts_min, last_v | FN-38, metrics_1m |
+| 21 | API 서버 | GET | /api/v1/agents/{agentUuid}/active-threads | 현재 스레드 수(jvm.thread.count 최신값) (권한 VIEWER+) | (경로만. UUID 모양이 아니면 400) | agent_uuid, agent_key, service_name, metric_name(jvm.thread.count), ts_min(그 값이 찍힌 1분), last_v(속성별로 나뉜 줄을 더한 값). 파드가 없거나(제외된 서비스 포함) 최근 1시간 안에 값이 없으면 404 | FN-38, metrics_1m · agents |
 | 22 | API 서버 | GET | /api/v1/applications/{applicationUuid}/agents | 그 서비스에 속한 파드 목록 (권한 VIEWER+) | status?, cursor?, limit? | agent 목록(agent_uuid, service_name, agent_key, hostname, ip, jvm_version, agent_version, status) | FN-37, agents |
 | 23 | API 서버 | GET | /api/v1/alert-rules/{alertRuleUuid} | 경보 규칙 하나의 상세 (권한 VIEWER+) | (경로만) | 규칙 상세 + channels[] | FN-24, alert_rules |
 | 24 | API 서버 | GET | /api/v1/alert-events/{alertEventUuid}/notifications | 이 경보를 어디로 몇 번 보냈는지 (권한 VIEWER+) | cursor?, limit? | notification_uuid, alert_channel_uuid, channel_name, type, result, retry_count, response, sent_at | FN-31, FN-32, notification_history |
