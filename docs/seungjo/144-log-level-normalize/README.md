@@ -4,7 +4,7 @@
 > 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 「로그 등급은 severity_number 가 정본」 결정 이고, 여기는 그 한 건을 한 장으로 펼친 것이다
 > **라이트로 간 건**이다. 조사 9단계를 안 돌렸다 : 고칠 자리가 함수 하나이고 결정도 "정본을 무엇으로 두나" 하나였다
 
-- 2026-10-11 / 승조(`@SeungJo-02`) / 결정 「로그 등급은 severity_number 가 정본」 결정 / 이슈 [`#144`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/144)
+- 2026-10-11 / 승조(`@SeungJo-02`) / 「로그 등급은 severity_number 가 정본」 결정 / 이슈 [`#144`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/144)
 - 유저 플로우에서 어디: 쇼핑몰 앱 → 에이전트 → 수집기 → Kafka → **적재 처리기가 등급을 정하는 자리** → ClickHouse `logs.level` → (아직 없는) 로그 검색 화면
   - 코드 한 함수만 바뀐다
 

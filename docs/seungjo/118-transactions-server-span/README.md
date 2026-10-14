@@ -4,7 +4,7 @@
 > 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 이고, 여기는 그 한 건을 한 장으로 펼친 것이다.
 > **다른 파트가 발견해서 넘어온 첫 건**이다. 조회 파트(현영)가 스캐터를 만들다 찾았고, `db/clickhouse/` 가 파트를 넘는 공용 영역이라 수집 쪽이 가져갔다.
 
-- 2026-10-07 / 승조(`@SeungJo-02`) / 결정 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 / 이슈 [`#118`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/118) · 후속 [`#119`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/119)
+- 2026-10-07 / 승조(`@SeungJo-02`) / 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 / 이슈 [`#118`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/118) · 후속 [`#119`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/119)
 - 유저 플로우에서 어디
   - 에이전트 → 수집기 → Kafka → 적재 처리기 → **ClickHouse 안의 MV** → 조회 API → 스캐터 화면
   - 코드가 아니라 **DB 안에서 표를 채우는 규칙** 한 줄이 걸려 있다

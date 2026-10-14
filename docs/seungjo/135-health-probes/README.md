@@ -4,7 +4,7 @@
 > 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 「수집 쪽 헬스체크 probe · readiness 에 저장소 없음」 결정 이고, 여기는 그 한 건을 한 장으로 펼친 것이다.
 > **규약을 읽었는데 규약의 전제가 틀린 건**이다. 조사 과정 전체는 [`research.md`](research.md)(9단계) 에 있다.
 
-- 2026-10-10 / 승조(`@SeungJo-02`) / 결정 「수집 쪽 헬스체크 probe · readiness 에 저장소 없음」 결정 / 이슈 [`#135`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/135)
+- 2026-10-10 / 승조(`@SeungJo-02`) / 「수집 쪽 헬스체크 probe · readiness 에 저장소 없음」 결정 / 이슈 [`#135`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/135)
 - 유저 플로우에서 어디: 쿠버네티스(kubelet) → **수집기 · 적재 처리기 파드의 두 주소**
   - 200 이면 트래픽을 보내고 살려 두고, 아니면 빼거나 다시 띄운다
   - 화면 · 에이전트 · 저장소 코드는 0줄 바뀐다

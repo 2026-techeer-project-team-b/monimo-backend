@@ -33,7 +33,7 @@
 
 - **`raw.dlq` 의 컨슈머 그룹은 아직 없다**
   - 적재 처리기는 거기에 쓰기만 한다
-  - 읽는 쪽(재처리 잡)은 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 "같은 이미지 · K8s Job · 다른 `group-id`" 로 정했다
+  - 읽는 쪽(재처리 잡)은 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 "같은 이미지 · K8s Job · 다른 `group-id`" 로 정했다
   - 이 이슈 범위 밖이다
 
 ## 왜 표 주인이 아닌 에러 핸들러에서 고쳤나

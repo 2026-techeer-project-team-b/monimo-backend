@@ -30,14 +30,14 @@
 | 건드리는 모듈 · 파일 | `ingester/` : `application.yml`(에러 핸들러 설정) · `inbound/kafka/`(에러 핸들러 빈 · DLQ 발행) · 카운터 · **테스트**(독성 메시지는 DLQ 로, 일시 장애는 유실 없이 복구) |
 | 같은 PR 에 들어가는 문서 | ADR 신설 · `AGENTS.md` §5 · §6 · [`30-failure-modes.md`](../../design/30-failure-modes.md) ⑤ 갱신 · 이 폴더 4개 파일 |
 | 건드리지 않는 것 | `collector/`(수집기) · `db/`(표 구조) · `common/`(메시지 형식) · ClickHouse DDL |
-| 이 이슈 범위 밖 (후속) | **DLQ 재처리 잡**(「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 K8s Job 으로 정함) · ClickHouse 디스크 포화 재현 |
+| 이 이슈 범위 밖 (후속) | **DLQ 재처리 잡**(「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 K8s Job 으로 정함) · ClickHouse 디스크 포화 재현 |
 
 **조사 들어가기 전에 내가 알던 것 (세 줄)**
 
 - `ingester/src/main/resources/application.yml` 에 **에러 핸들러 설정이 없다**
   - 그래서 스프링 기본값 `DefaultErrorHandler`(`FixedBackOff(interval=0, maxAttempts=9)`)가 적용된다
   - 10번 시도 후 그 레코드를 건너뛰고 오프셋을 넘긴다
-- 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 "CH 에 넣지 못한 메시지는 Kafka `raw.dlq`(30일)로 보내고, 재처리는 적재 처리기의 관리 잡" 으로 정해 뒀다
+- 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 "CH 에 넣지 못한 메시지는 Kafka `raw.dlq`(30일)로 보내고, 재처리는 적재 처리기의 관리 잡" 으로 정해 뒀다
   - 토픽은 `compose.yaml` 이 이미 만든다(`#3` `#7`(compose 로 토픽 자동 생성))
 - 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 의 기각 사유가 "DLQ 가 받는 것은 Kafka 장애가 아니라 **독성 메시지**" 라고 적는다
   - 그런데 내가 재현한 것은 **일시 장애**다
@@ -141,7 +141,7 @@ raw 토픽 :  [264] [265] [266] [267] [268] ...
     - DLQ 가 원본 토픽의 복사본이 된다
     - 나중에 사람이 그 산을 다시 밀어 넣어야 한다
 
-- 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 "파싱 실패 · CH 거절 · 스키마 위반을 `raw.dlq` 로" 라고 적은 것은 **앞쪽만** 말한 것이다
+- 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 "파싱 실패 · CH 거절 · 스키마 위반을 `raw.dlq` 로" 라고 적은 것은 **앞쪽만** 말한 것이다
   - 기각 사유에도 "DLQ 가 받는 것은 Kafka 장애가 아니라 독성 메시지" 라고 분명히 써 있다
 - 그런데 내가 재현한 것은 **뒤쪽**이다
   - 그래서 ADR 을 글자대로 "실패하면 DLQ" 로 구현하면 설계 의도를 어기게 된다
@@ -150,7 +150,7 @@ raw 토픽 :  [264] [265] [266] [267] [268] ...
 
 **Kafka 안에서 관리한다. S3 는 DLQ 가 아니다.**
 
-- 이건 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 한 번 바꾼 결정이라 헷갈리기 쉽다
+- 이건 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 한 번 바꾼 결정이라 헷갈리기 쉽다
   - 처음(「OWLBY 벤치마크 4가지 반영」 결정 ③ · `#30`)에는 실패분을 S3 에 두기로 했다
   - `#34` 에서 **Kafka 토픽으로 옮기고 S3 의 역할을 바꿨다**
 
@@ -187,7 +187,7 @@ raw 토픽 :  [264] [265] [266] [267] [268] ...
 |---|---|
 | 실패한 데이터는 어디에 쌓이나 | Kafka `raw.dlq` 토픽 (**S3 아님**) |
 | 얼마나 보관하나 | **30일** (`raw` 는 7일) |
-| 누가 꺼내나 | 적재 처리기의 **관리 잡**(K8s Job). 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 정했고 **아직 없다** : 이 이슈 범위 밖 |
+| 누가 꺼내나 | 적재 처리기의 **관리 잡**(K8s Job). 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 정했고 **아직 없다** : 이 이슈 범위 밖 |
 
 ### 2.4 client-v2 가 무엇인가
 
@@ -211,7 +211,7 @@ raw 토픽 :  [264] [265] [266] [267] [268] ...
 |---|---|
 | "유실" = Kafka 에서 메시지가 지워졌다 | **아니다.** Kafka 에는 7일간 남아 있다. **오프셋(책갈피)이 지나가서 아무도 안 읽는 것**이다 |
 | DLQ 는 실패한 걸 전부 담는 칸 | **아니다.** "이 데이터 자체가 틀렸음" 전용이다. 일시 장애를 담으면 원본 복사본이 된다 |
-| S3 가 DLQ | **아니다.** 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 S3 를 cold 계층으로 바꿨다. DLQ 는 Kafka 토픽이다 |
+| S3 가 DLQ | **아니다.** 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 S3 를 cold 계층으로 바꿨다. DLQ 는 Kafka 토픽이다 |
 | 재시도는 많이 할수록 안전 | **아니다.** 재시도 총시간이 `max.poll.interval.ms`(기본 5분)를 넘으면 Kafka 가 "이 컨슈머 죽었나" 보고 **리밸런스**(담당 재배정)를 일으킨다 |
 | 적재 처리기가 멈추면 데이터가 샌다 | **반대다.** 멈추면 오프셋이 안 넘어가서 유실이 없다. 지금처럼 넘어가는 게 새는 것이다. 단 **`raw` 보관이 7일**이라 "유실 없음" 은 **7일 안에 되살렸을 때**만 참이다. 7일을 넘기면 Kafka 가 실제로 지운다 |
 | 중복 적재는 표 엔진(`ReplacingMergeTree`)으로 막는다 | **못 막는다.** `spans` 중복은 merge 때 합쳐지지만 **집계 MV 는 insert 시점에 이미 세어 버렸고 merge 를 보지 않는다.** 집계에 영향 가는 수정은 **insert 전**이어야 한다(`#83` · `#92` 와 같은 교훈) |
@@ -395,7 +395,7 @@ raw 토픽 :  [264] [265] [266] [267] [268] ...
 >   - **쓰기는 그룹을 만들지 않는다**
 > - 마지막 줄은 다르다
 >   - **파일을 나누는 게 아니라 `group-id` 를 나눈다**
->   - 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 재처리를 "같은 이미지, K8s Job" 으로 정해 뒀다
+>   - 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 재처리를 "같은 이미지, K8s Job" 으로 정해 뒀다
 >   - 코드를 따로 만들지 않는다
 >
 > ```
@@ -569,7 +569,7 @@ raw 토픽 :  [264] [265] [266] [267] [268] ...
 - **A** 가 지금 상태다
   - 간격 0초 · 10회라 4초면 포기한다
   - 재배포 한 번에 ClickHouse 가 10초만 안 떠 있어도 그 사이 데이터가 전부 날아간다
-- **B** 는 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 를 글자대로 읽은 구현이다
+- **B** 는 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정을 글자대로 읽은 구현이다
   - 소비가 안 멈추니 겉보기엔 건강하다
   - 그런데 ClickHouse 가 10분 죽으면 10분치가 DLQ 에 쌓인다
   - DLQ 는 재처리 잡이 있어야 비는데 그 잡은 이 이슈 범위 밖이다
@@ -1218,7 +1218,7 @@ Caused by: java.net.UnknownHostException: clickhouse
 
 ### 범위 밖인 것
 
-- **DLQ 재처리 잡** : 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 가 "같은 이미지, K8s Job, 다른 `group-id`" 로 정했다
+- **DLQ 재처리 잡** : 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정이 "같은 이미지, K8s Job, 다른 `group-id`" 로 정했다
   - 이 이슈는 넣는 것까지다
 - **ClickHouse 디스크 포화 재현** : 4번 결정의 근거가 되지만 만들어 보지 않았다
 - **복제 수 1 → 3** : 브로커가 죽으면 메시지가 사라지는 문제

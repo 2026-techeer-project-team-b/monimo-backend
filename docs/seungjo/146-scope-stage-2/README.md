@@ -5,7 +5,7 @@
 > 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 「2단계 범위 · 규모 실측 확정 · T0」 결정 이고, 산출물은 [`../../design/20-scope.md`](../../design/20-scope.md) 다
 > 라이트 모드 : `research.md` 를 안 돌렸다. 조사할 것이 "무엇을 재나" 하나였고 선택지도 `T0` 후보 셋이 전부였다
 
-- 2026-10-11 / 승조(`@SeungJo-02`) / 결정 「2단계 범위 · 규모 실측 확정 · T0」 결정 / 이슈 [`#146`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/146)
+- 2026-10-11 / 승조(`@SeungJo-02`) / 「2단계 범위 · 규모 실측 확정 · T0」 결정 / 이슈 [`#146`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/146)
 - 유저 플로우에서 어디: 어디에도 없다
   - 사람이 읽는 문서다
   - 다만 배포 7 ~ 9단계(monimo-deploy)의 PVC · 자원 값이 여기 숫자에서 나온다

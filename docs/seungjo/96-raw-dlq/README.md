@@ -4,7 +4,7 @@
 > **구현 완료** (2026-10-06, 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정). 검증 결과는 아래와 [`decision.md`](decision.md).
 > 이 폴더가 **8단계 리서치 꼴을 처음 쓴 이슈**다.
 
-- 날짜 2026-10-04 시작 / 승조(`@SeungJo-02`) / 결정 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정 / 이슈 [`#96`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/96) · 브랜치 `fix/96-raw-dlq`
+- 날짜 2026-10-04 시작 / 승조(`@SeungJo-02`) / 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정 / 이슈 [`#96`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/96) · 브랜치 `fix/96-raw-dlq`
 - 유저 플로우에서 어디: 에이전트 → 수집기 → Kafka → **적재 처리기** → ClickHouse 중 **적재 처리기**
   - 신호가 저장소에 들어가는 마지막 관문이라 여기서 버리면 되돌릴 데가 없다
 
@@ -43,7 +43,7 @@
 - 각 선택지의 설명 · 출처 · 우리 데이터 · AI 가 틀린 것 · 함정 6개는 [`research.md`](research.md) 5 절에
 - **조사가 뒤집은 것** : 조사한 다섯 파이프라인(Kafka Connect · OTel Collector · SigNoz · Debezium · Flink) 중 **sink 장애를 DLQ 로 보내는 곳이 하나도 없다**
   - DLQ 는 "이 데이터가 틀렸음" 전용 통로다
-  - 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 를 글자대로 "실패하면 DLQ" 로 구현하면 설계 의도를 어기게 된다
+  - 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정을 글자대로 "실패하면 DLQ" 로 구현하면 설계 의도를 어기게 된다
     - 기각 사유에 "DLQ 가 받는 것은 독성 메시지" 라고 적혀 있다
 
 ## 결정

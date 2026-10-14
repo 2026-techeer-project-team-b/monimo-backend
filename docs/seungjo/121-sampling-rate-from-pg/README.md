@@ -4,7 +4,7 @@
 > 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 「샘플링 비율 정본은 PG · 서비스별 최댓값 하나」 결정 이고, 여기는 그 한 건을 한 장으로 펼친 것이다.
 > 「에이전트는 OTel Java Agent 기성품」 결정 이 "비율의 정본은 PG" 로 정하고 「ERD 미결 6건 일괄 종결」 결정이 읽는 방법까지 정했는데 코드가 안 따라간 틈을 메운다.
 
-- 2026-10-08 / 승조(`@SeungJo-02`) / 결정 「샘플링 비율 정본은 PG · 서비스별 최댓값 하나」 결정 / 이슈 [`#121`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/121)
+- 2026-10-08 / 승조(`@SeungJo-02`) / 「샘플링 비율 정본은 PG · 서비스별 최댓값 하나」 결정 / 이슈 [`#121`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/121)
 - 유저 플로우에서 어디: 에이전트 → 수집기 → **샘플링** → Kafka → 적재 처리기 → ClickHouse
   - 그 샘플링 단계가 쓰는 숫자를 어디서 가져오는지가 바뀐다
   - PG `application_configs` → 수집기 선 하나가 새로 생긴다

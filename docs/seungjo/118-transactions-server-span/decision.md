@@ -40,7 +40,7 @@
 - [x] `heatmap_1m` 네 서비스 전부 (1,219칸)
 - [x] `check-pipeline.sh` 통과
 - [x] `ScatterApiTest` 픽스처를 새 기준으로 고치고 중간 서비스 단언 추가 (아래 「테스트가 잡은 것」)
-- [x] 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 가 `+179 / -0` (append-only)
+- [x] 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정이 `+179 / -0` (append-only)
 - [ ] PR 머지 (사용자)
 - [ ] 노션 「ERD」 정본 갱신 (사용자)
 - [ ] 팀원 각자 `docker compose down -v` (PR 본문 · `AGENTS.md` 에 안내)
