@@ -10,10 +10,12 @@ data class MetricSeriesResponse(
     val series: List<MetricSeriesLine>,
 )
 
-// 같은 지표라도 파드 × 속성 조합마다 줄이 따로다 (예: jvm.memory.used 의 heap · non_heap)
+// 같은 지표라도 파드 × 속성 조합마다 줄이 따로다 (예: jvm.memory.used 의 heap · non_heap).
+// is_counter 면 켜진 뒤 총합이라 점마다 그 칸에 늘어난 양을 준다 (ADR #68)
 data class MetricSeriesLine(
     val agentKey: String,
     val attributes: Map<String, String>,
+    val isCounter: Boolean,
     val points: List<MetricPoint>,
 )
 
