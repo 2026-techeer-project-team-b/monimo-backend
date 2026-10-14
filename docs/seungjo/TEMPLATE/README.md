@@ -1,5 +1,8 @@
 # `#NN` <이슈 제목>
 
+- 모든 절은 불릿 개조식으로 쓴다 · 문단 금지
+  - 한 줄에 사실 하나 · 줄 끝 마침표 없음
+
 > **이 작업의 기술 설계 문서 한 장.** 문제 → 선택지 → 결정 → 장애가 나면 순서로 읽으면 끝난다.
 > 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 ADR `#KK` 이고, 여기는 그 한 건을 한 장으로 펼친 것이다.
 
@@ -23,7 +26,7 @@
 | **A.** | | | |
 | B. | | | |
 
-출처 링크 · 우리 데이터 대조 · AI 가 틀렸던 것은 [`research.md`](research.md).
+- 출처 링크 · 우리 데이터 대조 · AI 가 틀렸던 것은 [`research.md`](research.md)
 
 ## 결정
 
@@ -31,7 +34,8 @@
 - **버린 것과 이유**:
 - **되돌리는 조건**: <무엇이 관찰되면 다시 생각하나>
 
-4요소 전문은 [`decision.md`](decision.md), 결정을 만든 프롬프트 원문은 [`prompts.md`](prompts.md) 와 ADR 안에 있다.
+- 4요소 전문은 [`decision.md`](decision.md)
+- 결정을 만든 프롬프트 원문은 [`prompts.md`](prompts.md) 와 ADR 안에 있다
 
 ## 장애가 나면
 
@@ -39,7 +43,8 @@
 |---|---|---|
 | | | |
 
-표별 영향은 [`tables.md`](tables.md). 파이프라인 전체 고장 표는 [`../../design/30-failure-modes.md`](../../design/30-failure-modes.md).
+- 표별 영향은 [`tables.md`](tables.md)
+- 파이프라인 전체 고장 표는 [`../../design/30-failure-modes.md`](../../design/30-failure-modes.md)
 
 ## 어떻게 확인했나
 
@@ -60,10 +65,10 @@
 3. [`decision.md`](decision.md)
 4. [`tables.md`](tables.md)
 
-(안 쓴 파일은 지우고 이 목록에서도 뺀다)
+- 안 쓴 파일은 지우고 이 목록에서도 뺀다
 
 ## 이 이슈에서 배운 것 (세 줄)
 
--
--
--
+- <배운 것>
+- <배운 것>
+- <배운 것>
