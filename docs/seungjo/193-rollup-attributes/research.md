@@ -11,9 +11,17 @@
 
 ## 1. 이번 작업은 무엇을 하는 일인가
 
-- **지금 무엇이 잘못됐나** : 1분 · 1시간으로 접은 지표 표에는 "어느 갈래인가"(G1 Old Gen 인지 Eden 인지)를 적은 꼬리표가 없고 꼬리표를 숫자로 접은 값만 있다. 조회는 그 숫자로 원본 표에서 꼬리표를 찾아 붙이는데, 원본은 105일이면 지워지고 접은 표는 180일 · 1년 90일을 산다
-- **그래서 무엇을 만드나** : 접을 때 꼬리표도 같이 접어 두어, 원본이 없어진 뒤에도 접은 표만으로 갈래를 알 수 있게 한다
-- **안 하면 어떻게 되나** : 2027-01-05 쯤부터(T0 2026-09-22 + 105일) 105일 넘은 구간의 그래프 선에 이름이 없어진다. 힙 그래프에 선이 여덟 개 그려지는데 어느 게 Old Gen 인지 모른다
+- **지금 무엇이 잘못됐나**
+  - 1분 · 1시간으로 접은 지표 표에는 "어느 갈래인가"(G1 Old Gen 인지 Eden 인지)를 적은 꼬리표가 없다
+    - 꼬리표를 숫자로 접은 값만 있다
+  - 조회는 그 숫자로 원본 표에서 꼬리표를 찾아 붙인다
+    - 그런데 원본은 105일이면 지워지고 접은 표는 180일 · 1년 90일을 산다
+- **그래서 무엇을 만드나**
+  - 접을 때 꼬리표도 같이 접어 둔다
+  - 원본이 없어진 뒤에도 접은 표만으로 갈래를 알 수 있게 한다
+- **안 하면 어떻게 되나**
+  - 2027-01-05 쯤부터(T0 2026-09-22 + 105일) 105일 넘은 구간의 그래프 선에 이름이 없어진다
+  - 힙 그래프에 선이 여덟 개 그려지는데 어느 게 Old Gen 인지 모른다
 
 | | |
 |---|---|
@@ -21,27 +29,43 @@
 | 건드리지 않는 것 | 적재 처리기 코드(원본에는 이미 꼬리표가 있다) · 수집기 · Kafka · 롤업 `ORDER BY` · 조회 코드 |
 | 이 이슈 범위 밖 (후속) | 조회가 롤업의 꼬리표를 읽도록 바꾸는 것(조회) · 이미 들어온 롤업 줄 채우기 · 원본 · 롤업 TTL 자체를 다시 보는 것 |
 
-**조사 들어가기 전에 내가 알던 것 (세 줄)** : 대화에서 승조가 말한 것
+**조사 들어가기 전에 내가 알던 것 (세 줄)**
+
+- 대화에서 승조가 말한 것이다
 
 - 롤업 둘에는 `series_hash` 만 있고 `attributes` 가 없다
 - 조회가 원본에서 같은 해시로 속성을 찾아 붙이고 있다
-- 원본 보관 기간이 지난 줄은 속성을 못 찾는다. `#189`(종류 칸) 와 같이 볼지 판단하기로 했고 따로 가져왔다
+- 원본 보관 기간이 지난 줄은 속성을 못 찾는다
+  - `#189`(종류 칸) 와 같이 볼지 판단하기로 했고 따로 가져왔다
 
-**알고 싶었던 것** : 5절이 이 번호에 하나씩 답한다
+**알고 싶었던 것**
 
-① 해시에서 꼬리표를 되살릴 수는 없나 (그러면 표를 안 건드린다)
-② 접은 표에 꼬리표를 넣으면 같은 키 줄이 합쳐질 때 꼬리표가 안전하게 남나
-③ 꼬리표 칸을 넣는 것 말고 다른 길은 무엇이 있나 (별도 사전 표 · 원본을 더 오래 보관 · 안 한다)
-④ 이미 들어온 롤업 줄은 어떻게 되나
-⑤ 다른 제품은 내려 접은(downsampled) 시계열의 이름표를 어디에 두나
+- 5절이 이 번호에 하나씩 답한다
+- ① 해시에서 꼬리표를 되살릴 수는 없나
+  - 그러면 표를 안 건드린다
+- ② 접은 표에 꼬리표를 넣으면 같은 키 줄이 합쳐질 때 꼬리표가 안전하게 남나
+- ③ 꼬리표 칸을 넣는 것 말고 다른 길은 무엇이 있나
+  - 별도 사전 표 · 원본을 더 오래 보관 · 안 한다
+- ④ 이미 들어온 롤업 줄은 어떻게 되나
+- ⑤ 다른 제품은 내려 접은(downsampled) 시계열의 이름표를 어디에 두나
 
 ## 2. 작업하기 전에 알아야 하는 것
 
 ### 2.1 꼬리표(attributes)와 꾸러미 숫자(series_hash)
 
-**꼬리표** = 같은 지표를 갈래로 나누는 키-값 주머니. `jvm.memory.used` 하나가 `{jvm.memory.type: heap, jvm.memory.pool.name: G1 Old Gen}` 처럼 메모리 풀 8개로 갈라져 8 시계열이 된다(`docs/design/20-scope.md`). ClickHouse 는 `Map` 을 정렬 키에 못 넣어서, 적재 처리기가 키를 정렬해 `k=v` 줄로 이어 붙인 글자를 SHA-256 하고 **앞 8바이트**를 `UInt64` 로 만든 것이 `series_hash` 다(`ingester/.../transform/MetricRow.kt` `seriesHashOf`). 원본 `metrics_raw` 는 둘 다 가진다 : `attributes Map(LowCardinality(String), String)` 과 `series_hash UInt64`(정렬 키 4번째).
-
-**해시는 한 방향이다.** 숫자에서 글자로 돌아갈 수 없다. 꼬리표를 알려면 "그 숫자를 가진 줄" 을 어디선가 읽어야 한다. 지금 그 어디가 원본 표 하나뿐이다.
+- **꼬리표** = 같은 지표를 갈래로 나누는 키-값 주머니
+  - `jvm.memory.used` 하나가 `{jvm.memory.type: heap, jvm.memory.pool.name: G1 Old Gen}` 처럼 메모리 풀 8개로 갈라져 8 시계열이 된다(`docs/design/20-scope.md`)
+- `series_hash` 는 꼬리표를 숫자로 바꾼 것이다(`ingester/.../transform/MetricRow.kt` `seriesHashOf`)
+  - ClickHouse 는 `Map` 을 정렬 키에 못 넣는다
+  - 그래서 적재 처리기가 키를 정렬해 `k=v` 줄로 이어 붙인 글자를 SHA-256 한다
+  - 그 **앞 8바이트**를 `UInt64` 로 만든다
+- 원본 `metrics_raw` 는 둘 다 가진다
+  - `attributes Map(LowCardinality(String), String)`
+  - `series_hash UInt64`(정렬 키 4번째)
+- **해시는 한 방향이다**
+  - 숫자에서 글자로 돌아갈 수 없다
+  - 꼬리표를 알려면 "그 숫자를 가진 줄" 을 어디선가 읽어야 한다
+  - 지금 그 어디가 원본 표 하나뿐이다
 
 ### 2.2 롤업 표 둘과 MV 둘
 
@@ -51,13 +75,29 @@
 | `metrics_1m` | AggregatingMergeTree | (… series_hash, ts_min) | `avg_v` · `min_v` · `max_v` · `last_v` (AggregateFunction) + `is_counter`(`#189`) | 없다 | **180일** |
 | `metrics_1h` | AggregatingMergeTree | (… series_hash, ts_hour) | 같음 | 없다 | **1년 90일** |
 
-`mv_metrics_1m` 이 원본 INSERT 마다 `GROUP BY service_name, agent_id, metric_name, series_hash, ts_min` 으로 접어 `metrics_1m` 에 넣고, `mv_metrics_1h` 가 그 INSERT 를 다시 접어 `metrics_1h` 에 넣는다(연쇄 2단, `db/clickhouse/V202609221907__create_materialized_views.sql`). `GROUP BY` 에 `attributes` 가 없으니 접는 순간 꼬리표가 떨어진다. **떨어뜨린 것이 설계였다** : ERD 가 롤업을 "숫자만" 으로 그렸고 조회가 원본에서 찾아 붙이는 것으로 짰다(`MetricRepository.findAttributes` 주석 : "원본 보관 기간이 지난 줄은 여기 없어 속성이 비게 된다"). 즉 **이미 알고 있던 구멍**이고, 지금 시점에 메우는 것이다.
+- MV 는 연쇄 2단이다(`db/clickhouse/V202609221907__create_materialized_views.sql`)
+  - `mv_metrics_1m` 이 원본 INSERT 마다 `GROUP BY service_name, agent_id, metric_name, series_hash, ts_min` 으로 접어 `metrics_1m` 에 넣는다
+  - `mv_metrics_1h` 가 그 INSERT 를 다시 접어 `metrics_1h` 에 넣는다
+- `GROUP BY` 에 `attributes` 가 없으니 접는 순간 꼬리표가 떨어진다
+- **떨어뜨린 것이 설계였다**
+  - ERD 가 롤업을 "숫자만" 으로 그렸다
+  - 조회가 원본에서 찾아 붙이는 것으로 짰다
+    - `MetricRepository.findAttributes` 주석 : "원본 보관 기간이 지난 줄은 여기 없어 속성이 비게 된다"
+  - 즉 이미 알고 있던 구멍이고, 지금 시점에 메우는 것이다
 
 ### 2.3 AggregatingMergeTree 에서 "보통 칸" 은 어떻게 되나
 
-이 엔진은 같은 키의 줄 여럿을 **합칠 때**(백그라운드 merge) 집계 상태 칸(`AggregateFunction`)은 상태끼리 합치고, `SimpleAggregateFunction(f, T)` 칸은 `f` 로 합친다. 그 둘이 아닌 **보통 칸은 합칠 때 어느 줄의 값이 남는지 보장이 없다.** `#189` 가 `is_counter` 를 `SimpleAggregateFunction(max, UInt8)` 로 둔 이유가 이것이다. 꼬리표도 같은 길이면 `SimpleAggregateFunction(any, Map(...))` 이 된다 : 같은 `series_hash` 면 꼬리표가 같으니(해시가 꼬리표에서 나왔다) 아무거나 하나 남기면 된다.
-
-**확인해야 하는 것** : ClickHouse 26.8 에서 `SimpleAggregateFunction(any, Map(LowCardinality(String), String))` 이 되는가. `Map` 안의 `LowCardinality` 가 걸릴 수 있다. 안 되면 `Map(String, String)` 으로 둔다(5절에서 실측).
+- 이 엔진은 같은 키의 줄 여럿을 합친다(백그라운드 merge)
+  - 집계 상태 칸(`AggregateFunction`)은 상태끼리 합친다
+  - `SimpleAggregateFunction(f, T)` 칸은 `f` 로 합친다
+  - 그 둘이 아닌 **보통 칸은 합칠 때 어느 줄의 값이 남는지 보장이 없다**
+- `#189` 가 `is_counter` 를 `SimpleAggregateFunction(max, UInt8)` 로 둔 이유가 이것이다
+- 꼬리표도 같은 길이면 `SimpleAggregateFunction(any, Map(...))` 이 된다
+  - 같은 `series_hash` 면 꼬리표가 같다(해시가 꼬리표에서 나왔다)
+  - 아무거나 하나 남기면 된다
+- **확인해야 하는 것** : ClickHouse 26.8 에서 `SimpleAggregateFunction(any, Map(LowCardinality(String), String))` 이 되는가
+  - `Map` 안의 `LowCardinality` 가 걸릴 수 있다
+  - 안 되면 `Map(String, String)` 으로 둔다(5절에서 실측)
 
 ### 2.4 데이터는 어디로 흐르나
 
@@ -107,9 +147,19 @@
 
 ## 3. 1차 질문 (사람 차례)
 
-2절을 쉬운 말로 되묻는 자리였다. 물은 것 : "왜 하는 거지" · "왜 105일이지" · "꼬리표 · 꾸러미 숫자가 뭐지" · "Old Gen · Eden 이 뭐지" · "Map 이 정렬 키에 왜 못 들어가지" · "접은 표가 뭐지" · "105일 뒤 삭제돼도 되는 거 아닌가". 답은 2절 2.1 ~ 2.5 에 녹였다(용어 풀이 · 105 = 15 디스크 + 90 S3 · 구멍은 TTL 이 아니라 접을 때 꼬리표를 버린 것).
-
-**결정 : 이 이슈는 4 ~ 8절을 건너뛰고 바로 구현한다** (승조, 2026-10-14). 이유 = `#189` 와 같은 모양이라 선택지가 사실상 하나이고, 2절만으로 "원본엔 있고 롤업엔 없으니 롤업에 넣자" 가 설명됐다. 선택지 넷(롤업 칸 · 사전 표 · 원본 TTL 연장 · 안 한다)과 기각 사유는 ADR `#70` 에 적었다.
+- 2절을 쉬운 말로 되묻는 자리였다
+- 물은 것
+  - "왜 하는 거지" · "왜 105일이지" · "꼬리표 · 꾸러미 숫자가 뭐지"
+  - "Old Gen · Eden 이 뭐지" · "Map 이 정렬 키에 왜 못 들어가지"
+  - "접은 표가 뭐지" · "105일 뒤 삭제돼도 되는 거 아닌가"
+- 답은 2절 2.1 ~ 2.5 에 녹였다
+  - 용어 풀이
+  - 105 = 15 디스크 + 90 S3
+  - 구멍은 TTL 이 아니라 접을 때 꼬리표를 버린 것
+- **결정 : 이 이슈는 4 ~ 8절을 건너뛰고 바로 구현한다** (승조, 2026-10-14)
+  - `#189` 와 같은 모양이라 선택지가 사실상 하나다
+  - 2절만으로 "원본엔 있고 롤업엔 없으니 롤업에 넣자" 가 설명됐다
+  - 선택지 넷(롤업 칸 · 사전 표 · 원본 TTL 연장 · 안 한다)과 기각 사유는 「롤업에 꼬리표를 any 로 남기기」 결정 에 적었다
 
 ---
 
@@ -145,5 +195,10 @@
 
 ## 9. 프롬프트를 가지고 실제 구현
 
-8절 없이 갔다. 결과는 [`README.md`](README.md) 「어떻게 확인했나」. 구현 중 달라진 것 하나 : 2.3 의 걱정이 그대로 맞았다. `SimpleAggregateFunction(any, Map(LowCardinality(String), String))` 은 `any` 가 `LowCardinality` 를 벗긴 타입을 돌려줘서 `Code: 36` 으로 표가 안 만들어진다. `Map(String, String)` 으로 바꿨다.
+- 8절 없이 갔다
+- 결과는 [`README.md`](README.md) 「어떻게 확인했나」
+- 구현 중 달라진 것 하나 : 2.3 의 걱정이 그대로 맞았다
+  - `SimpleAggregateFunction(any, Map(LowCardinality(String), String))` 은 `Code: 36` 으로 표가 안 만들어진다
+    - `any` 가 `LowCardinality` 를 벗긴 타입을 돌려준다
+  - `Map(String, String)` 으로 바꿨다
 

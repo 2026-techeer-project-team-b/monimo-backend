@@ -4,9 +4,14 @@
 
 ## 바꾼 표
 
-`db/clickhouse/003_create_rollup_tables.sql` 의 `transactions` 에 `is_root UInt8` 컬럼 하나, `004_create_materialized_views.sql` 의 `mv_transactions` 조건과 SELECT.
+- `db/clickhouse/003_create_rollup_tables.sql` 의 `transactions` 에 `is_root UInt8` 컬럼 하나를 더했다
+- `004_create_materialized_views.sql` 의 `mv_transactions` 조건과 SELECT 를 바꿨다
 
-**마이그레이션 파일은 없다.** 그리고 그것이 이 이슈가 드러낸 문제다 : `db/clickhouse/*.sql` 은 빈 DB 에서만 돌고 전부 `IF NOT EXISTS` 라, 파일을 고쳐도 떠 있는 ClickHouse 는 조용히 건너뛴다. 로컬은 `docker compose down -v` 로 적용하고, 운영 수단은 [`#119`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/119) 로 넘겼다.
+- **마이그레이션 파일은 없다**
+  - 그리고 그것이 이 이슈가 드러낸 문제다
+  - `db/clickhouse/*.sql` 은 빈 DB 에서만 돌고 전부 `IF NOT EXISTS` 라, 파일을 고쳐도 떠 있는 ClickHouse 는 조용히 건너뛴다
+  - 로컬은 `docker compose down -v` 로 적용한다
+  - 운영 수단은 [`#119`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/119) 로 넘겼다
 
 ## 건드린(영향받은) 표
 
@@ -19,11 +24,20 @@
 
 ## 왜 이 자리에서 고쳤나
 
-**MV 는 insert 시점에 한 번만 돈다.** `spans` 에 줄이 들어오는 그 순간 조건을 통과한 줄만 `transactions` 로 간다. 그래서 조회 쪽에서 고칠 수 없다 : 읽을 줄이 아예 없는데 조회가 무엇을 하겠나. `#83`(`peer_service`) · `#92`(헬스체크) 와 같은 이유로 **적재 쪽(여기서는 MV 조건)** 을 고쳐야 했다.
+- **MV 는 insert 시점에 한 번만 돈다**
+  - `spans` 에 줄이 들어오는 그 순간 조건을 통과한 줄만 `transactions` 로 간다
+  - 그래서 조회 쪽에서 고칠 수 없다 : 읽을 줄이 아예 없는데 조회가 무엇을 하겠나
+  - `#83`(`peer_service`) · `#92`(헬스체크) 와 같은 이유로 **적재 쪽(여기서는 MV 조건)** 을 고쳐야 했다
+- 조회가 `spans` 를 직접 읽는 길(B)도 있었다
+  - 그런데 그러면 `heatmap_1m` 이 집계표를 못 쓰고 원본 표를 매번 훑게 된다
+  - 집계표를 만든 이유가 없어진다
 
-조회가 `spans` 를 직접 읽는 길(B)도 있었지만, 그러면 `heatmap_1m` 이 집계표를 못 쓰고 원본 표를 매번 훑게 된다. 집계표를 만든 이유가 없어진다.
-
-**`is_root` 를 조건이 아니라 컬럼에 둔 이유** : 조건 `parent_span_id = ''` 는 "루트만 통과" 이면서 동시에 "들어온 줄은 전부 루트" 라는 정보였다. 조건을 넓히면 그 정보가 사라진다. 컬럼으로 옮기면 한 표에서 서비스별(`service_name`)과 고객 요청 수(`is_root = 1`)를 다 본다. `UInt8` 하나라 985바이트(표의 0.04%)이고 ClickHouse 가 `PREWHERE` 로 자동으로 옮겨 조회가 오히려 빨라진다(읽는 바이트 430 → 147 KiB).
+- **`is_root` 를 조건이 아니라 컬럼에 둔 이유**
+  - 조건 `parent_span_id = ''` 는 "루트만 통과" 이면서 동시에 "들어온 줄은 전부 루트" 라는 정보였다
+  - 조건을 넓히면 그 정보가 사라진다
+  - 컬럼으로 옮기면 한 표에서 서비스별(`service_name`)과 고객 요청 수(`is_root = 1`)를 다 본다
+  - `UInt8` 하나라 985바이트(표의 0.04%)다
+  - ClickHouse 가 `PREWHERE` 로 자동으로 옮겨 조회가 오히려 빨라진다(읽는 바이트 430 → 147 KiB)
 
 ## 이 표들이 고장 나면
 
@@ -35,11 +49,14 @@
 | 이 표로 "전체 요청 수" 를 센다 | **4배 부풀려진다** (요청 하나가 서비스 4개를 지나면 4줄) | `is_root = 1` 로 세도록 ERD · ADR · 003 주석에 적었다 |
 | 과거 구간을 백필한다 | `transactions` 직접 INSERT → `mv_heatmap_1m` 이 돈다 → `SummingMergeTree` 가 `cnt` 를 **조용히 두 배**. 줄 수가 안 늘어 눈에 안 보인다 | 백필을 안 하기로 했다. 하게 되면 히트맵 파티션 먼저 비우기 → 날짜 파티션 단위 → 별 표 + `MOVE PARTITION`(`research.md` 5.8) |
 | 큐를 쓰는 앱이 붙는다 | CONSUMER 가 조건에 있어 **정상** | 미리 넣어 둔 이유 |
-| 배치 · 스케줄 잡이 생긴다 | 루트가 INTERNAL 이라 **그 서비스 스캐터가 빈다** | ADR `#52` 되돌림 ① : `OR parent_span_id = ''` 로 넓힌다 |
+| 배치 · 스케줄 잡이 생긴다 | 루트가 INTERNAL 이라 **그 서비스 스캐터가 빈다** | 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 되돌림 ① : `OR parent_span_id = ''` 로 넓힌다 |
 
 ## 다른 파트에 알릴 것
 
-- **조회(현영)** : `transactions` 줄 하나의 뜻이 바뀌었다. 서비스별 화면은 그대로 쓰면 되고, **고객 요청 수를 세는 화면이 생기면 `is_root = 1`** 로. `span_id` 는 요청 목록(`GET /traces/transactions`)에서 줄을 눌러 그 구간으로 바로 가는 화면을 만들 거면 그때 넣는다
+- **조회(현영)** : `transactions` 줄 하나의 뜻이 바뀌었다
+  - 서비스별 화면은 그대로 쓰면 된다
+  - 고객 요청 수를 세는 화면이 생기면 `is_root = 1` 로 센다
+  - `span_id` 는 요청 목록(`GET /traces/transactions`)에서 줄을 눌러 그 구간으로 바로 가는 화면을 만들 거면 그때 넣는다
 - **전원** : 파일을 받으면 `docker compose down -v` → 켜기 → `./scripts/seed-clickhouse.sh`. 안 하면 옛 MV 가 남는다
 - **배포** : 운영에 ClickHouse 마이그레이션 수단이 없다(`#119`). 배포 전에 정해야 한다
 - **노션 「ERD」 정본** : `transactions` 설명 · MV 조건 · `is_root` 컬럼 · `spans.parent_span_id` 설명 네 곳을 레포 사본과 같게 고친다

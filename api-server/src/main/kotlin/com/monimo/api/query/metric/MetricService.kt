@@ -3,8 +3,10 @@ package com.monimo.api.query.metric
 import com.monimo.api.common.error.ApiException
 import com.monimo.api.common.error.ErrorCode
 import com.monimo.api.common.web.TimeRange
+import com.monimo.api.query.metric.dto.MetricPoint
 import com.monimo.api.query.metric.dto.MetricSeriesLine
 import com.monimo.api.query.metric.dto.MetricSeriesResponse
+import com.monimo.api.query.support.CounterDelta
 import com.monimo.api.query.support.MonitoredServices
 import com.monimo.api.query.support.Rollup
 import org.springframework.stereotype.Service
@@ -33,11 +35,24 @@ class MetricService(
         val rows = metricRepository.findPoints(serviceName, metricName, agentKey, range, step, rollup)
         val attributes = metricRepository.findAttributes(serviceName, metricName, rows.map { it.seriesKey }.toSet())
         // 조회가 파드 → 속성 조합 → 시각 순으로 줘서 groupBy 가 그 순서를 지킨다
-        val lines = rows.groupBy { it.agentKey to it.seriesKey }.map { (key, points) ->
-            MetricSeriesLine(key.first, attributes[key.second].orEmpty(), points.map { it.point })
+        val grouped = rows.groupBy { it.agentKey to it.seriesKey }
+        val prev = if (grouped.values.any { line -> line.any { it.counter } }) {
+            val since = range.from.minusSeconds(maxOf(step.toLong(), COUNTER_LOOKBACK_SEC))
+            metricRepository.findLastBefore(serviceName, metricName, agentKey, since, range.from, rollup)
+        } else {
+            emptyMap()
+        }
+        val lines = grouped.map { (key, points) ->
+            val counter = points.any { it.counter }
+            val values = if (counter) increases(points, prev[key]) else points.map { it.point }
+            MetricSeriesLine(key.first, attributes[key.second].orEmpty(), counter, values)
         }
         return MetricSeriesResponse(metricName, MetricRepository.tableOf(rollup), step, lines)
     }
+
+    // 총합 줄은 칸마다 마지막 값끼리 빼서 늘어난 양을 네 값에 똑같이 넣는다
+    private fun increases(points: List<MetricRow>, prev: Double?): List<MetricPoint> =
+        CounterDelta.of(points, prev) { it.point.lastV }.map { (row, delta) -> MetricPoint(row.point.tsMin, delta, delta, delta, delta) }
 
     // step 이 없으면 점이 AUTO_POINTS 를 넘지 않는 가장 작은 간격을 고른다
     private fun autoStep(duration: Duration): Int =
@@ -69,5 +84,8 @@ class MetricService(
         // step 을 자동으로 고를 때 넘지 않게 할 점 수와 후보 간격(초)
         const val AUTO_POINTS = 400
         val AUTO_STEPS = listOf(60, 300, 900, 1800, 3600, 10800, 21600, 43200, 86400)
+
+        // 총합 줄의 첫 칸에 쓸 앞 값을 찾는 거리(초). 에이전트가 길게는 60초마다 보내 step 이 작아도 5분은 본다
+        const val COUNTER_LOOKBACK_SEC = 300L
     }
 }
