@@ -1,6 +1,7 @@
 # 결정 : ADR `#50`
 
-정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 `#50`. 여기는 요약과 길 안내만.
+- 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 `#50`
+- 여기는 요약과 길 안내만 둔다
 
 ## 4요소
 
@@ -17,14 +18,24 @@
 
 ## 이 결정은 프롬프트로 내렸다
 
-조사 결과를 읽고 선택지를 다 본 뒤 **사용자가 결정을 글로 쓰고 "그러니 그렇게 구현해줘" 로 끝냈다.** 그 글이 채택 · 기각 셋 · 사유 · 되돌림을 다 담고 있어서 글이 곧 결정이고, 구현은 글을 코드로 옮긴 것이다.
-
-- 원문: [`prompts.md`](prompts.md) 의 「구현 단계」, 그리고 ADR `#50` 안의 「이 결정을 만든 프롬프트」 절
-- 그 글을 쓸 수 있게 만든 조사: [`research.md`](research.md)
+- 사용자가 조사 결과를 읽고 선택지를 다 봤다
+- 그 뒤 **결정을 글로 쓰고 "그러니 그렇게 구현해줘" 로 끝냈다**
+  - 그 글이 채택 · 기각 셋 · 사유 · 되돌림을 다 담고 있다
+  - 그래서 글이 곧 결정이다
+  - 구현은 글을 코드로 옮긴 것이다
+- 원문 : [`prompts.md`](prompts.md) 의 「구현 단계」
+  - ADR `#50` 안의 「이 결정을 만든 프롬프트」 절에도 있다
+- 그 글을 쓸 수 있게 만든 조사 : [`research.md`](research.md)
 
 ## 검증 (2026-10-04, 로컬)
 
-- 단위 23건: 목록 일치 · 불일치 · CLIENT 보존 · 속성 없음 · 빈 목록 · **자식 보존(고아 스팬 현재 동작 고정)** · 경로별 카운터 · 다중 resource/scope · 비문자 값
-- 관통: telemetrygen 으로 `/actuator/health` 와 `/orders` 를 보내 앞은 `spans` 에 안 들어가고 뒤는 들어감
-- env 바인딩: 기본값과 **다른 값**(`/healthz,/custom-probe`)으로 바꿔 `/actuator/health` 가 남는 것 확인 = env 가 yml 을 덮어쓴다
+- 단위 23건
+  - 목록 일치 · 불일치 · CLIENT 보존 · 속성 없음 · 빈 목록
+  - **자식 보존(고아 스팬 현재 동작 고정)**
+  - 경로별 카운터 · 다중 resource/scope · 비문자 값
+- 관통 : telemetrygen 으로 `/actuator/health` 와 `/orders` 를 보냈다
+  - 앞은 `spans` 에 안 들어가고 뒤는 들어감
+- env 바인딩 : 기본값과 **다른 값**(`/healthz,/custom-probe`)으로 바꿨다
+  - `/actuator/health` 가 남는 것을 확인
+  - env 가 yml 을 덮어쓴다는 뜻
 - `check-pipeline.sh` 를 헬스체크가 버려지는 중에 돌려 통과
