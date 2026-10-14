@@ -1,0 +1,14 @@
+# 되넣는 잡 프로필 (#195). local 과 같이 켠다 : SPRING_PROFILES_ACTIVE=local,dlq-reprocess
+#
+# 끄는 것 둘 :
+#   웹 서버    요청을 받지 않는다. 한 번 돌고 끝나는 잡이라 포트를 열면 그 포트가 점유되고(적재 처리기와 겹친다) 안 내려간다
+#   리스너     raw 를 읽지 않는다. 이걸 안 끄면 잡이 적재 처리기 노릇까지 해서 raw 를 두 군데서 소비한다
+#
+# 그룹 이름 · 포기 횟수는 DlqReprocessProperties 기본값(dlq-reprocess · 3)을 쓰고
+# 환경변수로 덮어쓴다 : MONIMO_INGESTER_DLQ_REPROCESS_MAX_ATTEMPT=5 · ..._DRY_RUN=true
+spring:
+  main:
+    web-application-type: none
+  kafka:
+    listener:
+      auto-startup: false
