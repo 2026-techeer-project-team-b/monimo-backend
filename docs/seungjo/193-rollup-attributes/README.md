@@ -2,11 +2,14 @@
 
 > 이슈 `#193` · 2026-10-14 · 결정은 ADR `#70`
 > 조사 1 · 2절은 [`research.md`](research.md) · 프롬프트 원문은 [`prompts.md`](prompts.md)
-> 발견은 조회 파트(이현영) : 노션 「누적 지표 그래프 관련 이슈」 「같이 알아둘 것」. `#189` 와 같이 볼지 판단하기로 했던 것을 따로 가져왔다
+> 발견은 조회 파트(이현영) : 노션 「누적 지표 그래프 관련 이슈」 「같이 알아둘 것」
+> `#189`(종류 칸) 와 같이 볼지 판단하기로 했던 것을 따로 가져왔다
 
 ## 결정
 
-**접을 때 꼬리표를 `any` 로 하나 남긴다. 마이그레이션 파일 하나, 코드 0줄.**
+- **접을 때 꼬리표를 `any` 로 하나 남긴다**
+  - 마이그레이션 파일 하나
+  - 코드 0줄
 
 | 무엇 | 값 |
 |---|---|
@@ -17,9 +20,13 @@
 
 ## 세 줄 요약
 
-- 원본 표에만 꼬리표가 있고 1분 · 1시간 롤업에는 꼬리표를 숫자로 접은 `series_hash` 만 있다
-- MV 가 접는 기준에 꼬리표가 없어 접는 순간 떨어지고, 조회는 원본에서 찾아 붙이는데 원본은 105일에 지워진다
-- 그래서 접을 때 꼬리표도 한 칸 남겨, 원본이 없어진 뒤에도 롤업만으로 갈래(G1 Old Gen · Eden)를 알게 한다
+- 원본 표에만 꼬리표가 있다
+  - 1분 · 1시간 롤업에는 꼬리표를 숫자로 접은 `series_hash` 만 있다
+- MV 가 접는 기준에 꼬리표가 없어 접는 순간 떨어진다
+  - 조회는 원본에서 찾아 붙인다
+  - 그런데 원본은 105일에 지워진다
+- 그래서 접을 때 꼬리표도 한 칸 남긴다
+  - 원본이 없어진 뒤에도 롤업만으로 갈래(G1 Old Gen · Eden)를 알게 한다
 
 ## 흐름을 시점으로 갈라 본다
 
@@ -43,7 +50,13 @@ ClickHouse   : mv_metrics_1m 이 같은 (서비스 · 파드 · 이름 · series
 
 ## 왜 `any` 로 충분한가
 
-`series_hash` 는 꼬리표를 키 정렬 · `k=v` 이어 붙이기 · SHA-256 · 앞 8바이트로 만든 숫자다(`MetricRow.seriesHashOf`). 같은 숫자 = 같은 꼬리표이므로 한 묶음 안의 꼬리표는 전부 같고 아무거나 하나 남기면 된다. 가짜 데이터는 `cityHash64` 로 만들어 식이 다르지만 "꼬리표 → 숫자" 가 결정적인 것은 같다.
+- `series_hash` 는 꼬리표로 만든 숫자다(`MetricRow.seriesHashOf`)
+  - 키 정렬 · `k=v` 이어 붙이기 · SHA-256 · 앞 8바이트
+- 같은 숫자 = 같은 꼬리표다
+  - 한 묶음 안의 꼬리표는 전부 같다
+  - 아무거나 하나 남기면 된다
+- 가짜 데이터는 `cityHash64` 로 만들어 식이 다르다
+  - 그래도 "꼬리표 → 숫자" 가 결정적인 것은 같다
 
 ## 장애가 나면
 
@@ -63,7 +76,15 @@ ClickHouse   : mv_metrics_1m 이 같은 (서비스 · 파드 · 이름 · series
 
 ## 틀렸던 것
 
-처음에 원본과 같은 `Map(LowCardinality(String), String)` 으로 썼다. 테스트 컨테이너가 `Code: 36. DB::Exception: Incompatible data types between aggregate function 'any' which returns Map(String, String) and column storage type Map(LowCardinality(String), String). (BAD_ARGUMENTS)` 로 표를 못 만들고 죽었다. `any` 가 `LowCardinality` 를 벗긴 타입을 돌려주기 때문에 `SimpleAggregateFunction` 칸은 그 타입과 같아야 한다. 조사 2.3 이 "걸릴 수 있다, 안 되면 `Map(String, String)`" 으로 적어 둔 그대로였다. 롤업은 원본의 1/4 · 1/240 줄이라 사전 압축을 포기해도 된다.
+- 처음에 원본과 같은 `Map(LowCardinality(String), String)` 으로 썼다
+  - 테스트 컨테이너가 표를 못 만들고 죽었다
+    - `Code: 36. DB::Exception: Incompatible data types between aggregate function 'any' which returns Map(String, String) and column storage type Map(LowCardinality(String), String). (BAD_ARGUMENTS)`
+- `any` 가 `LowCardinality` 를 벗긴 타입을 돌려준다
+  - 그래서 `SimpleAggregateFunction` 칸은 그 타입과 같아야 한다
+- 조사 2.3 이 적어 둔 그대로였다
+  - "걸릴 수 있다, 안 되면 `Map(String, String)`"
+- 롤업은 원본의 1/4 · 1/240 줄이다
+  - 사전 압축을 포기해도 된다
 
 ## 결과물
 
@@ -73,5 +94,7 @@ ClickHouse   : mv_metrics_1m 이 같은 (서비스 · 파드 · 이름 · series
 
 ## 조회가 나중에 할 것 (급하지 않음)
 
-- `MetricRepository.findPoints` 가 롤업을 읽을 때 `attributes` 도 같이 읽고, 빈 Map 인 줄만 `findAttributes` 로 원본을 찾는다
-- 105일 뒤(2027-01-05)에는 옛 줄이 다 사라져 원본 조인을 없앨 수 있다 (ADR `#70` 되돌림 ②)
+- `MetricRepository.findPoints` 가 롤업을 읽을 때 `attributes` 도 같이 읽는다
+  - 빈 Map 인 줄만 `findAttributes` 로 원본을 찾는다
+- 105일 뒤(2027-01-05)에는 옛 줄이 다 사라진다
+  - 원본 조인을 없앨 수 있다 (ADR `#70` 되돌림 ②)
