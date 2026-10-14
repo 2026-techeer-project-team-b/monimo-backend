@@ -4,9 +4,14 @@
 
 ## 바꾼 표
 
-`db/clickhouse/003_create_rollup_tables.sql` 의 `transactions` 에 `is_root UInt8` 컬럼 하나, `004_create_materialized_views.sql` 의 `mv_transactions` 조건과 SELECT.
+- `db/clickhouse/003_create_rollup_tables.sql` 의 `transactions` 에 `is_root UInt8` 컬럼 하나를 더했다
+- `004_create_materialized_views.sql` 의 `mv_transactions` 조건과 SELECT 를 바꿨다
 
-**마이그레이션 파일은 없다.** 그리고 그것이 이 이슈가 드러낸 문제다 : `db/clickhouse/*.sql` 은 빈 DB 에서만 돌고 전부 `IF NOT EXISTS` 라, 파일을 고쳐도 떠 있는 ClickHouse 는 조용히 건너뛴다. 로컬은 `docker compose down -v` 로 적용하고, 운영 수단은 [`#119`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/119) 로 넘겼다.
+- **마이그레이션 파일은 없다**
+  - 그리고 그것이 이 이슈가 드러낸 문제다
+  - `db/clickhouse/*.sql` 은 빈 DB 에서만 돌고 전부 `IF NOT EXISTS` 라, 파일을 고쳐도 떠 있는 ClickHouse 는 조용히 건너뛴다
+  - 로컬은 `docker compose down -v` 로 적용한다
+  - 운영 수단은 [`#119`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/119) 로 넘겼다
 
 ## 건드린(영향받은) 표
 
@@ -19,11 +24,20 @@
 
 ## 왜 이 자리에서 고쳤나
 
-**MV 는 insert 시점에 한 번만 돈다.** `spans` 에 줄이 들어오는 그 순간 조건을 통과한 줄만 `transactions` 로 간다. 그래서 조회 쪽에서 고칠 수 없다 : 읽을 줄이 아예 없는데 조회가 무엇을 하겠나. `#83`(`peer_service`) · `#92`(헬스체크) 와 같은 이유로 **적재 쪽(여기서는 MV 조건)** 을 고쳐야 했다.
+- **MV 는 insert 시점에 한 번만 돈다**
+  - `spans` 에 줄이 들어오는 그 순간 조건을 통과한 줄만 `transactions` 로 간다
+  - 그래서 조회 쪽에서 고칠 수 없다 : 읽을 줄이 아예 없는데 조회가 무엇을 하겠나
+  - `#83`(`peer_service`) · `#92`(헬스체크) 와 같은 이유로 **적재 쪽(여기서는 MV 조건)** 을 고쳐야 했다
+- 조회가 `spans` 를 직접 읽는 길(B)도 있었다
+  - 그런데 그러면 `heatmap_1m` 이 집계표를 못 쓰고 원본 표를 매번 훑게 된다
+  - 집계표를 만든 이유가 없어진다
 
-조회가 `spans` 를 직접 읽는 길(B)도 있었지만, 그러면 `heatmap_1m` 이 집계표를 못 쓰고 원본 표를 매번 훑게 된다. 집계표를 만든 이유가 없어진다.
-
-**`is_root` 를 조건이 아니라 컬럼에 둔 이유** : 조건 `parent_span_id = ''` 는 "루트만 통과" 이면서 동시에 "들어온 줄은 전부 루트" 라는 정보였다. 조건을 넓히면 그 정보가 사라진다. 컬럼으로 옮기면 한 표에서 서비스별(`service_name`)과 고객 요청 수(`is_root = 1`)를 다 본다. `UInt8` 하나라 985바이트(표의 0.04%)이고 ClickHouse 가 `PREWHERE` 로 자동으로 옮겨 조회가 오히려 빨라진다(읽는 바이트 430 → 147 KiB).
+- **`is_root` 를 조건이 아니라 컬럼에 둔 이유**
+  - 조건 `parent_span_id = ''` 는 "루트만 통과" 이면서 동시에 "들어온 줄은 전부 루트" 라는 정보였다
+  - 조건을 넓히면 그 정보가 사라진다
+  - 컬럼으로 옮기면 한 표에서 서비스별(`service_name`)과 고객 요청 수(`is_root = 1`)를 다 본다
+  - `UInt8` 하나라 985바이트(표의 0.04%)다
+  - ClickHouse 가 `PREWHERE` 로 자동으로 옮겨 조회가 오히려 빨라진다(읽는 바이트 430 → 147 KiB)
 
 ## 이 표들이 고장 나면
 
