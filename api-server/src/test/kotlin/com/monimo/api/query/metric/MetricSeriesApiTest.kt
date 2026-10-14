@@ -59,11 +59,11 @@ class MetricSeriesApiTest(
     // 지난 정각. 넣는 값이 전부 한 시간 칸 안에 들어간다
     val t0 = now.truncatedTo(ChronoUnit.HOURS).minus(Duration.ofHours(1))
 
-    fun metric(offsetSec: Long, value: Double, agent: String = "pod-a", hash: Int = 1, type: String = "heap", name: String = "jvm.memory.used") {
+    fun metric(offsetSec: Long, value: Double, agent: String = "pod-a", hash: Int = 1, type: String = "heap", name: String = "jvm.memory.used", counter: Int = 0) {
         clickHouse.jdbcTemplate.update(
             """
-            INSERT INTO metrics_raw (service_name, agent_id, metric_name, series_hash, attributes, ts, value)
-            VALUES ('mt-order', '$agent', '$name', $hash, map('jvm.memory.type', '$type'), toDateTime(${t0.plusSeconds(offsetSec).epochSecond}, 'UTC'), $value)
+            INSERT INTO metrics_raw (service_name, agent_id, metric_name, is_counter, series_hash, attributes, ts, value)
+            VALUES ('mt-order', '$agent', '$name', $counter, $hash, map('jvm.memory.type', '$type'), toDateTime(${t0.plusSeconds(offsetSec).epochSecond}, 'UTC'), $value)
             """.trimIndent(),
         )
     }
@@ -79,6 +79,15 @@ class MetricSeriesApiTest(
     metric(0, 10.0, hash = 2, type = "non_heap")
     metric(0, 1000.0, agent = "pod-b")
     metric(0, 42.0, hash = 3, name = "jvm.thread.count")
+    // 켜진 뒤 총합(GC 시간 합, 초). 범위 앞 1.0 → 1.5 → 1.9 → 0.2(재시작) → 0.5. pod-c 는 범위 앞 값이 없다
+    val gc = "jvm.gc.duration.sum"
+    metric(-60, 1.0, hash = 11, name = gc, counter = 1)
+    metric(0, 1.5, hash = 11, name = gc, counter = 1)
+    metric(60, 1.9, hash = 11, name = gc, counter = 1)
+    metric(120, 0.2, hash = 11, name = gc, counter = 1)
+    metric(180, 0.5, hash = 11, name = gc, counter = 1)
+    metric(0, 3.0, agent = "pod-c", hash = 11, name = gc, counter = 1)
+    metric(60, 3.25, agent = "pod-c", hash = 11, name = gc, counter = 1)
 
     val base = "service_name=mt-order&metric_name=jvm.memory.used&from=$t0&to=${t0.plusSeconds(3600)}"
 
@@ -161,6 +170,46 @@ class MetricSeriesApiTest(
                 val data = json(get("service_name=mt-order&metric_name=jvm.memory.used&from=${t0.minus(Duration.ofDays(30))}&to=$t0"))["data"]
                 data["step"].asInt() shouldBe 10800
                 data["source_table"].asText() shouldBe "metrics_1h"
+            }
+        }
+
+        When("켜진 뒤 총합(is_counter = 1) 지표면") {
+            val data = json(get("service_name=mt-order&metric_name=$gc&from=$t0&to=${t0.plusSeconds(3600)}&step=60"))["data"]
+            val podA = data["series"][0]
+
+            Then("is_counter 가 true 이고 점마다 그 1분에 늘어난 양을 준다 (첫 칸은 범위 앞 값과 뺀다)") {
+                podA["agent_key"].asText() shouldBe "pod-a"
+                podA["is_counter"].asBoolean() shouldBe true
+                podA["points"].map { Instant.parse(it["ts_min"].asText()) } shouldBe listOf(t0, t0.plusSeconds(60), t0.plusSeconds(180))
+                podA["points"].map { it["last_v"].asDouble() }.zip(listOf(0.5, 0.4, 0.3)).forEach { (actual, expected) ->
+                    actual shouldBe (expected plusOrMinus 0.0001)
+                }
+                podA["points"][0]["avg_v"].asDouble() shouldBe podA["points"][0]["last_v"].asDouble()
+            }
+
+            Then("뺀 값이 음수인 칸(재시작)은 빠진다") {
+                podA["points"].none { Instant.parse(it["ts_min"].asText()) == t0.plusSeconds(120) } shouldBe true
+            }
+
+            Then("범위 앞 값이 없는 줄은 첫 칸이 빠진다") {
+                val podC = data["series"][1]
+                podC["agent_key"].asText() shouldBe "pod-c"
+                podC["points"].size() shouldBe 1
+                podC["points"][0]["last_v"].asDouble() shouldBe 0.25
+            }
+
+            Then("원본 step 이어도 같은 규칙으로 뺀다") {
+                val raw = json(get("service_name=mt-order&metric_name=$gc&from=$t0&to=${t0.plusSeconds(240)}&step=15&agent_key=pod-a"))["data"]
+                raw["source_table"].asText() shouldBe "metrics_raw"
+                raw["series"][0]["points"].size() shouldBe 3
+            }
+        }
+
+        When("총합이 아닌 지표면") {
+            Then("is_counter 는 false 이고 값은 그대로다") {
+                val data = json(get("$base&step=60"))["data"]
+                data["series"].all { !it["is_counter"].asBoolean() } shouldBe true
+                at(data, 0, 1)["last_v"].asDouble() shouldBe 700.0
             }
         }
 
