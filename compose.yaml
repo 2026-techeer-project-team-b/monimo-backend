@@ -310,6 +310,42 @@ services:
       retries: 30
       start_period: 20s
 
+  # raw.dlq 에 쌓인 것을 raw 로 되넣는 잡 (#195, ADR 참조). **사람이 부른다** :
+  #   docker compose run --rm dlq-reprocess                                     되넣는다
+  #   docker compose run --rm -e MONIMO_INGESTER_DLQ_REPROCESS_DRY_RUN=true dlq-reprocess   무엇을 넣을지만 본다
+  #
+  # 적재 처리기와 **같은 이미지**다. 다른 것은 프로필 하나뿐이고, 그 프로필이 웹 서버와 리스너 자동 시작을 끈다
+  # (application-dlq-reprocess.yml). 쿠버네티스가 생기면 이 환경변수 그대로 Job 의 command 가 된다
+  # (#119 가 clickhouse-migrate 로 같은 길을 걸었다).
+  #
+  # 자기 프로필에 둔 이유 : up -d 로는 절대 안 뜨게 한다. 한 번 돌고 끝나는 것을 계속 띄우면 의미가 없다.
+  # docker compose run 은 이름을 직접 주면 프로필을 알아서 켜 준다
+  dlq-reprocess:
+    profiles: ["dlq-reprocess"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ingester
+    image: monimo/ingester:dev
+    environment:
+      SPRING_PROFILES_ACTIVE: local,dlq-reprocess
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-monimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+      KAFKA_HOST: kafka
+      KAFKA_PORT: "29092"
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_HTTP_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-monimo}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 몇 번 왕복한 레코드를 포기하나. 기본 3 (DlqReprocessProperties). 올리려면 .env 에 DLQ_REPROCESS_MAX_ATTEMPT=5
+      MONIMO_INGESTER_DLQ_REPROCESS_MAX_ATTEMPT: ${DLQ_REPROCESS_MAX_ATTEMPT:-3}
+    depends_on:
+      infra-ready:
+        condition: service_healthy
+    restart: "no"
+
 volumes:
   clickhouse-data:
   postgres-data:

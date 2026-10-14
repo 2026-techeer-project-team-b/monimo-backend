@@ -20,6 +20,8 @@ INGESTER=localhost:${INGESTER_MANAGEMENT_PORT:-18082}
 WAIT_SECONDS=20   # 적재 처리기가 소비할 때까지 기다리는 최대 시간
 
 ok() { echo "✓ $1"; }
+# 막힌 것은 아니지만 사람이 손을 써야 하는 것. 되넣는 잡 깊이가 여기 걸린다 (#195)
+warn() { echo "! $1"; }
 fail() { echo "✗ $1"; exit 1; }
 
 # 수집기의 TLS 상태에 맞춰 보낸다 (#159 · ADR #64). 수집기와 같은 .env 를 읽는다 :
@@ -210,5 +212,31 @@ ok "transactions ${src} = heatmap_1m ${agg}"
 #   그 줄은 창 설정이 막는다. 로그는 MV 가 아예 없다.
 #
 # 그래서 대조는 스팬 쪽만 본다. 틀어졌을 때 사람이 보는 숫자(에러율 · P95 · 히트맵)가 전부 그쪽이다.
+
+# raw.dlq 깊이 (#195). **끝 오프셋이 깊이가 아니다** : Kafka 는 읽어도 지우지 않고 그룹의 커밋 위치만 올라간다.
+# 그래서 깊이 = 되넣는 잡 그룹의 lag(끝 오프셋 : 커밋 오프셋)이고, 그 잡을 한 번도 안 돌렸으면
+# 장부가 없어서 lag 이라는 숫자 자체가 안 생긴다. 적재 처리기의 monimo.ingester.dlq 는 깊이가 아니다 :
+# 그것은 **그 프로세스가 보낸 수**라 재시작하면 0 으로 돌아간다(실측 : 지표 2 · 토픽 6건).
+#
+# 막혔다고 보지 않고(warn) 알리기만 한다 : 되넣기는 사람이 부르는 잡이라 쌓여 있는 것이 곧 고장은 아니다.
+# 다만 보관 30일이 지나면 그때는 진짜 유실이다
+echo "실패분 큐"
+KAFKA_BIN=/opt/kafka/bin
+dlq_end=$(docker compose exec -T kafka $KAFKA_BIN/kafka-get-offsets.sh --bootstrap-server localhost:29092 \
+  --topic-partitions raw.dlq:0 2>/dev/null | cut -d: -f3) || fail "raw.dlq 끝 오프셋 조회 실패 (docker compose ps kafka)"
+dlq_end=${dlq_end:-0}
+if [ "$dlq_end" = "0" ]; then
+  ok "raw.dlq 비어 있다"
+else
+  dlq_committed=$(docker compose exec -T kafka $KAFKA_BIN/kafka-consumer-groups.sh --bootstrap-server localhost:29092 \
+    --describe --group dlq-reprocess 2>/dev/null | awk '$2 == "raw.dlq" { print $4 }' | head -1)
+  if [ -z "$dlq_committed" ] || [ "$dlq_committed" = "-" ]; then
+    warn "raw.dlq 에 ${dlq_end}건 있는데 되넣는 잡을 한 번도 안 돌렸다 (docker compose run --rm dlq-reprocess)"
+  elif [ "$dlq_committed" = "$dlq_end" ]; then
+    ok "raw.dlq 깊이 0 (${dlq_end}건 전부 처리했다)"
+  else
+    warn "raw.dlq 깊이 $((dlq_end - dlq_committed))건 (끝 ${dlq_end} · 되넣기 ${dlq_committed}). 되넣으려면 docker compose run --rm dlq-reprocess"
+  fi
+fi
 
 echo "파이프라인 관통 정상: 에이전트 → 수집기 → Kafka raw → 적재 처리기 → ClickHouse"
