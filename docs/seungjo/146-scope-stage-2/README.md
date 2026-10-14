@@ -2,10 +2,10 @@
 
 > **이 작업의 기술 설계 문서 한 장** : 코드가 아니라 설계 문서를 쓴 건이다
 > 문제 → 선택지 → 결정 → 장애가 나면 순서로 읽으면 끝난다
-> 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 ADR `#60` 이고, 산출물은 [`../../design/20-scope.md`](../../design/20-scope.md) 다
+> 결정 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 「2단계 범위 · 규모 실측 확정 · T0」 결정 이고, 산출물은 [`../../design/20-scope.md`](../../design/20-scope.md) 다
 > 라이트 모드 : `research.md` 를 안 돌렸다. 조사할 것이 "무엇을 재나" 하나였고 선택지도 `T0` 후보 셋이 전부였다
 
-- 2026-10-11 / 승조(`@SeungJo-02`) / 결정 ADR `#60` / 이슈 [`#146`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/146)
+- 2026-10-11 / 승조(`@SeungJo-02`) / 결정 「2단계 범위 · 규모 실측 확정 · T0」 결정 / 이슈 [`#146`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/146)
 - 유저 플로우에서 어디: 어디에도 없다
   - 사람이 읽는 문서다
   - 다만 배포 7 ~ 9단계(monimo-deploy)의 PVC · 자원 값이 여기 숫자에서 나온다
@@ -29,7 +29,7 @@
 
 - **무엇이 깨지나**
   - 배포 매니페스트에 CPU · 메모리 · PVC 를 감으로 적게 된다
-  - `T0+1M` 중간 점검(ADR `#06` `#09` 되돌림 조건)이 언제인지 아무도 모른다
+  - `T0+1M` 중간 점검(「경보 대상은 3신호 전부」 결정 `#09` 되돌림 조건)이 언제인지 아무도 모른다
   - 면접에서 "설계 5단계를 했다" 고 말하면 2단계가 비어 있다
 
 ## 선택지
@@ -49,7 +49,7 @@
   - 숫자 7항은 전부 실측 또는 역산(동시 사용자만 가정 10)
   - NFR 은 상한으로 유지
   - 경계표는 "지금 코드가 어디까지 있나" 16행
-  - ADR `#60` 에 4요소
+  - 「2단계 범위 · 규모 실측 확정 · T0」 결정 에 4요소
 - **버린 것과 이유**: 위 표
 - **되돌리는 조건**
   - 운영 실측이 로컬 역산과 10배 넘게 어긋나면 다시 잰다
@@ -85,7 +85,7 @@ docker run --rm --network monimo-dev -v "$PWD/k6:/scripts" -e BASE_URL=http://ga
   - 1% 상시 = spans 21.6 MB + transactions 3.4 MB + metrics_raw 0.6 MB = 26 MB/일
   - 100% 를 24시간 걸면 spans 2,159 MB/일
   - 3분 데모 한 번은 약 5 MB
-- 상주량은 보관 기간(ADR `#10`)을 곱했다
+- 상주량은 보관 기간(「보관 기간 3계층」 결정)을 곱했다
   - 로컬 TTL(93 ~ 105일)은 S3 2단을 합친 것이라 따로 적었다
 - 전부 `20-scope.md` §4 표
 
@@ -118,5 +118,5 @@ docker run --rm --network monimo-dev -v "$PWD/k6:/scripts" -e BASE_URL=http://ga
 | 운영 디스크가 예상(하루 수십 MB)보다 훨씬 빨리 찬다 | 샘플링 비율이 1% 가 아니다(100% 를 24시간 받으면 하루 2.5 GB). 또는 로컬 TTL(93일)이 운영에 그대로 갔다 | PG `application_configs.sampling_rate` · `db/clickhouse` TTL · `system.parts` |
 | 로컬 디스크가 찬다 | 데모 탓이 아니다(3분 100% 데모 한 번 약 5 MB, 93일 매일 0.5 GB). 가짜 seed 를 반복 넣었거나(한 시간치 23 MB) TTL 93 ~ 105일 | `SELECT table, sum(bytes_on_disk) FROM system.parts WHERE database='monimo' GROUP BY 1` |
 | 시계열 수가 화면과 다르다 | `series_hash` 만 셌다 | `metric_name` 을 함께 묶는다 |
-| 쇼핑몰 compose 가 안 뜬다 | 포트 8091 · 8092 충돌 | `#148`(ADR `#61`)이 관리 포트를 18081 · 18082 로 옮겨 해소. 그 전 이미지면 `PAYMENT_PORT=18092 ORDER_PORT=18091` 로 띄운다 |
-| `T0+1M` 점검(2026-10-22)에 되돌림 조건이 걸린다 | ADR `#06`(메트릭 규칙 평가 미완) · `#09`(대시보드 1종 미완). 코드는 둘 다 있다. 끝났는지는 그날 판정한다 | `detector/` · monimo-web `features/` |
+| 쇼핑몰 compose 가 안 뜬다 | 포트 8091 · 8092 충돌 | `#148`(「관리 포트는 업무 포트 + 10000」 결정)이 관리 포트를 18081 · 18082 로 옮겨 해소. 그 전 이미지면 `PAYMENT_PORT=18092 ORDER_PORT=18091` 로 띄운다 |
+| `T0+1M` 점검(2026-10-22)에 되돌림 조건이 걸린다 | 「경보 대상은 3신호 전부」 결정 · `#09`(대시보드 1종 미완). 코드는 둘 다 있다. 끝났는지는 그날 판정한다 | `detector/` · monimo-web `features/` |

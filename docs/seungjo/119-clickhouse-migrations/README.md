@@ -1,6 +1,6 @@
 # `#119` ClickHouse 마이그레이션 수단을 만든다 : PG 가 쓰는 Flyway 를 그대로
 
-- 이슈 `#119` · ADR `#57` · 브랜치 `chore/119-clickhouse-migrations`
+- 이슈 `#119` · 「ClickHouse 마이그레이션도 Flyway」 결정 · 브랜치 `chore/119-clickhouse-migrations`
 - `#118`(`transactions` 를 서비스가 받은 요청 기준으로) 이 올린 후속
 
 - 표 정의를 **새로 바꾸지는 않는다**
@@ -303,7 +303,7 @@ clean            cleanDisabled 로 막힌다 (Flyway 가 monimo 를 소유하므
 - `compose.yaml` : `initdb` 마운트 제거 · `clickhouse-migrate` 추가 · 헬스체크 교체 · `infra-ready` 의존 교체
 - `scripts/seed/clickhouse-fake-signals.sql` : `db/clickhouse/seed/` 에서 옮김
 - `scripts/seed-clickhouse.sh` : 경로 한 줄
-- `docs/design/01-decisions.md` : ADR `#57`
+- `docs/design/01-decisions.md` : 「ClickHouse 마이그레이션도 Flyway」 결정
 - `scripts/check-dev-infra.sh` : 표를 셀 때 장부를 뺀다(11개 유지)
   - PG 와 같은 기준으로 CH 장부의 성공 · 실패도 본다
 - `AGENTS.md` : §2 마이그레이션 규칙(PG 전용으로 적혀 있었다) · §5 `#119` · §6 해당 행 해소

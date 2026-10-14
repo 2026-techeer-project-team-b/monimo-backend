@@ -1,4 +1,4 @@
-# 결정 : ADR `#KK`
+# 결정 : 「<무엇을 어떻게 하기로 했나 한 줄>」
 
 - 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 `#KK`
 - 여기는 요약과 길 안내만 둔다

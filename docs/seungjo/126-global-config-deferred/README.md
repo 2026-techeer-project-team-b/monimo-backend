@@ -1,6 +1,6 @@
 # `#126` 전역 설정 표를 지금 만들지 않는다 : 옮길 값이 하나였다
 
-- 이슈 `#126` `#128`(`sampling_rate` DB 주석) · ADR `#55` · 브랜치 `chore/126-global-config-deferred`
+- 이슈 `#126` `#128`(`sampling_rate` DB 주석) · 「전역 설정 표는 지금 안 만든다」 결정 · 브랜치 `chore/126-global-config-deferred`
 - `#121`(샘플링 비율 정본을 PG 로) 이 올린 후속
 
 - **만든 것이 아니라 안 만들기로 정한 이슈다**
@@ -38,7 +38,7 @@
 | **로그 하한** | 수집기 env | **코드에 아예 없다** |
 
 - `MIN_LOG_LEVEL` 은 레포 전체에서 문서 두 곳에만 있다
-  - `01-decisions.md` 의 ADR `#38` ④
+  - `01-decisions.md` 의 「metrics_raw 는 long 1지표 1행 · 설정은 앱 단위」 결정 ④
   - `api-spec.md` 의 `LogsService/Export` 행
 - 수집기 `filter/` 에는 `HealthCheckFilter` 하나뿐이다
   - 로그를 거르는 코드가 없다
@@ -133,13 +133,13 @@ api-server 에서 level 을 쓰는 코드   0건
 - 하한과 무관하게 틀린 숫자다
   - 그런데 고치면 ClickHouse 에 저장되는 값이 바뀌는 동작 변경이라 이 결정 범위 밖으로 뒀다
   - `AGENTS.md` §6 에 올렸다
-- 후속 `#144`(로그 등급 여섯 이름 고정) · ADR `#59` 에서 해소했다
+- 후속 `#144`(로그 등급 여섯 이름 고정) · 「로그 등급은 severity_number 가 정본」 결정 에서 해소했다
   - 거기서 이 7건이 가짜 데이터가 낼 수 없는 값이라 진짜 생산자의 것이었다는 것이 밝혀졌다
   - 그 뒤 볼륨이 새로 만들어져 지금 표에는 없다는 것도 밝혀졌다
 
 ## 바꾼 파일
 
-- `docs/design/01-decisions.md` : ADR `#55`
+- `docs/design/01-decisions.md` : 「전역 설정 표는 지금 안 만든다」 결정
 - `docs/design/web-v2/api-spec.md` : `LogsService/Export` 행
   - "하한 미만 등급은 여기서 버려짐" 이 사실이 아니었다
 - `db/postgres/config/V202610091330__comment_application_configs_sampling_rate.sql` : `#128`

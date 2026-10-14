@@ -24,7 +24,7 @@
 |---|---|
 | 건드리는 모듈 · 파일 | `db/clickhouse/004_create_materialized_views.sql`(MV 조건) · 필요하면 `003_create_rollup_tables.sql`(컬럼) · `docs/design/web-v2/erd.md` · 노션 「ERD」 · `docs/design/01-decisions.md`(ADR 신설) · `AGENTS.md` §5 · §6 |
 | 건드리지 않는 것 | **수집기 · 적재 처리기 코드 0줄.** 이 표를 읽지도 쓰지도 않는다. **조회 코드도 0줄** : `ScatterRepository` 가 `service_name` 과 시간 범위로만 읽어서 줄이 들어오면 그대로 동작한다. `scripts/seed-clickhouse.sh` 도 표 이름만 쓰므로 그대로다 |
-| 이 이슈 범위 밖 (후속) | `GET /traces/transactions`(요청 목록)과 `GET /traces/heatmap` 구현은 조회 파트 몫이다. S3 cold 계층(ADR `#34`)도 배포 단계 |
+| 이 이슈 범위 밖 (후속) | `GET /traces/transactions`(요청 목록)과 `GET /traces/heatmap` 구현은 조회 파트 몫이다. S3 cold 계층(「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정)도 배포 단계 |
 
 **조사 들어가기 전에 내가 알던 것 (세 줄)**
 
@@ -227,7 +227,7 @@ SERVER  gateway   POST /api/orders     parent 없음  ← 루트이면서 SERVER
 | 스캐터만 영향받는다 | **표 2개 · API 3개가 걸린다.** `heatmap_1m` 이 `transactions` 에서 파생된다 |
 | 미리 표를 비우고 `down -v` 한다 | **미리 비울 필요가 없다.** `down -v` 가 볼륨을 지우니 그게 곧 비우기다. 순서는 파일 수정 → `down -v` → 켜기 → seed |
 | `down -v` 가 필요한 이유는 옛 줄 때문이다 | **MV 정의 때문이다.** DDL 이 빈 DB 에서만 돌아서, 그냥 켜면 옛 조건의 MV 가 그대로 남는다 |
-| ERD 의 TTL 설명대로 S3 로 간다 | ERD 는 "3일 디스크 → 90일 S3 → 93일 삭제" 라고 적지만 **로컬 DDL 은 93일 삭제 한 단**이다. S3 는 배포 단계(ADR `#34`)이고 `#96` 에서도 같은 차이를 확인했다 |
+| ERD 의 TTL 설명대로 S3 로 간다 | ERD 는 "3일 디스크 → 90일 S3 → 93일 삭제" 라고 적지만 **로컬 DDL 은 93일 삭제 한 단**이다. S3 는 배포 단계(「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정)이고 `#96` 에서도 같은 차이를 확인했다 |
 
 ---
 

@@ -1,6 +1,6 @@
 # `#127` JDBC 응답이 없을 때 주기 작업이 영구히 멈추지 않게 한다
 
-- 이슈 `#127` · ADR `#54` · 브랜치 `chore/127-jdbc-socket-timeout`
+- 이슈 `#127` · 「JDBC socketTimeout 10초 · 낡음 게이지」 결정 · 브랜치 `chore/127-jdbc-socket-timeout`
 - `#121`(샘플링 비율 정본을 PG 로) 리뷰에서 나온 후속
 
 - `#121` 이 수집기에 `@Scheduled` 로 PG 를 읽는 주기 작업을 넣으면서 생긴 구멍을 막는다
@@ -189,5 +189,5 @@ unpause   age=6.17   success=2.0  failure=1.0
   - 기준 시각은 마지막 성공, 한 번도 성공하지 못했으면 기동 시각
 - `ingester/.../inbound/kafka/RawErrorHandlerConfig.kt` : `@Bean(defaultCandidate = false)` + 쓰는 쪽 `@Qualifier`
 - `collector/src/test/.../PostgresSamplingRateSourceTest.kt` : 게이지 시험 7건(`MockClock` 으로 시계를 돌린다)
-- `docs/design/01-decisions.md` : ADR `#54`
+- `docs/design/01-decisions.md` : 「JDBC socketTimeout 10초 · 낡음 게이지」 결정
 - `AGENTS.md` : §5 `#127`, §6 ClickHouse DataSource 행

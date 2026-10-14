@@ -1,6 +1,6 @@
 # `#187` 커밋 전에 죽으면 집계가 중복된다 : 설계 한 장
 
-> - 이슈 `#187` · 2026-10-14 · 결정은 ADR `#67`
+> - 이슈 `#187` · 2026-10-14 · 결정은 「집계 중복은 CH 중복 제거 기억으로」 결정
 > - 조사 · 선택지 · 되물음은 [`research.md`](research.md)
 > - 실측 결과는 [`../../kafka-reprocess/30-stage3-result.md`](../../kafka-reprocess/30-stage3-result.md)
 > - 재현(1단계)과 비교 계획(2단계)은 알림 파트(유경)가 했다 : [`10-baseline.md`](../../kafka-reprocess/10-baseline.md) · [`20-stage2-plan.md`](../../kafka-reprocess/20-stage2-plan.md)
@@ -158,7 +158,7 @@ logs  (MV 없음. 그래도 원본이라 중복된다)
 | 창 100 이 **적재 처리기 2대 이상**에서 충분한지 | 안 쟀다. 1대일 때는 죽어 있는 동안 넣는 쪽이 없어 거의 안 밀린다 |
 
 - 앞 셋의 해법은 **원본에서 다시 집계하는 것** 하나뿐이다
-- 되넣는 잡(ADR `#34`)을 만들 때 자동화를 같이 정한다
+- 되넣는 잡(「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정)을 만들 때 자동화를 같이 정한다
 
 ## 바꾼 파일
 
@@ -170,5 +170,5 @@ logs  (MV 없음. 그래도 원본이라 중복된다)
 | `docs/kafka-reprocess/experiments/reprocess_exp.sh` | 도구 v3 : 집계 표를 전부 본다 |
 | `docs/kafka-reprocess/experiments/reaggregate_window.sh` | 복구 절차 (신규) |
 | `docs/kafka-reprocess/30-stage3-result.md` | 3단계 결과 (신규). 유경 문서는 안 고쳤다 |
-| `docs/design/01-decisions.md` | ADR `#67` (append) |
+| `docs/design/01-decisions.md` | 「집계 중복은 CH 중복 제거 기억으로」 결정 (append) |
 | `docs/design/00-index.md` · `30-failure-modes.md` · `AGENTS.md` | 갱신 |

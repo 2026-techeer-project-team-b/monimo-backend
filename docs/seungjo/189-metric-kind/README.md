@@ -1,6 +1,6 @@
 # `#189` 누적 지표가 계속 오르는 선으로 보인다 : 설계 한 장
 
-> 이슈 `#189` · 2026-10-14 · 결정은 ADR `#68`
+> 이슈 `#189` · 2026-10-14 · 결정은 「누적 지표는 종류 · 총합 표시 칸으로」 결정
 > 조사 · 선택지는 [`research.md`](research.md) · 결정을 만든 프롬프트 원문은 [`prompts.md`](prompts.md)
 > 발견과 선택지 정리는 조회 파트(이현영)가 했다 : 노션 「누적 지표 그래프 관련 이슈」(2026-10-13, 개인 스크럼)
 > 팀은 방안 A 로 합의했고 표 주인이라 수집이 받았다
@@ -94,7 +94,7 @@ ClickHouse   : metrics_raw 에 넣고, MV 가 is_counter 를 max 로 접어 1분
   - 차이로만 저장하면 알 방법이 없다
 - 적재 처리기가 파드별 직전 값을 기억해야 한다
   - 그런데 `raw` 가 파티션 3개라 최대 3대까지 뜨고 그 기억이 갈라진다
-  - ADR `#38` 이 조회 몫으로 둔 이유 그대로다
+  - 「metrics_raw 는 long 1지표 1행 · 설정은 앱 단위」 결정 이 조회 몫으로 둔 이유 그대로다
 
 ## 장애가 나면
 
@@ -118,7 +118,7 @@ ClickHouse   : metrics_raw 에 넣고, MV 가 is_counter 를 max 로 접어 1분
 ## 결과물
 
 - 새 파일 : `db/clickhouse/V202610140450__add_metrics_metric_type.sql` · `ingester/.../transform/MetricType.kt` · 이 폴더
-- 수정 : `MetricRow.kt`(칸 둘) · `MetricTranslator.kt`(종류 · 총합 판정) · `ClickHouseMetricStore.kt`(칸 둘 쓰기) · 테스트 둘 · `docs/design/01-decisions.md`(ADR `#68`) · `docs/design/web-v2/erd.md`(사본) · `AGENTS.md` §5 §6
+- 수정 : `MetricRow.kt`(칸 둘) · `MetricTranslator.kt`(종류 · 총합 판정) · `ClickHouseMetricStore.kt`(칸 둘 쓰기) · 테스트 둘 · `docs/design/01-decisions.md`(「누적 지표는 종류 · 총합 표시 칸으로」 결정) · `docs/design/web-v2/erd.md`(사본) · `AGENTS.md` §5 §6
 - 안 바꾼 것 : 수집기 · Kafka(바이트를 풀지 않고 넘기므로 칸은 처음부터 있었다) · 가짜 데이터(기본값 0 = 한 값으로 넣는 지금 뜻과 같다) · 조회 API · 탐지 · 화면
 
 ## 조회 · 경보가 이어서 할 것
@@ -129,4 +129,4 @@ ClickHouse   : metrics_raw 에 넣고, MV 가 is_counter 를 max 로 접어 1분
 - 탐지 : GC_TIME 규칙이 `jvm.gc.duration.sum` 을 뺀 값에 건다
   - 음수면 재시작이라 그 주기는 평가하지 않는다
 - 노션 「정해야 할 것」 3번(경보가 직접 뺄지 · 조회 API 가 뺀 값을 줄지)은 아직 열려 있다
-  - ADR `#68` 되돌림 ③
+  - 「누적 지표는 종류 · 총합 표시 칸으로」 결정 되돌림 ③

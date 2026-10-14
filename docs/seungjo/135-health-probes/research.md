@@ -6,7 +6,7 @@
   - 레포 조사 서브에이전트 1개
   - Spring Boot `3.5.16` jar 바이트코드 · 설정 메타데이터 직접 확인
   - 탐지 · 알림 선례(`#81`)
-  - `docs/design/web-v2/api-spec.md` · `api-map.md` · ADR `#50` `#54` `#55`
+  - `docs/design/web-v2/api-spec.md` · `api-map.md` · 「헬스체크 스팬은 수집기에서 버린다」 결정 `#54` `#55`
   - 다섯 모듈 `application.yml` · `compose.yaml` · `CODEOWNERS`
 
 - 읽는 순서가 곧 쓰는 순서다
@@ -657,7 +657,7 @@ PostgreSQL 이 죽었다
 | `check-pipeline.sh` · `check-wiring.sh` | `/actuator/metrics` 를 관리 포트(8091 · 8092)로 읽는다 |
 | `.env.example` · 루트 `README.md` | 새 포트 변수 둘과 `curl` 예시 |
 | `api-spec.md` §0 접두 예외 ① | H1 · H2 · H3 반영(`/actuator/health/liveness` · `/readiness` · 서비스 5개 · `{"status":"UP"}` / 200 · 503) + 수집 쪽 둘의 다른 점(저장소 안 봄 · 업무 포트 `/livez` · `/readyz` · 포트 8091 · 8092) |
-| `01-decisions.md` | ADR `#58` 덧붙임(지운 줄 0). 채택 ⑤ · 기각 ⑥ · 되돌림 ⑤ · 내가 틀렸던 것 여섯 |
+| `01-decisions.md` | 「수집 쪽 헬스체크 probe · readiness 에 저장소 없음」 결정 덧붙임(지운 줄 0). 채택 ⑤ · 기각 ⑥ · 되돌림 ⑤ · 내가 틀렸던 것 여섯 |
 | `AGENTS.md` | §5 수집 파트에 `#135` 줄, §6 헬스체크 행을 "API 서버만 남았다 + 탐지 · 알림 쪽 제안" 으로 |
 | `HealthProbeTest.kt` 둘 | 모듈마다 7건 (아래) |
 | `docs/seungjo/135-health-probes/README.md` | 설계 한 장 |

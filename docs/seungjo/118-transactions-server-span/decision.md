@@ -1,4 +1,4 @@
-# 결정 : ADR `#52`
+# 결정 : 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정
 
 - 정본은 [`../../design/01-decisions.md`](../../design/01-decisions.md) 의 `#52`
 - 여기는 요약과 길 안내만 둔다
@@ -24,7 +24,7 @@
 ## 이 결정을 어떻게 내렸나
 
 - 조회 파트 글 → 질문 열일곱 번(2026-10-06, 노션에 먼저 기록) → 레포 리서치 1 · 2절 → 질문 세 번 → 조사 서브에이전트 2개(업계 여섯 제품 · ClickHouse 샌드박스 실험) → 5 · 7절 → **승조가 8절에 결정 프롬프트를 썼다**
-- 프롬프트 원문은 [`research.md`](research.md) 8절 · [`prompts.md`](prompts.md) · ADR `#52` 안. 세 곳이 글자 단위로 같다
+- 프롬프트 원문은 [`research.md`](research.md) 8절 · [`prompts.md`](prompts.md) · 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 안. 세 곳이 글자 단위로 같다
 - **조사가 초안을 바꿨다**
   - 조건이 한 줄(`SERVER`)에서 선택지 셋으로
   - 교체 방법이 "파일 고치고 `down -v`" 에서 "`MODIFY QUERY` + 검증 쿼리" 로
@@ -40,7 +40,7 @@
 - [x] `heatmap_1m` 네 서비스 전부 (1,219칸)
 - [x] `check-pipeline.sh` 통과
 - [x] `ScatterApiTest` 픽스처를 새 기준으로 고치고 중간 서비스 단언 추가 (아래 「테스트가 잡은 것」)
-- [x] ADR `#52` 가 `+179 / -0` (append-only)
+- [x] 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 가 `+179 / -0` (append-only)
 - [ ] PR 머지 (사용자)
 - [ ] 노션 「ERD」 정본 갱신 (사용자)
 - [ ] 팀원 각자 `docker compose down -v` (PR 본문 · `AGENTS.md` 에 안내)

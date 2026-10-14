@@ -1,6 +1,6 @@
 # `#193` 롤업 표에 꼬리표가 없어 원본이 지워지면 갈래를 모른다 : 설계 한 장
 
-> 이슈 `#193` · 2026-10-14 · 결정은 ADR `#70`
+> 이슈 `#193` · 2026-10-14 · 결정은 「롤업에 꼬리표를 any 로 남기기」 결정
 > 조사 1 · 2절은 [`research.md`](research.md) · 프롬프트 원문은 [`prompts.md`](prompts.md)
 > 발견은 조회 파트(이현영) : 노션 「누적 지표 그래프 관련 이슈」 「같이 알아둘 것」
 > `#189`(종류 칸) 와 같이 볼지 판단하기로 했던 것을 따로 가져왔다
@@ -89,7 +89,7 @@ ClickHouse   : mv_metrics_1m 이 같은 (서비스 · 파드 · 이름 · series
 ## 결과물
 
 - 새 파일 : `db/clickhouse/V202610140634__add_rollup_attributes.sql` · 이 폴더
-- 수정 : `ClickHouseMetricStoreTest.kt`(Then 하나) · `docs/design/01-decisions.md`(ADR `#70`) · `docs/design/web-v2/erd.md`(롤업 두 절) · `AGENTS.md` §5 §6
+- 수정 : `ClickHouseMetricStoreTest.kt`(Then 하나) · `docs/design/01-decisions.md`(「롤업에 꼬리표를 any 로 남기기」 결정) · `docs/design/web-v2/erd.md`(롤업 두 절) · `AGENTS.md` §5 §6
 - 안 바꾼 것 : 적재 처리기 · 수집기 · 조회 · 탐지 · 화면 · TTL · 가짜 데이터
 
 ## 조회가 나중에 할 것 (급하지 않음)
@@ -97,4 +97,4 @@ ClickHouse   : mv_metrics_1m 이 같은 (서비스 · 파드 · 이름 · series
 - `MetricRepository.findPoints` 가 롤업을 읽을 때 `attributes` 도 같이 읽는다
   - 빈 Map 인 줄만 `findAttributes` 로 원본을 찾는다
 - 105일 뒤(2027-01-05)에는 옛 줄이 다 사라진다
-  - 원본 조인을 없앨 수 있다 (ADR `#70` 되돌림 ②)
+  - 원본 조인을 없앨 수 있다 (「롤업에 꼬리표를 any 로 남기기」 결정 되돌림 ②)

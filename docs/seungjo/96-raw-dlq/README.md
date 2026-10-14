@@ -1,10 +1,10 @@
 # `#96` 적재 실패분이 유실된다 : `raw.dlq` 로 보낸다
 
 > **이 작업의 기술 설계 문서 한 장.** 문제 → 선택지 → 결정 → 장애가 나면 순서로 읽으면 끝난다.
-> **구현 완료** (2026-10-06, ADR `#51`). 검증 결과는 아래와 [`decision.md`](decision.md).
+> **구현 완료** (2026-10-06, 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정). 검증 결과는 아래와 [`decision.md`](decision.md).
 > 이 폴더가 **8단계 리서치 꼴을 처음 쓴 이슈**다.
 
-- 날짜 2026-10-04 시작 / 승조(`@SeungJo-02`) / 결정 ADR `#51` / 이슈 [`#96`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/96) · 브랜치 `fix/96-raw-dlq`
+- 날짜 2026-10-04 시작 / 승조(`@SeungJo-02`) / 결정 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정 / 이슈 [`#96`](https://github.com/2026-techeer-project-team-b/monimo-backend/issues/96) · 브랜치 `fix/96-raw-dlq`
 - 유저 플로우에서 어디: 에이전트 → 수집기 → Kafka → **적재 처리기** → ClickHouse 중 **적재 처리기**
   - 신호가 저장소에 들어가는 마지막 관문이라 여기서 버리면 되돌릴 데가 없다
 
@@ -43,14 +43,14 @@
 - 각 선택지의 설명 · 출처 · 우리 데이터 · AI 가 틀린 것 · 함정 6개는 [`research.md`](research.md) 5 절에
 - **조사가 뒤집은 것** : 조사한 다섯 파이프라인(Kafka Connect · OTel Collector · SigNoz · Debezium · Flink) 중 **sink 장애를 DLQ 로 보내는 곳이 하나도 없다**
   - DLQ 는 "이 데이터가 틀렸음" 전용 통로다
-  - ADR `#34` 를 글자대로 "실패하면 DLQ" 로 구현하면 설계 의도를 어기게 된다
+  - 「DLQ 는 Kafka 토픽 · S3 는 ClickHouse cold 계층」 결정 를 글자대로 "실패하면 DLQ" 로 구현하면 설계 의도를 어기게 된다
     - 기각 사유에 "DLQ 가 받는 것은 독성 메시지" 라고 적혀 있다
 
 ## 결정
 
 **D + 3단 분류 + `319` 제거 + 분류 뒤집기**
 
-- ADR `#51`, 4요소는 [`decision.md`](decision.md)
+- 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정, 4요소는 [`decision.md`](decision.md)
 - **고른 것** : 일시 장애에는 `ContainerPausingBackOffHandler` 로 **기다린다**
   - pause 중에도 `poll` 이 돌아 **5분 천장이 안 걸린다**
   - 대기는 세 단 : 확실한 일시 장애 10분 · 모르는 실패 1분 · 확실한 독성 0
@@ -67,7 +67,7 @@
   - 10분 넘는 장애가 반복돼 DLQ 가 처리 못 할 만큼 쌓이면
   - 모르는 실패로 분류된 독성 메시지 때문에 1분 멈춤이 잦으면
   - 여러 대로 늘렸을 때 한 파티션 장애가 다른 파티션까지 멈추면
-- **결정을 만든 프롬프트 원문**은 [`research.md`](research.md) 8절과 ADR `#51` 안에 있다
+- **결정을 만든 프롬프트 원문**은 [`research.md`](research.md) 8절과 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정 안에 있다
   - 질문 31개를 거친 뒤에 쓴 글이다
 
 ## 장애가 나면
@@ -117,7 +117,7 @@
 1. [`research.md`](research.md) : **1 · 2 절부터.** 무슨 작업인지와 DLQ · client-v2 · 오프셋 · 데이터 흐름 설명이 거기 있다
 2. [`research.md`](research.md) 5 절 : 선택지 6개 · 다섯 파이프라인 비교 · 우리 데이터 · 함정
 3. [`prompts.md`](prompts.md) : 조사 프롬프트 원문과 고쳐 물은 말
-4. [`decision.md`](decision.md) : ADR `#51` 4요소
+4. [`decision.md`](decision.md) : 「적재 실패 세 단 : pause · 독성만 DLQ · 분류 뒤집기」 결정 4요소
 5. [`tables.md`](tables.md) : 어느 표가 영향을 받나 (구현 시 채움)
 
 ## 이 이슈에서 배운 것 (세 줄)

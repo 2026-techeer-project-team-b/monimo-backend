@@ -49,7 +49,7 @@
 | 이 표로 "전체 요청 수" 를 센다 | **4배 부풀려진다** (요청 하나가 서비스 4개를 지나면 4줄) | `is_root = 1` 로 세도록 ERD · ADR · 003 주석에 적었다 |
 | 과거 구간을 백필한다 | `transactions` 직접 INSERT → `mv_heatmap_1m` 이 돈다 → `SummingMergeTree` 가 `cnt` 를 **조용히 두 배**. 줄 수가 안 늘어 눈에 안 보인다 | 백필을 안 하기로 했다. 하게 되면 히트맵 파티션 먼저 비우기 → 날짜 파티션 단위 → 별 표 + `MOVE PARTITION`(`research.md` 5.8) |
 | 큐를 쓰는 앱이 붙는다 | CONSUMER 가 조건에 있어 **정상** | 미리 넣어 둔 이유 |
-| 배치 · 스케줄 잡이 생긴다 | 루트가 INTERNAL 이라 **그 서비스 스캐터가 빈다** | ADR `#52` 되돌림 ① : `OR parent_span_id = ''` 로 넓힌다 |
+| 배치 · 스케줄 잡이 생긴다 | 루트가 INTERNAL 이라 **그 서비스 스캐터가 빈다** | 「transactions 는 서비스가 받은 요청 기준 + is_root」 결정 되돌림 ① : `OR parent_span_id = ''` 로 넓힌다 |
 
 ## 다른 파트에 알릴 것
 
