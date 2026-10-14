@@ -18,4 +18,9 @@
 
 ## 범위 밖
 
-API 서버 팬아웃(`agentUuid` → service · instance, 수집기 전부에 보내고 503 이면 1회 재시도) · 화면 · CH `thread_dumps` 저장(Q16) · mTLS(FN-12)
+- API 서버 팬아웃
+  - `agentUuid` → service · instance
+  - 수집기 전부에 보내고 503 이면 1회 재시도
+- 화면
+- CH `thread_dumps` 저장(Q16)
+- mTLS(FN-12)
