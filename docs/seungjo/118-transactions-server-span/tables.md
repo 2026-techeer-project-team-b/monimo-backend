@@ -53,7 +53,10 @@
 
 ## 다른 파트에 알릴 것
 
-- **조회(현영)** : `transactions` 줄 하나의 뜻이 바뀌었다. 서비스별 화면은 그대로 쓰면 되고, **고객 요청 수를 세는 화면이 생기면 `is_root = 1`** 로. `span_id` 는 요청 목록(`GET /traces/transactions`)에서 줄을 눌러 그 구간으로 바로 가는 화면을 만들 거면 그때 넣는다
+- **조회(현영)** : `transactions` 줄 하나의 뜻이 바뀌었다
+  - 서비스별 화면은 그대로 쓰면 된다
+  - 고객 요청 수를 세는 화면이 생기면 `is_root = 1` 로 센다
+  - `span_id` 는 요청 목록(`GET /traces/transactions`)에서 줄을 눌러 그 구간으로 바로 가는 화면을 만들 거면 그때 넣는다
 - **전원** : 파일을 받으면 `docker compose down -v` → 켜기 → `./scripts/seed-clickhouse.sh`. 안 하면 옛 MV 가 남는다
 - **배포** : 운영에 ClickHouse 마이그레이션 수단이 없다(`#119`). 배포 전에 정해야 한다
 - **노션 「ERD」 정본** : `transactions` 설명 · MV 조건 · `is_root` 컬럼 · `spans.parent_span_id` 설명 네 곳을 레포 사본과 같게 고친다
