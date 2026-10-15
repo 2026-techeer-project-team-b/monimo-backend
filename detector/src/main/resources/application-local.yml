@@ -4,7 +4,7 @@
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:${POSTGRES_PORT:15432}/monimo
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:15432}/monimo   # compose 의 detector 프로필(컨테이너)은 POSTGRES_HOST=postgres 만 바꿔 넣는다 (#213)
     username: ${POSTGRES_USER:monimo}
     password: ${POSTGRES_PASSWORD:monimo}
 
