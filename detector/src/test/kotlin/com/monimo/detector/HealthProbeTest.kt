@@ -9,7 +9,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 
-// 헬스체크 규약: liveness · readiness 를 관리 포트로 열고, readiness 는 PostgreSQL(db)까지 본다.
+// 헬스체크 규약 (#211 · ADR #58): liveness · readiness 를 관리 포트와 업무 포트(/livez · /readyz)로 열고, readiness 는 저장소(db)를 안 본다.
 // RANDOM_PORT 면 스프링이 관리 포트도 빈 포트로 바꿔 준다 (운영 18083 과 부딪치지 않는다)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = ["monimo.alert.schedule.enabled=false"])
 @Import(TestInfraConfig::class)
@@ -19,9 +19,22 @@ class HealthProbeTest(
 ) : BehaviorSpec({
 
     val management = "http://localhost:${environment.getProperty("local.management.port")}"
+    val business = "http://localhost:${environment.getProperty("local.server.port")}"
     val rest = TestRestTemplate()
 
     Given("탐지 이 떠 있고 PostgreSQL 에 붙어 있다") {
+        When("업무 포트의 /livez · /readyz 를 부르면") {
+            val livez = rest.getForEntity("$business/livez", String::class.java)
+            val readyz = rest.getForEntity("$business/readyz", String::class.java)
+
+            Then("둘 다 200 이고 본문은 관리 포트 probe 와 같다") {
+                livez.statusCode.value() shouldBe 200
+                readyz.statusCode.value() shouldBe 200
+                livez.body shouldBe """{"status":"UP"}"""
+                readyz.body shouldBe """{"status":"UP"}"""
+            }
+        }
+
         When("probe 두 개를 부르면") {
             val liveness = rest.getForEntity("$management/actuator/health/liveness", String::class.java)
             val readiness = rest.getForEntity("$management/actuator/health/readiness", String::class.java)
@@ -38,8 +51,8 @@ class HealthProbeTest(
             val readiness = groups.get("readiness")
             val liveness = groups.get("liveness")
 
-            Then("readiness 는 db 를 보고, liveness 는 자기 자신만 본다 (DB 가 죽었다고 재시작하지 않는다)") {
-                readiness.isMember("db") shouldBe true
+            Then("liveness · readiness 어느 그룹에도 db 가 없다 (저장소가 흔들려도 파드가 빠지지 않는다, ADR #58)") {
+                readiness.isMember("db") shouldBe false
                 liveness.isMember("db") shouldBe false
             }
         }
