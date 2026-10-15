@@ -9,6 +9,7 @@
 | name | 서비스 이름 | VARCHAR(100) | UK | NN | CH `service_name`과 같은 글자. 서버맵·히트맵·URL 통계 등 모든 화면이 이 이름으로 CH를 조회한다(핵심기능 1·4) |
 | display_name | 화면 표시명 | VARCHAR(200) |  | NULL | 사람이 읽기 좋은 이름. 화면 목록에만 쓴다 |
 | description | 설명 | TEXT |  | NULL | 이 서비스가 무슨 일을 하는지 메모. 서비스 상세 화면 |
+| system | 속한 시스템 | VARCHAR(50) |  | NN | 같은 값끼리 샘플링 비율의 최댓값을 묶는다(ADR #53 보완, #205 · #206). 기본 `shop`, 우리 모듈은 `monimo` |
 | created_at | 만든 시각 | TIMESTAMPTZ |  | NN | 등록 시각 |
 | updated_at | 고친 시각 | TIMESTAMPTZ |  | NN | 마지막 편집 시각 |
 | deleted_at | 제외한 시각 | TIMESTAMPTZ |  | NULL | 감시 대상에서 뺀 시각. 감시 중이면 NULL. 규칙 · 파드가 FK로 참조해 줄은 지우지 않는다 |
