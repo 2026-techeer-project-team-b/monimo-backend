@@ -40,7 +40,10 @@ class ApplicationService(
         val app = try {
             // 위 조회와 저장 사이에 같은 이름이 들어오면 UK 위반으로 온다. 500 이 아니라 409 로
             applications.saveAndFlush(
-                Application(UUID.randomUUID(), name, displayNameOf(request.displayName), blankToNull(request.description), now, now),
+                Application(
+                    UUID.randomUUID(), name, displayNameOf(request.displayName), blankToNull(request.description), now, now,
+                    system = request.system?.let(::systemOf) ?: Application.DEFAULT_SYSTEM,
+                ),
             )
         } catch (e: DataIntegrityViolationException) {
             throw ApiException(ErrorCode.APPLICATION_NAME_TAKEN)
@@ -68,12 +71,13 @@ class ApplicationService(
 
     @Transactional
     fun update(applicationUuid: UUID, request: UpdateApplicationRequest): Application {
-        if (request.displayName == null && request.description == null) {
-            throw ApiException(ErrorCode.INVALID_REQUEST, "display_name 또는 description 중 하나는 있어야 합니다.")
+        if (request.displayName == null && request.description == null && request.system == null) {
+            throw ApiException(ErrorCode.INVALID_REQUEST, "display_name · description · system 중 하나는 있어야 합니다.")
         }
         val app = find(applicationUuid)
         request.displayName?.let { app.displayName = displayNameOf(it) }
         request.description?.let { app.description = blankToNull(it) }
+        request.system?.let { app.system = systemOf(it) }
         app.updatedAt = Instant.now()
         return app
     }
@@ -100,10 +104,20 @@ class ApplicationService(
         return trimmed
     }
 
+    // 보냈는데 빈칸이면 400. 안 보낸 것(null)은 부르는 쪽이 가른다
+    private fun systemOf(value: String): String {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty() || trimmed.length > SYSTEM_MAX) {
+            throw ApiException(ErrorCode.INVALID_REQUEST, "system 은 1자 이상 ${SYSTEM_MAX}자 이하여야 합니다.")
+        }
+        return trimmed
+    }
+
     private fun blankToNull(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }
 
     private companion object {
         const val NAME_MAX = 100
         const val DISPLAY_NAME_MAX = 200
+        const val SYSTEM_MAX = 50
     }
 }
