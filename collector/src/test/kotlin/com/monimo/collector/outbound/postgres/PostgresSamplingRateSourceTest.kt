@@ -14,15 +14,23 @@ import java.time.Duration
 // 확인하려는 것이 SQL 결과가 아니라 "언제 읽나" 와 "실패하면 무엇을 쓰나" 이기 때문이다 (ADR #53)
 class PostgresSamplingRateSourceTest : BehaviorSpec({
 
-    // 부를 때마다 셈을 올리고, 정해 둔 줄을 돌려주거나 터지는 가짜. rows 가 null 이면 PG 가 죽은 것이다
-    class FakeJdbc(var rows: Map<String, Double>?) : JdbcTemplate() {
+    // 부를 때마다 셈을 올리고, 정해 둔 줄을 돌려주거나 터지는 가짜. rows 가 null 이면 PG 가 죽은 것이다.
+    // systems 에 안 적은 이름은 shop 이다 (표 기본값과 같다, #205)
+    class FakeJdbc(
+        var rows: Map<String, Double>?,
+        var systems: Map<String, String> = emptyMap(),
+    ) : JdbcTemplate() {
         var calls = 0
 
         override fun queryForList(sql: String): MutableList<MutableMap<String, Any>> {
             calls++
             val current = rows ?: throw IllegalStateException("PG 가 죽었다")
             return current.map { (name, rate) ->
-                mutableMapOf<String, Any>("name" to name, "sampling_rate" to BigDecimal.valueOf(rate))
+                mutableMapOf<String, Any>(
+                    "name" to name,
+                    "system" to (systems[name] ?: "shop"),
+                    "sampling_rate" to BigDecimal.valueOf(rate),
+                )
             }.toMutableList()
         }
     }
@@ -41,7 +49,7 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
             val rates = source.rates()
 
             Then("yml 기본값으로 돈다 (빈 값을 쓰면 0 이나 1 이 되어 둘 다 사고다)") {
-                rates.applied shouldBe 0.01
+                rates.appliedFor("shop-order") shouldBe 0.01
             }
 
             Then("PG 를 치지 않는다 : 읽기는 주기 작업이 하고 요청 경로는 들고 있는 값만 준다") {
@@ -62,7 +70,7 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
             source.refresh()
 
             Then("기본값으로 돌지만 읽었다는 것은 참이다 : 그래야 미등록 집계가 켜진다") {
-                source.rates().applied shouldBe 0.01
+                source.rates().appliedFor("shop-order") shouldBe 0.01
                 source.rates().loaded shouldBe true
             }
 
@@ -77,12 +85,14 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
         val source = sourceOf(jdbc)
         source.refresh()
 
-        Then("서비스별 값 중 최댓값이 적용된다") {
-            source.rates().applied shouldBe 0.1
+        Then("같은 묶음이면 그 안의 최댓값이 적용된다") {
+            source.rates().appliedFor("shop-gateway") shouldBe 0.1
+            source.rates().appliedFor("shop-order") shouldBe 0.1
         }
 
         Then("서비스별 원본도 같이 들고 있다") {
-            source.rates().byService["shop-gateway"] shouldBe 0.01
+            source.rates().byService["shop-gateway"]?.ratio shouldBe 0.01
+            source.rates().byService["shop-gateway"]?.system shouldBe "shop"
         }
 
         When("그 뒤 비율을 백 번 물어봐도") {
@@ -106,7 +116,7 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
             source.refresh()
 
             Then("마지막으로 읽은 값을 그대로 쓴다") {
-                source.rates().applied shouldBe 0.1
+                source.rates().appliedFor("shop-order") shouldBe 0.1
             }
 
             Then("실패로 센다 : 로그 한 줄로만 알 수 있으면 아무도 모른다") {
@@ -119,7 +129,7 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
             source.refresh()
 
             Then("새 값으로 바뀐다") {
-                source.rates().applied shouldBe 0.5
+                source.rates().appliedFor("shop-order") shouldBe 0.5
             }
         }
     }
@@ -131,12 +141,39 @@ class PostgresSamplingRateSourceTest : BehaviorSpec({
             source.refresh()
 
             Then("yml 기본값을 그대로 쓴다") {
-                source.rates().applied shouldBe 0.01
+                source.rates().appliedFor("shop-order") shouldBe 0.01
             }
 
             Then("등록된 서비스가 없는 상태다") {
                 source.rates().byService.isEmpty() shouldBe true
             }
+        }
+    }
+
+    // 묶음이 둘일 때가 이 이슈(#206 · ADR #72)의 본 목적이다. 묶음끼리 선이 독립이어야 한다
+    Given("묶음이 둘이면") {
+        val jdbc = FakeJdbc(
+            mapOf("shop-gateway" to 0.02, "shop-order" to 0.01, "monimo-api-server" to 0.5),
+            systems = mapOf("monimo-api-server" to "monimo"),
+        )
+        val source = sourceOf(jdbc)
+        source.refresh()
+
+        Then("쇼핑몰 스팬은 쇼핑몰 묶음의 최댓값으로 걸린다 : 모니모 0.5 가 새어 들어오지 않는다") {
+            source.rates().appliedFor("shop-gateway") shouldBe 0.02
+            source.rates().appliedFor("shop-order") shouldBe 0.02
+        }
+
+        Then("모니모 스팬은 모니모 묶음의 최댓값으로 걸린다") {
+            source.rates().appliedFor("monimo-api-server") shouldBe 0.5
+        }
+
+        Then("미등록 서비스는 yml 기본값이다 (묶음을 모르니 남의 묶음 값을 빌리지 않는다)") {
+            source.rates().appliedFor("stranger-app") shouldBe 0.01
+        }
+
+        Then("묶음별 선을 둘 들고 있다 : 로그와 판정이 같은 값을 본다") {
+            source.rates().bySystem shouldBe mapOf("shop" to 0.02, "monimo" to 0.5)
         }
     }
 

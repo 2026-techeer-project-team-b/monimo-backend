@@ -19,9 +19,13 @@ import kotlin.math.abs
 //  2) 아니면 trace ID 해시가 비율 구간에 드는지 본다 : 무작위가 아니라 ID 로 정하므로,
 //     같은 trace 의 스팬이 서로 다른 서비스에서 따로 도착해도 결정이 같다. 그래야 콜트리가 끊기지 않는다
 //
-// 비율은 PG 에서 읽은 값 하나다. 서비스별로 따로 적용하지 않는다 (ADR #53):
+// 비율은 PG 에서 읽는데 서비스별로 따로 적용하지 않는다 (ADR #53):
 // 거르는 단위는 트레이스인데 설정은 서비스당 한 줄이라, 서비스마다 다른 선을 쓰면 같은 트레이스의
-// 위아래가 다른 선으로 재어져 고아 스팬이 생긴다. 네 줄 중 최댓값 하나만 쓰면 그 일이 없다.
+// 위아래가 다른 선으로 재어져 고아 스팬이 생긴다. 묶음 안에서 최댓값 하나만 쓰면 그 일이 없다.
+//
+// 선은 묶음(system)마다 하나다 (ADR #72, #53 보완): 쇼핑몰과 우리 모듈은 같은 trace_id 를
+// 공유하지 않으므로(#206 조사 5절 실측) 선이 달라도 쪼개지지 않는다. 그래서 쇼핑몰 1% ·
+// 모니모 50% 처럼 양이 100배 다른 둘을 각자에게 맞는 선으로 둘 수 있다.
 @Component
 @EnableConfigurationProperties(SamplingProperties::class)
 class TraceSampler(
@@ -34,8 +38,10 @@ class TraceSampler(
     private val kept = counter(registry, "kept", "샘플링에서 남긴 스팬 수")
     private val dropped = counter(registry, "dropped", "샘플링에서 버린 스팬 수")
 
-    // 등록 안 된 서비스에서 온 스팬 수. 비율은 최댓값 하나를 쓰므로 판정에는 영향이 없고 보기용이다.
-    // 지금 미등록 서비스 신호를 막는 문은 수집기뿐인데(적재 처리기는 agents 등록만 건너뛰고 스팬은 다 저장한다)
+    // 등록 안 된 서비스에서 온 스팬 수. ADR #72 뒤로는 판정에도 영향이 있다 : 묶음을 모르니
+    // 기본 선(yml)으로 거른다. 그 선이 같은 trace 의 등록된 서비스와 다를 수 있어 쪼개질 여지가
+    // 생기므로(ADR #72 되돌림 ②) 이 숫자가 0 인지 보는 것이 그만큼 더 중요해졌다.
+    // 미등록 신호를 막는 문은 수집기뿐인데(적재 처리기는 agents 등록만 건너뛰고 스팬은 다 저장한다)
     // 열어 두기로 했으니(ADR #53) 얼마나 들어오는지는 세어 둔다
     private val unknownService = Counter.builder("$METRIC.unknown_service")
         .description("application_configs 에 없는 서비스에서 온 스팬 수")
@@ -48,7 +54,9 @@ class TraceSampler(
         val rates = rateSource.rates()
         countUnknownServices(request, rates)
 
-        if (rates.applied >= 1.0) { // 전부 통과 : 다시 만드는 비용도 아낀다 (로컬 · 테스트에서 이 길로 간다)
+        // 모든 묶음이 전부 통과면 다시 만드는 비용도 아낀다 (로컬 · 테스트에서 이 길로 간다).
+        // 묶음 하나만 1.0 인 경우는 여기로 오지 않는다 : 아래에서 묶음별로 걸러야 한다
+        if (rates.passesEverything) {
             kept.increment(request.spanCount().toDouble())
             return request
         }
@@ -60,9 +68,13 @@ class TraceSampler(
         // 구조가 resource → scope → span 3겹이라 안쪽부터 걸러 올린다.
         // 스팬이 하나도 안 남은 scope · resource 는 빈 껍데기가 되므로 넣지 않는다
         for (resourceSpans in request.resourceSpansList) {
+            // 선은 resource 묶음마다 고른다 (ADR #72). 요청 하나에 여러 서비스가 섞여 올 수 있고,
+            // 섞이면 각자 자기 묶음의 선으로 재어야 한다. 같은 trace_id 는 같은 묶음 안에서
+            // 같은 선을 받으므로(서비스가 달라도) 결정이 같고 트레이스가 쪼개지지 않는다
+            val ratio = rates.appliedFor(serviceNameOf(resourceSpans.resource))
             val resourceBuilder = ResourceSpans.newBuilder(resourceSpans).clearScopeSpans() // 서비스 이름 등 resource 속성은 그대로 두고
             for (scopeSpans in resourceSpans.scopeSpansList) {
-                val (keep, drop) = scopeSpans.spansList.partition { keep(it, rates.applied) } // partition = 조건에 맞는 것과 아닌 것으로 한 번에 나눈다
+                val (keep, drop) = scopeSpans.spansList.partition { keep(it, ratio) } // partition = 조건에 맞는 것과 아닌 것으로 한 번에 나눈다
                 keptCount += keep.size
                 droppedCount += drop.size
                 if (keep.isNotEmpty()) {
@@ -77,8 +89,9 @@ class TraceSampler(
         return result.build()
     }
 
-    // 스팬 하나를 남길지 정한다. 비율은 지금 설정된 값을 읽는다
-    fun keep(span: Span): Boolean = keep(span, rateSource.rates().applied)
+    // 스팬 하나를 남길지 정한다. 서비스 이름을 모를 때 쓰는 선(미등록 · 테스트)으로 본다.
+    // 운영 경로는 sample() 이 묶음별 선을 꺼내 keep(span, ratio) 를 부른다
+    fun keep(span: Span): Boolean = keep(span, rateSource.rates().appliedFor(serviceName = ""))
 
     fun keep(span: Span, ratio: Double): Boolean {
         if (isCanary(span.traceState)) return true // 카나리는 비율을 건너뛴다

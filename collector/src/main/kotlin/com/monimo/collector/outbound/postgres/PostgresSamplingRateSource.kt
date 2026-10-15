@@ -3,6 +3,7 @@ package com.monimo.collector.outbound.postgres
 import com.monimo.collector.sampling.SamplingProperties
 import com.monimo.collector.sampling.SamplingRateSource
 import com.monimo.collector.sampling.SamplingRates
+import com.monimo.collector.sampling.ServiceRate
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
@@ -71,7 +72,7 @@ class PostgresSamplingRateSource(
         val current = snapshot.get()
         val fresh = runCatching { load() }.getOrElse { error ->
             failed.increment()
-            log.warn("샘플링 비율 갱신 실패 : 비율 {} 유지 ({})", current.applied, error.message)
+            log.warn("샘플링 비율 갱신 실패 : 묶음별 {} 유지 ({})", current.bySystem, error.message)
             return
         }
         snapshot.set(fresh)
@@ -81,18 +82,31 @@ class PostgresSamplingRateSource(
         if (fresh.byService.isEmpty()) {
             // 조회는 됐는데 줄이 없다. 비율이 기본값으로 떨어지는데 "못 읽었다" 와 증상이 같아서
             // 이것을 안 찍으면 운영에서 조용히 기본값으로 돈다 (seed 미실행 · 전부 deleted_at · 엉뚱한 DB)
-            log.warn("샘플링 비율 : 감시 중인 서비스가 0개다. 기본값 {} 로 돈다", fresh.applied)
+            log.warn("샘플링 비율 : 감시 중인 서비스가 0개다. 기본값 {} 로 돈다", fresh.fallback)
         } else if (fresh.byService != current.byService) {
-            log.info("샘플링 비율 갱신 : 적용 {} (서비스별 {})", fresh.applied, fresh.byService.toSortedMap())
+            // 묶음별 선을 먼저 찍는다 : 판정에 실제로 쓰이는 값이고 줄 수가 적다 (ADR #72)
+            log.info(
+                "샘플링 비율 갱신 : 묶음별 {} · 미등록 {} (서비스별 {})",
+                fresh.bySystem.toSortedMap(),
+                fresh.fallback,
+                fresh.byService.toSortedMap(),
+            )
         }
     }
 
     // 제외된(deleted_at) 서비스는 감시 대상이 아니므로 비율에 넣지 않는다.
-    // queryForList 로 받는 이유: 줄이 몇 개 안 되고, 이 모듈에 Entity 도 RowMapper 도 두지 않는다
+    // queryForList 로 받는 이유: 줄이 몇 개 안 되고, 이 모듈에 Entity 도 RowMapper 도 두지 않는다.
+    //
+    // system 을 같이 읽는다 (ADR #72) : 선을 묶음마다 두므로 이름만으로는 어느 선인지 모른다.
+    // 묶음 이름은 글자 그대로 쓴다 - API 서버가 앞뒤 공백만 자르고 대소문자는 그대로 두므로
+    // (ApplicationService.systemOf) 'Shop' 과 'shop' 은 다른 묶음이다
     private fun load(): SamplingRates =
         SamplingRates.of(
             jdbc.queryForList(SQL).associate { row ->
-                row["name"] as String to (row["sampling_rate"] as Number).toDouble()
+                row["name"] as String to ServiceRate(
+                    system = row["system"] as String,
+                    ratio = (row["sampling_rate"] as Number).toDouble(),
+                )
             },
             properties.ratio,
         )
@@ -116,7 +130,7 @@ class PostgresSamplingRateSource(
         val log = LoggerFactory.getLogger(PostgresSamplingRateSource::class.java)
 
         const val SQL =
-            "SELECT a.name, c.sampling_rate FROM application_configs c " +
+            "SELECT a.name, a.system, c.sampling_rate FROM application_configs c " +
                 "JOIN applications a ON a.id = c.application_id WHERE a.deleted_at IS NULL"
     }
 }
