@@ -60,8 +60,11 @@ class ApplicationApiTest(
     val admin = login("admin@app.io")
     val viewer = login("viewer@app.io")
 
-    fun create(token: String, name: String, displayName: String? = null, description: String? = null) =
-        call(HttpMethod.POST, "/api/v1/applications", token, mapOf("name" to name, "display_name" to displayName, "description" to description))
+    fun create(token: String, name: String, displayName: String? = null, description: String? = null, system: String? = null) =
+        call(
+            HttpMethod.POST, "/api/v1/applications", token,
+            mapOf("name" to name, "display_name" to displayName, "description" to description, "system" to system),
+        )
 
     fun listNames(token: String, query: String = "limit=500"): List<String> =
         json(call(HttpMethod.GET, "/api/v1/applications?$query", token))["data"].map { it["name"].asText() }
@@ -79,6 +82,10 @@ class ApplicationApiTest(
                 data.has("id") shouldBe false
             }
 
+            Then("system 을 안 보냈으니 shop 이다") {
+                data["system"].asText() shouldBe "shop"
+            }
+
             Then("application_configs 한 줄이 같이 생긴다 (sampling_rate 0.01 · version 1 · updated_by null)") {
                 val app = applications.findByName("order-service").shouldNotBeNull()
                 val config = configs.findByApplicationId(app.id!!).shouldNotBeNull()
@@ -94,6 +101,24 @@ class ApplicationApiTest(
             Then("409 APPLICATION_NAME_TAKEN") {
                 response.statusCode.value() shouldBe 409
                 json(response)["error"]["code"].asText() shouldBe "APPLICATION_NAME_TAKEN"
+            }
+        }
+
+        When("system 을 monimo 로 보내면") {
+            val response = create(admin, "monimo-api-server", system = "monimo")
+
+            Then("그 값이 저장된다") {
+                response.statusCode.value() shouldBe 201
+                json(response)["data"]["system"].asText() shouldBe "monimo"
+            }
+        }
+
+        When("system 을 빈칸으로 보내면") {
+            val response = create(admin, "blank-system", system = "  ")
+
+            Then("400 INVALID_REQUEST") {
+                response.statusCode.value() shouldBe 400
+                json(response)["error"]["code"].asText() shouldBe "INVALID_REQUEST"
             }
         }
 
@@ -133,8 +158,9 @@ class ApplicationApiTest(
             val first = json(call(HttpMethod.GET, "/api/v1/applications?limit=2", viewer))
             val nextCursor = first["page"]["next_cursor"].asText()
 
-            Then("name 오름차순 2건과 next_cursor 가 온다") {
+            Then("name 오름차순 2건과 next_cursor 가 온다. 줄마다 system 이 있다") {
                 first["data"].map { it["name"].asText() } shouldBe listOf("aaa-1", "aaa-2")
+                first["data"].map { it["system"].asText() } shouldBe listOf("shop", "shop")
                 first["page"]["limit"].asInt() shouldBe 2
                 nextCursor.isNotBlank() shouldBe true
             }
@@ -196,6 +222,17 @@ class ApplicationApiTest(
 
             Then("설명이 지워진다 (null)") {
                 json(response)["data"]["description"].isNull shouldBe true
+            }
+        }
+
+        When("system 만 보내면") {
+            val response = call(HttpMethod.PATCH, "/api/v1/applications/$uuid", admin, mapOf("system" to "monimo"))
+            val data = json(response)["data"]
+
+            Then("system 만 바뀌고 표시명은 그대로다") {
+                response.statusCode.value() shouldBe 200
+                data["system"].asText() shouldBe "monimo"
+                data["display_name"].asText() shouldBe "고친 뒤"
             }
         }
 
