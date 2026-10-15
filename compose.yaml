@@ -255,6 +255,8 @@ services:
       MONIMO_COLLECTOR_OTLP_GRPC_TLS_SERVER_CERTIFICATE: /certs/server.crt
       MONIMO_COLLECTOR_OTLP_GRPC_TLS_SERVER_KEY: /certs/server.key
       MONIMO_COLLECTOR_OTLP_GRPC_TLS_CA_CERTIFICATE: /certs/ca.crt
+      # 에이전트 이름표(service.instance.id, #30). 안 주면 재시작할 때마다 새 파드처럼 보인다. 트레이스는 이미지 ENV 가 끈다 (#213)
+      OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-collector-local-1,deployment.environment.name=local"
     volumes:
       - ./certs:/certs:ro
     depends_on:
@@ -298,6 +300,8 @@ services:
       # 적재 실패 때 버티는 시간 (ADR #51). 기본값은 application.yml(10m · 1m). 빈 값이면 기본값으로 돌아간다
       MONIMO_INGESTER_RETRY_TRANSIENT_MAX_ELAPSED: ${INGESTER_RETRY_TRANSIENT_MAX_ELAPSED:-10m}
       MONIMO_INGESTER_RETRY_UNKNOWN_MAX_ELAPSED: ${INGESTER_RETRY_UNKNOWN_MAX_ELAPSED:-1m}
+      # 에이전트 이름표(service.instance.id, #30). 트레이스는 이미지 ENV 가 끈다 (#213)
+      OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-ingester-local-1,deployment.environment.name=local"
     depends_on:
       infra-ready:
         condition: service_healthy
@@ -309,6 +313,116 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+
+  # api-server (프로필 api-server 일 때만, B평면 #213). 이미지는 루트 Dockerfile 의 api-server 단계. 에이전트가 붙어 monimo-api-server 으로 신호를 보낸다.
+  # IDE 나 bootRun 으로 직접 실행할 때는 이 프로필을 켜지 않는다 (호스트 8080 포트가 겹친다)
+  api-server:
+    profiles: ["api-server"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-server
+    image: monimo/api-server:dev
+    ports:
+      - "8080:8080"
+      - "18080:18080"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # local 프로필의 localhost 대신 컨테이너 이름으로
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-monimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_HTTP_PORT: "8123"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-monimo}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-monimo}
+      # 스레드 덤프 팬아웃이 부르는 수집기, 채널 시험이 부르는 알림. compose 서비스 이름으로
+      MONIMO_COLLECTOR_URLS: http://collector:8081
+      MONIMO_NOTIFIER_URL: http://notifier:8084
+      MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
+      # 에이전트 이름표(service.instance.id, #30)
+      OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-api-server-local-1,deployment.environment.name=local"
+    depends_on:
+      infra-ready:
+        condition: service_healthy
+    healthcheck:
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (쿠버네티스가 쏠 주소와 같은 곳)
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # detector (프로필 detector 일 때만, B평면 #213). 이미지는 루트 Dockerfile 의 detector 단계. 에이전트가 붙어 monimo-detector 으로 신호를 보낸다.
+  # IDE 나 bootRun 으로 직접 실행할 때는 이 프로필을 켜지 않는다 (호스트 8083 포트가 겹친다)
+  detector:
+    profiles: ["detector"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: detector
+    image: monimo/detector:dev
+    ports:
+      - "8083:8083"
+      - "18083:18083"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # local 프로필의 localhost 대신 컨테이너 이름으로
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-monimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+      # 평가가 읽는 API 서버 내부 문
+      MONIMO_API_SERVER_URL: http://api-server:8080
+      MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
+      # 에이전트 이름표(service.instance.id, #30)
+      OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-detector-local-1,deployment.environment.name=local"
+    depends_on:
+      infra-ready:
+        condition: service_healthy
+      api-server:
+        condition: service_healthy
+    healthcheck:
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (쿠버네티스가 쏠 주소와 같은 곳)
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8083; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # notifier (프로필 notifier 일 때만, B평면 #213). 이미지는 루트 Dockerfile 의 notifier 단계. 에이전트가 붙어 monimo-notifier 으로 신호를 보낸다.
+  # IDE 나 bootRun 으로 직접 실행할 때는 이 프로필을 켜지 않는다 (호스트 8084 포트가 겹친다)
+  notifier:
+    profiles: ["notifier"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: notifier
+    image: monimo/notifier:dev
+    ports:
+      - "8084:8084"
+      - "18084:18084"
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      # local 프로필의 localhost 대신 컨테이너 이름으로
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-monimo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monimo}
+      MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
+      # 에이전트 이름표(service.instance.id, #30)
+      OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-notifier-local-1,deployment.environment.name=local"
+    depends_on:
+      infra-ready:
+        condition: service_healthy
+    healthcheck:
+      # 실행 이미지에 curl 이 없어서 bash 의 /dev/tcp 로 읽는다. 업무 포트의 /readyz 를 찌른다 (쿠버네티스가 쏠 주소와 같은 곳)
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8084; printf 'GET /readyz HTTP/1.0\\r\\n\\r\\n' >&3; grep -q '\"UP\"' <&3"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   # raw.dlq 에 쌓인 것을 raw 로 되넣는 잡 (#195, ADR 참조). **사람이 부른다** :
   #   docker compose run --rm dlq-reprocess                                     되넣는다
@@ -328,6 +442,8 @@ services:
       target: ingester
     image: monimo/ingester:dev
     environment:
+      # 한 번 돌고 끝나는 잡이라 에이전트를 통째로 끈다 (#213). 켜 두면 agents 표에 영영 DOWN 인 파드 한 줄이 남는다
+      OTEL_JAVAAGENT_ENABLED: "false"
       SPRING_PROFILES_ACTIVE: local,dlq-reprocess
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
