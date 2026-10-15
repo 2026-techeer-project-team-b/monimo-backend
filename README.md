@@ -41,6 +41,35 @@ open http://localhost:8080/swagger-ui.html
 docker build --target collector -t monimo/collector .   # 루트 Dockerfile 하나에 collector · ingester 단계 (#170)
 ```
 
+### 전체를 한 번에 켜기 (쇼핑몰 → 수집 → 저장 → API 서버 → 화면 · 탐지 · 알림)
+
+처음 받은 사람이 README 만 보고 켜는 순서다 (2026-10-15 온보딩 점검, `#203`). 터미널 5개가 필요하다 — bootRun 셋과 화면이 앞에서 계속 돈다.
+
+```bash
+# 1. 인프라 + 수집기 + 적재 처리기 (monimo-backend)          33초 + 111초 (이미지 캐시 있을 때)
+docker network create monimo-dev                                   # 처음 한 번만
+docker compose --profile collector --profile ingester up -d --wait --build
+./scripts/check-dev-infra.sh && ./scripts/check-pipeline.sh         # 둘 다 "정상" 이어야 다음으로
+
+# 2. 쇼핑몰 (monimo-shop)                                         처음은 이미지 빌드로 30분 안팎, 다음부터 수 분
+docker compose -f docker-compose.dev.yml up -d --build --wait
+
+# 3. API 서버 · 탐지 · 알림 (monimo-backend, 터미널 셋)
+./gradlew :api-server:bootRun --args='--spring.profiles.active=local'
+./gradlew :detector:bootRun   --args='--spring.profiles.active=local'
+./gradlew :notifier:bootRun   --args='--spring.profiles.active=local'
+
+# 4. 화면 (monimo-web) → http://localhost:5173 · admin@monimo.io / monimo2026
+npm run dev
+```
+
+점검에서 막혔던 곳 — 여기서 읽고 넘어가면 안 막힌다.
+
+- **bootRun 의 `--args='--spring.profiles.active=local'` 을 빼면** `Failed to configure a DataSource: 'url' attribute is not specified` 로 멈춘다. DB 주소가 `application-local.yml` 에만 있다. 모듈 이름만 바꿔 치다 빠뜨리기 쉽다
+- **탐지를 안 띄우면 파드 상태가 영원히 `UNKNOWN`** 이다. 적재 처리기는 파드를 `UNKNOWN` 으로 등록만 하고, `UP` · `DOWN` 으로 바꾸는 것은 탐지(ADR #39)다. 화면의 「스레드 덤프 요청」 버튼은 `UP` 일 때만 켜진다
+- **쇼핑몰 첫 주문은 502(`upstream unavailable`)** 가 날 수 있다. 주문 JVM 이 막 떠서 첫 요청이 3초 넘게 걸린 것이다. 바로 다시 보내면 201
+- `certs/` 폴더가 생긴다. 에이전트 mTLS 인증서(#159)인데 **기본은 평문(`COLLECTOR_TLS_CLIENT_AUTH=none`)** 이라 신경 쓸 것 없고, `.gitignore` 에 있다
+
 ### 로컬 인프라 (Kafka · ClickHouse · PostgreSQL)
 
 ```bash
