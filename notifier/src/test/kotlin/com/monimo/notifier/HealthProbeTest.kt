@@ -9,7 +9,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 
-// 헬스체크 규약: liveness · readiness 를 관리 포트와 업무 포트(/livez · /readyz, #211)로 열고, readiness 는 PostgreSQL(db)까지 본다.
+// 헬스체크 규약 (#211 · ADR #58): liveness · readiness 를 관리 포트와 업무 포트(/livez · /readyz)로 열고, readiness 는 저장소(db)를 안 본다.
 // RANDOM_PORT 면 스프링이 관리 포트도 빈 포트로 바꿔 준다 (운영 18084 과 부딪치지 않는다)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = ["monimo.notifier.delivery.enabled=false"])
 @Import(TestInfraConfig::class)
@@ -51,8 +51,8 @@ class HealthProbeTest(
             val readiness = groups.get("readiness")
             val liveness = groups.get("liveness")
 
-            Then("readiness 는 db 를 보고, liveness 는 자기 자신만 본다 (DB 가 죽었다고 재시작하지 않는다)") {
-                readiness.isMember("db") shouldBe true
+            Then("liveness · readiness 어느 그룹에도 db 가 없다 (저장소가 흔들려도 파드가 빠지지 않는다, ADR #58)") {
+                readiness.isMember("db") shouldBe false
                 liveness.isMember("db") shouldBe false
             }
         }
