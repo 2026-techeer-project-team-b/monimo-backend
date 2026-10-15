@@ -12,6 +12,16 @@ VALUES ('shop-gateway',   '쇼핑몰 게이트웨이', '감시 대상 쇼핑몰�
        ('shop-inventory', '쇼핑몰 재고',       '재고 예약. 가짜 데이터용')
 ON CONFLICT (name) DO NOTHING;
 
+-- 우리 모듈 다섯 (B평면 #216). 이름은 루트 Dockerfile 의 OTEL_SERVICE_NAME 과 같은 글자, system 은 monimo (#205 : 쇼핑몰과 샘플링 비율을 따로 묶는 축).
+-- 운영은 설정 화면 「서비스 등록」으로 넣는다. 여기 줄은 로컬 · CI 용
+INSERT INTO applications (name, display_name, description, system)
+VALUES ('monimo-collector',  '모니모 수집기',      '에이전트 신호를 받아 Kafka 로. 자기 감시(B평면)', 'monimo'),
+       ('monimo-ingester',   '모니모 적재 처리기', 'Kafka 에서 꺼내 ClickHouse 로. 자기 감시(B평면)', 'monimo'),
+       ('monimo-api-server', '모니모 API 서버',    '화면이 부르는 조회 · 설정 문. 자기 감시(B평면)', 'monimo'),
+       ('monimo-detector',   '모니모 탐지',        '1분마다 규칙을 평가. 자기 감시(B평면)', 'monimo'),
+       ('monimo-notifier',   '모니모 알림',        '경보를 채널로 발송. 자기 감시(B평면)', 'monimo')
+ON CONFLICT (name) DO NOTHING;
+
 -- 설정 줄도 같이 만든다. 평소에는 API 서버가 서비스 등록 때 만들지만, 가짜 데이터는 그 문을 거치지 않는다.
 --
 -- 비율을 1.0000(전부 통과)으로 넣는 이유: 수집기가 이 칸을 정본으로 읽기 때문에(ADR #53)
@@ -19,5 +29,5 @@ ON CONFLICT (name) DO NOTHING;
 -- 로컬 프로필에서 PG 조회를 끄는 방법도 있었지만 그러면 PG 읽는 코드가 로컬에서 안 돌고
 -- CI 와 운영에서 처음 돈다. 운영은 서비스 등록 때 API 서버가 0.0100 으로 만든다
 INSERT INTO application_configs (application_id, sampling_rate)
-SELECT id, 1.0000 FROM applications WHERE name LIKE 'shop-%'
+SELECT id, 1.0000 FROM applications WHERE name LIKE 'shop-%' OR name LIKE 'monimo-%'
 ON CONFLICT (application_id) DO NOTHING;
