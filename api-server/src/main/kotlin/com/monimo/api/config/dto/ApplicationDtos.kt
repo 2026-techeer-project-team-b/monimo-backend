@@ -4,16 +4,19 @@ import com.monimo.api.config.Application
 import java.time.Instant
 import java.util.UUID
 
+// system 을 안 보내면 shop
 data class CreateApplicationRequest(
     val name: String,
     val displayName: String? = null,
     val description: String? = null,
+    val system: String? = null,
 )
 
-// 둘 다 선택. 안 보낸 필드는 그대로, 빈 문자열은 지운다(null)
+// 셋 다 선택. 안 보낸 필드는 그대로, 빈 문자열은 지운다(null). system 은 빈 문자열이면 400
 data class UpdateApplicationRequest(
     val displayName: String? = null,
     val description: String? = null,
+    val system: String? = null,
 )
 
 data class ApplicationResponse(
@@ -21,12 +24,14 @@ data class ApplicationResponse(
     val name: String,
     val displayName: String?,
     val description: String?,
+    val system: String,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
     companion object {
-        fun from(app: Application) =
-            ApplicationResponse(app.applicationUuid, app.name, app.displayName, app.description, app.createdAt, app.updatedAt)
+        fun from(app: Application) = ApplicationResponse(
+            app.applicationUuid, app.name, app.displayName, app.description, app.system, app.createdAt, app.updatedAt,
+        )
     }
 }
 
@@ -35,13 +40,14 @@ data class ApplicationDetailResponse(
     val name: String,
     val displayName: String?,
     val description: String?,
+    val system: String,
     val createdAt: Instant,
     val updatedAt: Instant,
     val agentCount: Int,
 ) {
     companion object {
         fun from(app: Application, agentCount: Int) = ApplicationDetailResponse(
-            app.applicationUuid, app.name, app.displayName, app.description, app.createdAt, app.updatedAt, agentCount,
+            app.applicationUuid, app.name, app.displayName, app.description, app.system, app.createdAt, app.updatedAt, agentCount,
         )
     }
 }

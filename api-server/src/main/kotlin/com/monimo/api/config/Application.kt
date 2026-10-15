@@ -34,8 +34,16 @@ class Application(
     // 감시 대상에서 제외한 시각. 감시 중이면 null. 규칙 · 파드가 FK 로 참조해 줄은 지우지 않는다
     @Column(name = "deleted_at")
     var deletedAt: Instant? = null,
+
+    // 속한 시스템. 수집기가 같은 값끼리 샘플링 비율의 최댓값을 묶는다 (#205 · #206)
+    @Column(nullable = false, length = 50)
+    var system: String = DEFAULT_SYSTEM,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null
+
+    companion object {
+        const val DEFAULT_SYSTEM = "shop"
+    }
 }
