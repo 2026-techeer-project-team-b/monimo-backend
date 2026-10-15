@@ -257,6 +257,11 @@ services:
       MONIMO_COLLECTOR_OTLP_GRPC_TLS_CA_CERTIFICATE: /certs/ca.crt
       # 에이전트 이름표(service.instance.id, #30). 안 주면 재시작할 때마다 새 파드처럼 보인다. 트레이스는 이미지 ENV 가 끈다 (#213)
       OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-collector-local-1,deployment.environment.name=local"
+      # 에이전트가 붙어 DEBUG · TRACE 가 CH 로 가므로 컨테이너에서는 INFO 로 (#213 실측 : 다섯 모듈 1분 3,900건, 전부 DEBUG · TRACE).
+      # bootRun 은 local yml 대로 DEBUG 가 터미널에 보인다. 수집기 쪽 하한은 별도 이슈
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: info
+      LOGGING_LEVEL_COM_MONIMO_COLLECTOR: info
     volumes:
       - ./certs:/certs:ro
     depends_on:
@@ -302,6 +307,11 @@ services:
       MONIMO_INGESTER_RETRY_UNKNOWN_MAX_ELAPSED: ${INGESTER_RETRY_UNKNOWN_MAX_ELAPSED:-1m}
       # 에이전트 이름표(service.instance.id, #30). 트레이스는 이미지 ENV 가 끈다 (#213)
       OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-ingester-local-1,deployment.environment.name=local"
+      # 에이전트가 붙어 DEBUG · TRACE 가 CH 로 가므로 컨테이너에서는 INFO 로 (#213 실측 : 다섯 모듈 1분 3,900건, 전부 DEBUG · TRACE).
+      # bootRun 은 local yml 대로 DEBUG 가 터미널에 보인다. 수집기 쪽 하한은 별도 이슈
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: info
+      LOGGING_LEVEL_COM_MONIMO_INGESTER: info
     depends_on:
       infra-ready:
         condition: service_healthy
@@ -343,6 +353,11 @@ services:
       MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
       # 에이전트 이름표(service.instance.id, #30)
       OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-api-server-local-1,deployment.environment.name=local"
+      # 에이전트가 붙어 DEBUG · TRACE 가 CH 로 가므로 컨테이너에서는 INFO 로 (#213 실측 : 다섯 모듈 1분 3,900건, 전부 DEBUG · TRACE).
+      # bootRun 은 local yml 대로 DEBUG 가 터미널에 보인다. 수집기 쪽 하한은 별도 이슈
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: info
+      LOGGING_LEVEL_COM_MONIMO_API: info
     depends_on:
       infra-ready:
         condition: service_healthy
@@ -378,6 +393,11 @@ services:
       MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
       # 에이전트 이름표(service.instance.id, #30)
       OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-detector-local-1,deployment.environment.name=local"
+      # 에이전트가 붙어 DEBUG · TRACE 가 CH 로 가므로 컨테이너에서는 INFO 로 (#213 실측 : 다섯 모듈 1분 3,900건, 전부 DEBUG · TRACE).
+      # bootRun 은 local yml 대로 DEBUG 가 터미널에 보인다. 수집기 쪽 하한은 별도 이슈
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: info
+      LOGGING_LEVEL_COM_MONIMO_DETECTOR: info
     depends_on:
       infra-ready:
         condition: service_healthy
@@ -413,6 +433,11 @@ services:
       MONIMO_INTERNAL_TOKEN: ${MONIMO_INTERNAL_TOKEN:-local-internal-token}
       # 에이전트 이름표(service.instance.id, #30)
       OTEL_RESOURCE_ATTRIBUTES: "service.instance.id=monimo-notifier-local-1,deployment.environment.name=local"
+      # 에이전트가 붙어 DEBUG · TRACE 가 CH 로 가므로 컨테이너에서는 INFO 로 (#213 실측 : 다섯 모듈 1분 3,900건, 전부 DEBUG · TRACE).
+      # bootRun 은 local yml 대로 DEBUG 가 터미널에 보인다. 수집기 쪽 하한은 별도 이슈
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: info
+      LOGGING_LEVEL_COM_MONIMO_NOTIFIER: info
     depends_on:
       infra-ready:
         condition: service_healthy
