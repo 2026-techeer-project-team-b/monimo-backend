@@ -181,10 +181,18 @@ OTLP 요청 ─▶ 헬스체크 거르기 ─▶ TraceSampler.sample(request)
 
 ### 우리 데이터로 확인한 것
 
+2026-10-16 로컬 compose 에 다섯 모듈을 다 띄워 쟀다(쇼핑몰은 첫 빌드 30분이라 제외하고 **같은 질문을 우리 모듈로** 물었다 : 핵심은 「에이전트가 자기 OTLP 내보내기 호출을 계측하느냐」 하나다).
+
 | 확인 | 값 |
 |---|---|
-| (대기) `shop` trace 에 `monimo` 스팬이 섞이는가 | 스택을 띄우고 CH 로 재야 한다. 쿼리는 「확인 못 한 것」에 적었다 |
-| (대기) 묶음별 남는 건수 | 쇼핑몰 1% · 모니모 50% 로 두고 한 시간 뒤 `spans` 를 서비스별로 센다 |
+| 기본 상태에서 수집기 · 적재 처리기 스팬 | **0건**. `monimo-api-server` SERVER 36 · CLIENT 34, `monimo-detector` CLIENT 92, `monimo-notifier` INTERNAL 1,404 · CLIENT 733 은 있다 → `#213` 의 `OTEL_TRACES_EXPORTER=none` 이 적힌 대로 동작한다 |
+| 수집기 트레이스를 **일부러 켠 뒤**(compose env 로 `otlp` 덮어쓰기) 받은 쪽 스팬의 부모 | OTLP Export SERVER 스팬 **17건 전부 부모 없음**(`TraceService/Export` 6 · `MetricsService/Export` 9 · `LogsService/Export` 2) → **보내는 쪽 에이전트가 내보내기 호출에 트레이스 문맥을 싣지 않는다.** jar 무시 목록으로 못 봤던 것을 실측으로 봤다 |
+| 실트래픽에서 서비스가 둘 이상인 trace | **603 trace 중 0건** (수집기 트레이스를 켠 상태에서도 0) |
+| 측정 도구 자체 검증 (음성 대조) | 같은 `traceparent` 를 손으로 넣어 `api-server`(8080)와 `collector`(8081)를 부르니 **한 `trace_id` 에 두 서비스 SERVER 스팬 2건**이 잡혔고 둘 다 부모가 `2222…` 였다 → 쿼리는 섞임을 실제로 감지한다. 즉 위의 0 은 「못 잡아서 0」이 아니다 |
+| 되먹임 관측 | 수집기 트레이스를 켜자 `raw publish` PRODUCER 스팬 16건이 생기고 그것이 자기 입력으로 다시 들어왔다 → `#213` 이 끈 이유가 실제로 보인다 |
+| (대기) 묶음별 남는 건수 | 쇼핑몰 1% · 모니모 50% 로 두고 한 시간 뒤 `spans` 를 서비스별로 센다. 구현 뒤에 잰다 |
+
+**결론** : 「트레이스는 시스템 경계를 넘지 않는다」는 전제가 **실측으로 성립한다.** 수집기 트레이스가 꺼져 있어서가 아니라 **보내는 쪽이 문맥을 안 싣기 때문**이므로, 운영에서 수집기 트레이스를 켜도 이 경로로는 섞이지 않는다.
 
 ### 남이 어떻게 하나
 
@@ -195,7 +203,8 @@ OTLP 요청 ─▶ 헬스체크 거르기 ─▶ TraceSampler.sample(request)
 ### AI 가 틀렸거나 덜 맞았던 것 (남겨 둔다)
 
 - **인과를 뒤집어 설명했다** : 「스팬이 섞여서 문제가 생기니 비율을 분리한다」로 적었는데 반대다. **섞이지 않는 것이 분리의 전제**이고, 섞이면 분리를 못 한다. 대화에서 승조가 잡았다
-- **「에이전트는 자기 내보내기 호출을 계측하지 않는다」를 사실처럼 적었다** : 에이전트 jar(`2.31.1`)를 열어 보니 전역 무시 목록은 `io.opentelemetry.javaagent.shaded.` · `.bootstrap.` 둘뿐이고(`GlobalIgnoredTypesConfigurer`) SDK · exporter 는 그 접두가 아니다(`inst/io/opentelemetry/sdk/…` · `inst/io/opentelemetry/exporter/…`). 무시 목록만으로는 못 보였으므로 **미확인으로 내렸다**
+- **「에이전트는 자기 내보내기 호출을 계측하지 않는다」를 사실처럼 적었다** : 에이전트 jar(`2.31.1`)를 열어 보니 전역 무시 목록은 `io.opentelemetry.javaagent.shaded.` · `.bootstrap.` 둘뿐이고(`GlobalIgnoredTypesConfigurer`) SDK · exporter 는 그 접두가 아니다(`inst/io/opentelemetry/sdk/…` · `inst/io/opentelemetry/exporter/…`). 무시 목록만으로는 못 보였으므로 미확인으로 내렸고, **실측으로 참임을 보였다**(받은 쪽 Export SERVER 스팬 17건 전부 부모 없음). 근거를 바꾼 것이다 : 「무시 목록에 있다」가 아니라 「문맥이 안 실려 온다」
+- **「수집기 트레이스를 켜면 경계가 열린다」고 적었다가 실측으로 접었다** : 켜 보니 Export SERVER 스팬에 부모가 없어 섞이지 않았다. 남은 가능성은 Extension 롱폴링(`collector:8081`) 하나이고 그것은 쇼핑몰이 떠야 잰다
 
 ### 라이브러리 · 레포를 직접 열어 확인한 것
 
@@ -207,12 +216,12 @@ OTLP 요청 ─▶ 헬스체크 거르기 ─▶ TraceSampler.sample(request)
 | 지름길 조건 | `applied >= 1.0` 이면 요청을 다시 만들지 않는다(`TraceSampler.kt:52`). 선이 묶음마다 달라지면 이 조건도 **`resourceSpans` 마다** 봐야 한다 (알고 싶었던 것 ③) |
 | 우리 모듈 트레이스 | 수집기 · 적재 처리기는 `OTEL_TRACES_EXPORTER=none`(`Dockerfile:55` · `:63`), API 서버 · 탐지 · 알림은 켬 |
 | 쇼핑몰 → 모니모 호출 자리 | **둘이다** : ① 에이전트 OTLP `collector:4317` ② Extension 롱폴링 `collector:8081`(`monimo-shop/agent-extension/README.md:32`, `#122`) |
-| 경계가 열릴 조건 (새로 찾았다) | 둘 다 **받는 쪽이 수집기**라 지금은 SERVER 스팬이 안 생긴다(트레이스 끔). **수집기 트레이스를 켜면** 쇼핑몰 CLIENT 스팬과 `monimo-collector` SERVER 스팬이 한 `trace_id` 에 섞인다 → 그때는 선이 하나여야 한다. **되돌림 조건으로 적을 자리** |
+| 경계가 열릴 조건 | 처음에 「수집기 트레이스를 켜면 섞인다」로 적었다가 **실측으로 접었다**(아래 「우리 데이터로 확인한 것」). 남은 자리는 Extension 롱폴링 하나이고, 그쪽은 에이전트 exporter 가 아니라 **Extension 이 직접 거는 HTTP** 라 문맥이 실릴 수 있다 → 쇼핑몰을 띄워 재야 한다 |
 
 ### 확인 못 한 것
 
-- 에이전트가 **자기 OTLP 내보내기 호출을 계측하는가** : jar 무시 목록으로는 안 보였다. 실측(CH 조회)으로 대신 본다
-- CH 실측 : 스택을 띄우고 쇼핑몰 부하를 흘린 뒤 아래가 0 인지
+- **쇼핑몰 Extension 롱폴링**(`collector:8081`)이 트레이스 문맥을 싣는가 : 쇼핑몰이 떠야 잰다. 싣는다면 `shop-*` CLIENT 스팬과 `monimo-collector` SERVER 스팬이 한 `trace_id` 가 되고, **그때는 두 묶음을 한 선으로 되돌린다**(되돌림 조건)
+- 쇼핑몰 실데이터로 같은 쿼리 (아래) 를 한 번 더 : 우리 모듈로 본 결과가 쇼핑몰에서도 같은지
 
 ```sql
 -- 쇼핑몰 trace 에 우리 모듈 스팬이 끼어 있나 : 0 이면 경계를 안 넘는다
