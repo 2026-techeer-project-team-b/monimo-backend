@@ -67,8 +67,9 @@ monimo:
     # SERVER 스팬의 url.path 가 이 목록과 정확히 같을 때만 버린다. CLIENT 는 진짜 호출이라 남긴다.
     # 비워 두면 필터가 꺼진다 (머지 전후 비교나 헬스체크 조사용).
     # 환경변수 MONIMO_COLLECTOR_HEALTH_CHECK_PATHS 로 덮어쓴다 (쉼표 구분)
+    # /actuator/health 는 쇼핑몰, /livez · /readyz 는 우리 모듈 다섯(업무 포트, #135 · #162)의 probe 주소 (#208 B평면)
     health-check:
-      paths: /actuator/health
+      paths: /actuator/health,/livez,/readyz
     # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 이 GET /agent/commands 로 명령을 받으러 오고(최대 25초 대기),
     # API 서버 팬아웃이 POST /internal/thread-dump 로 덤프를 시킨다. 토큰이 비면 그 문이 닫힌다
     agent:
