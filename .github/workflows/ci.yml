@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [collector, ingester]
+        module: [collector, ingester, api-server, detector, notifier]
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
