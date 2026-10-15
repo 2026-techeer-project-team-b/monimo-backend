@@ -54,7 +54,10 @@ docker compose --profile collector --profile ingester up -d --wait --build
 # 2. 쇼핑몰 (monimo-shop)                                         처음은 이미지 빌드로 30분 안팎, 다음부터 수 분
 docker compose -f docker-compose.dev.yml up -d --build --wait
 
-# 3. API 서버 · 탐지 · 알림 (monimo-backend, 터미널 셋)
+# 3. API 서버 · 탐지 · 알림 (monimo-backend) — 둘 중 하나
+#    (a) 컨테이너로. 에이전트가 붙어 우리 모듈도 감시된다 (B평면 #213). 터미널이 안 묶인다
+docker compose --profile collector --profile ingester --profile api-server --profile detector --profile notifier up -d --wait --build
+#    (b) bootRun 으로 (터미널 셋). 에이전트 없이 돈다. (a) 와 호스트 8080 · 8083 · 8084 가 겹치니 둘 중 하나만
 ./gradlew :api-server:bootRun --args='--spring.profiles.active=local'
 ./gradlew :detector:bootRun   --args='--spring.profiles.active=local'
 ./gradlew :notifier:bootRun   --args='--spring.profiles.active=local'
@@ -64,6 +67,8 @@ npm run dev
 ```
 
 점검에서 막혔던 곳 — 여기서 읽고 넘어가면 안 막힌다.
+
+- **3(a) 로 띄우면 다섯 모듈 전부 에이전트가 붙는다** (B평면 `#213`). 수집기 · 적재 처리기는 자기 스팬이 자기 입력으로 돌아오는 되먹임 때문에 트레이스만 끄고 지표 · 로그만 보낸다(이미지 `ENV OTEL_TRACES_EXPORTER=none`). 서비스 이름은 `monimo-api-server` · `monimo-detector` · `monimo-notifier` · `monimo-collector` · `monimo-ingester` 이고, 설정 화면에 등록하기 전까지는 미등록 서비스로 들어온다
 
 - **bootRun 의 `--args='--spring.profiles.active=local'` 을 빼면** `Failed to configure a DataSource: 'url' attribute is not specified` 로 멈춘다. DB 주소가 `application-local.yml` 에만 있다. 모듈 이름만 바꿔 치다 빠뜨리기 쉽다
 - **탐지를 안 띄우면 파드 상태가 영원히 `UNKNOWN`** 이다. 적재 처리기는 파드를 `UNKNOWN` 으로 등록만 하고, `UP` · `DOWN` 으로 바꾸는 것은 탐지(ADR #39)다. 화면의 「스레드 덤프 요청」 버튼은 `UP` 일 때만 켜진다
