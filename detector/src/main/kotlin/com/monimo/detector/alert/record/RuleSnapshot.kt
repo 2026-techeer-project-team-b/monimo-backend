@@ -20,11 +20,12 @@ data class RuleSnapshot(
     val severity: String,
 )
 
-// 규칙 + 대상. agentId 는 파드 단위 규칙일 때만 있다
+// 규칙 + 대상. agentId · agentKey 는 파드 단위 규칙일 때만 있다 (agentKey = 알림 문구에 쓰는 파드 이름표)
 data class EvaluationTarget(
     val rule: RuleSnapshot,
     val target: AlertTarget,
     val agentId: Long?,
+    val agentKey: String? = null,
 ) {
     val fingerprint: String = Fingerprint.of(rule.uuid, target)
 }
