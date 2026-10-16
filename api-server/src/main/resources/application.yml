@@ -28,7 +28,7 @@ monimo:
     refresh-ttl: 14d
     # refresh 쿠키의 Secure 속성. HTTPS 가 아닌 로컬에서만 끈다
     cookie-secure: true
-  # 내부 문 4개(/api/v1/internal/**)의 X-Internal-Token 값. 비우면 내부 문이 전부 닫힌다
+  # 내부 문 5개(/api/v1/internal/**)의 X-Internal-Token 값. 비우면 내부 문이 전부 닫힌다
   internal-token: ${MONIMO_INTERNAL_TOKEN:}
   # 채널 시험 발송(#13)이 부르는 알림 서비스. X-Internal-Token 은 위 값을 그대로 보낸다
   notifier:
@@ -39,6 +39,11 @@ monimo:
   # 스레드 덤프 팬아웃(#124)이 부르는 수집기 전부. 쉼표로 나눈다. 1a 는 한 대, K8s 는 헤드리스 Service 의 파드 주소들 (배포 파트와 맞춘다)
   collector:
     urls: ${MONIMO_COLLECTOR_URLS:http://localhost:8081}
+  # 자기 점검 문(#226)이 읽는 탐지 · 수집기의 관리 포트(업무 포트 + 10000, ADR #61). 낡음 게이지(ADR #54)가 거기 있다.
+  # 파수꾼이 밖에서 "PG 가 죽었다 · 탐지가 멈췄다" 를 볼 유일한 길이라 compose · K8s 는 모듈 이름으로 넣는다
+  self-check:
+    detector-management-url: ${MONIMO_DETECTOR_MANAGEMENT_URL:http://localhost:18083}
+    collector-management-url: ${MONIMO_COLLECTOR_MANAGEMENT_URL:http://localhost:18081}
 
 # 관리 포트 (#162). /actuator/** 전부 여기로 옮겨 밖(인그레스)으로 안 나간다. 번호는 업무 포트 + 10000 (ADR #61)
 management:
