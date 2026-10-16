@@ -16,7 +16,18 @@ data class EvaluationProperties(
     val maxStaleness: Duration = Duration.ofMinutes(3),
     val query: Query = Query(),
     val agentDown: AgentDown = AgentDown(),
+    val threadDump: ThreadDump = ThreadDump(),
 ) {
+    // 파드 단위 경보(GC_TIME, 이후 CPU · HEAP)가 열리는 순간 부르는 자동 스레드 덤프 (API 서버 #164, docs/alert/80-gc-time.md)
+    data class ThreadDump(
+        // 끄면 경보는 그대로 돌고 덤프만 안 부른다 (실험 · 장애 때)
+        val enabled: Boolean = true,
+        val connectTimeout: Duration = Duration.ofSeconds(1),
+        // API 서버가 수집기 쪽 덤프를 5초까지 기다리므로(ThreadDumpService.DEFAULT_TIMEOUT_MS) 그보다 조금 길게.
+        // 여기서 끊어도 API 서버는 끝까지 떠서 저장한다. 발화 순간에만 부르니 주기가 이만큼 밀리는 일은 드물다
+        val requestTimeout: Duration = Duration.ofSeconds(8),
+    )
+
     // AGENT_DOWN (FN-29 · docs/alert/40-agent-down.md)
     data class AgentDown(
         // 이만큼 데이터가 없으면 그 파드 키를 DOWN 으로 본다 (FN-29: 90초)
