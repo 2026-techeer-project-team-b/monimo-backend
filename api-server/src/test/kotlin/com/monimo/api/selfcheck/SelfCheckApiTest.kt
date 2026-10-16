@@ -137,11 +137,13 @@ class SelfCheckApiTest(
             val took = System.currentTimeMillis() - started
             val d = data(response)
 
-            Then("기한(2초) 안에 200 으로 답하고 postgres 만 ok=false timeout, 게이지 둘은 그대로 ok") {
+            // 실패 모양은 환경마다 다르다 : 로컬은 재시도하다 기한에 걸려 timeout, CI 러너는 풀의 연결이 즉시 닫혀 예외 이름이 온다.
+            // 파수꾼에게 중요한 것은 "기한 안에 200 으로 답하고 ok=false" 뿐이라 둘 다 통과시킨다
+            Then("기한 안에 200 으로 답하고 postgres 만 ok=false 에 error 가 있고, 게이지 둘은 그대로 ok") {
                 response.statusCode.value() shouldBe 200
                 took shouldBeLessThan 10_000
                 d["postgres"]["ok"].asBoolean() shouldBe false
-                d["postgres"]["error"].asText() shouldBe "timeout"
+                d["postgres"]["error"].isNull shouldBe false
                 d["detector"]["ok"].asBoolean() shouldBe true
                 d["collector"]["ok"].asBoolean() shouldBe true
             }
