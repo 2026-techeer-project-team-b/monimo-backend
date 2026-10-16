@@ -22,7 +22,7 @@
 **공통 헤더**
 - `Authorization: Bearer <JWT>` — VIEWER+·ADMIN 요청
 - `Content-Type: application/json` — 본문 있는 POST/PUT/PATCH
-- `X-Internal-Token: <내부 토큰>` — 내부 문 6개(`/api/v1/internal/**` 4개, `/internal/thread-dump`, `/internal/channels/test`), Authorization 미사용
+- `X-Internal-Token: <내부 토큰>` — 내부 문 7개(`/api/v1/internal/**` 5개, `/internal/thread-dump`, `/internal/channels/test`), Authorization 미사용
 - `X-Request-Id` — 모든 응답에 서버가 UUID로 부여 (장애 문의 시 사용)
 - `429 TOO_MANY_REQUESTS`에만 `Retry-After` 헤더 동봉
 
@@ -100,6 +100,7 @@
 | 49 | 수집기 | POST | /internal/thread-dump | API 서버의 팬아웃 수신용. 해당 agent_key를 들고 있으면 덤프를 떠서 반환, 없으면 204 (권한 내부) | body: agent_key | thread_count, dump (204면 본문 없음) | FN-39, #31 #36 |
 | 50 | 알림 | POST | /internal/channels/test | API 서버가 대행 요청 시 채널로 시험 메시지 실발송 후 성공/실패 반환 (권한 내부) | body: type, config(webhook_url, channel 등) | result(SUCCESS/FAILED), response | FN-30, alert_channels |
 | 51 | API 서버 | GET | /api/v1/internal/metrics/gc-time | 파드별 1분 GC 시간 · 횟수(GC_TIME 판정용) (권한 내부) | service_name?(없으면 전체 서비스), from, to | service_name, agent_key, ts_min, gc_time_ms, gc_count — jvm.gc.duration.sum · .count 총합을 GC 종류별로 1분 증가량으로 뺀 뒤 파드 · 1분마다 더한다(원본 단위 초 → ms). 재시작으로 뺄 수 없는 1분 · 값이 없는 1분은 행이 없다. 총합 표시(is_counter)가 없는 옛 줄은 안 센다 | FN-29, metrics_1m |
+| 52 | API 서버 | GET | /api/v1/internal/self-check | 파수꾼이 카나리 뒤에 부르는 자기 점검 (권한 내부, #226). PG 와 탐지 · 수집기 멈춤을 밖에서 보는 유일한 문 | (없음) | postgres{ok, ms, error?} · detector{ok, age_sec, max_sec, error?} · collector{같은 꼴}. postgres 는 SELECT 1 이 10초(socketTimeout) 안에 오면 ok, 아니면 error=timeout — PG 가 죽어도 Hikari 30초를 기다리지 않고 기한에 답한다. detector · collector 는 관리 포트의 낡음 게이지(ADR #54 `monimo.detector.evaluation.age` · `monimo.collector.sampling.refresh.age`)를 읽어 180초 넘으면 ok=false, 못 읽으면 age_sec null · error=unreachable. **어느 항목이 틀려도 HTTP 200** : 판단은 파수꾼이 한다 | monimo-watchdog #20 |
 
 비고: 위 표의 "요청 주요 필드"에서 `?`는 선택 파라미터, `cursor`·`limit`은 §0-6 공통 페이징 규칙을 따름. 25번(GET /internal/service-health), 4번(canary/freshness), 40번(internal/agents/active), 51번(internal/metrics/gc-time)은 `X-Internal-Token` 헤더로 인증하는 `내부` 전용 문.
 
