@@ -68,11 +68,12 @@ data class OutboundMessage(val payloads: List<Map<String, Any?>>) {
     private fun firingLine(p: Map<String, Any?>) = "• ${p["rule_name"]} — ${condition(p)} (발화 ${p["fired_at"]})"
 
     // AGENT_DOWN 은 기준값 비교가 아니라 "살아 있는 파드가 없다"는 판정이다 (operator · threshold 를 쓰지 않는다)
+    // 파드 단위 규칙(GC_TIME 등)은 payload 에 agent_key 가 있다. 같은 서비스의 파드 여럿이 묶여도 어느 파드인지 보이게 붙인다
     private fun condition(p: Map<String, Any?>): String =
         if (p["metric_kind"] == "AGENT_DOWN") {
             "데이터를 보내는 파드가 없음"
         } else {
-            "${p["metric_kind"]} ${p["observed_value"]} ${p["operator"]} ${p["threshold"]}"
+            "${p["metric_kind"]} ${p["observed_value"]} ${p["operator"]} ${p["threshold"]}" + (p["agent_key"]?.let { " (파드 $it)" } ?: "")
         }
 
     // Slack 한 메시지가 너무 길어지지 않게 줄 수를 자른다

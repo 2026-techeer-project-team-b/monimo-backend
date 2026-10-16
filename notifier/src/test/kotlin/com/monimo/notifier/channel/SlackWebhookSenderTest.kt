@@ -86,4 +86,18 @@ class SlackWebhookSenderTest : BehaviorSpec({
             agentDown.summary() shouldBe "[FIRING][CRITICAL] 주문 파드 없음 — shop-order 데이터를 보내는 파드가 없음 (발화 2026-10-05T10:06:00Z)"
         }
     }
+
+    Given("파드 단위 규칙(GC_TIME) 발화") {
+        val gcTime = OutboundMessage(
+            mapOf(
+                "transition" to "FIRING", "severity" to "WARNING", "rule_name" to "주문 GC 과다", "service_name" to "shop-order",
+                "metric_kind" to "GC_TIME", "observed_value" to 7200.0, "operator" to "GT", "threshold" to 6000,
+                "fired_at" to "2026-10-16T10:03:00Z", "agent_key" to "shop-order-local-1",
+            ),
+        )
+        Then("어느 파드인지 이름표를 붙인다") {
+            gcTime.summary() shouldBe
+                "[FIRING][WARNING] 주문 GC 과다 — shop-order GC_TIME 7200.0 GT 6000 (파드 shop-order-local-1) (발화 2026-10-16T10:03:00Z)"
+        }
+    }
 })
