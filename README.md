@@ -72,6 +72,7 @@ npm run dev
 
 - **bootRun 의 `--args='--spring.profiles.active=local'` 을 빼면** `Failed to configure a DataSource: 'url' attribute is not specified` 로 멈춘다. DB 주소가 `application-local.yml` 에만 있다. 모듈 이름만 바꿔 치다 빠뜨리기 쉽다
 - **탐지를 안 띄우면 파드 상태가 영원히 `UNKNOWN`** 이다. 적재 처리기는 파드를 `UNKNOWN` 으로 등록만 하고, `UP` · `DOWN` 으로 바꾸는 것은 탐지(ADR #39)다. 화면의 「스레드 덤프 요청」 버튼은 `UP` 일 때만 켜진다
+- **쇼핑몰(2단계)을 띄울 때는 `seed-clickhouse.sh` 를 돌리지 않는다.** 가짜 파드 8개가 실제 파드와 같은 서비스 이름으로 섞여 인스펙터에 DOWN 으로 남는다. 시드는 쇼핑몰 없이(조회 · 화면 · CI) 할 때의 대역이다. 이미 돌렸으면 `docker compose down -v` 로 비우고 다시 켠다
 - **쇼핑몰 첫 주문은 502(`upstream unavailable`)** 가 날 수 있다. 주문 JVM 이 막 떠서 첫 요청이 3초 넘게 걸린 것이다. 바로 다시 보내면 201
 - `certs/` 폴더가 생긴다. 에이전트 mTLS 인증서(#159)인데 **기본은 평문(`COLLECTOR_TLS_CLIENT_AUTH=none`)** 이라 신경 쓸 것 없고, `.gitignore` 에 있다
 
