@@ -182,6 +182,8 @@ CI 는 `build`(테스트 포함) · 이미지 빌드 2개 · `dev-infra`(compose
 - **`#216`** (B평면 `#208` ④) 우리 모듈 다섯을 `applications` 에 등록. seed 에 `monimo-*` 다섯 줄 `system = 'monimo'`(`#205`), 설정 줄은 쇼핑몰과 같이 로컬 1.0. 운영은 설정 화면으로. `20-scope.md` 를 "붙였다 · 9대" 와 실측(9대 946 시계열, 자기 감시 652 : 수집기 · 적재 처리기가 Kafka 클라이언트 · gRPC 지표로 200 안팎, 어림 660 은 라이브러리 차이를 안 본 것)으로 고쳤다
 - **`#226`** 자기 점검 문 `GET /internal/self-check`(내부 토큰). `#208` ⑥ 실측에서 PG 를 멈추자 탐지 · 알림이 PG 에 막혀 경보 0건이었고, probe(ADR `#58`) · 파수꾼(CH · MySQL)도 PG 를 안 봐서 PG 를 보는 눈이 없었다. 이 문이 PG `SELECT 1`(다른 스레드에서 5초만 기다림 : Hikari 30초를 파수꾼이 기다리지 않게)과 탐지 · 수집기 낡음 게이지(ADR `#54`, 관리 포트라 밖에서 못 닿던 것)를 한 번에 돌려주고, 파수꾼(monimo-watchdog `#20`)이 카나리 뒤에 불러 ok=false 마다 Slack. 어느 항목이 틀려도 HTTP 200. 관리 포트 주소는 `monimo.self-check.*`(env `MONIMO_DETECTOR_MANAGEMENT_URL` · `MONIMO_COLLECTOR_MANAGEMENT_URL`). ADR `#54` 되돌림 ④(게이지를 보는 사람이 없으면)의 그 사람이 파수꾼이 됐다
 
+- **`#231`** 시드가 PostgreSQL `agents` 에 쇼핑몰 파드 8개를 UP 으로 넣는다(`scripts/seed/postgres-agents.sql`). CH 가짜 신호의 `agent_id` 와 같은 이름이라 인스펙터 파드 목록 → 지표 · 덤프 조회가 시드만으로 이어진다. 지우지 않고 UP 으로만 되돌린다(alert_events 가 FK 로 가리킴). 힙 · GC 카드는 §6 「가짜 데이터와 실데이터의 메트릭 모양이 다르다」 그대로 비어 있다
+
 - **Kafka 재처리 기준선 (2026-10-11, 알림 · 1단계)**: 적재 처리기가 CH 저장 뒤 · 오프셋 커밋 전에 죽으면 같은 레코드를 다시 넣는다. 격리 Kafka · CH 에서 정상 90 커밋 → 오류 10 저장 후 커밋 전 `kill -9`(`jdb` 로 `commitSync` 중단점) → 같은 그룹 재시작을 3회 해 모두 **`spans` 110줄 / 고유 100, `service_health_1m` 에러율 10% → 18.18%**. 오류 로그 없이 조용히 틀린다. 원인: 커밋은 기본 BATCH(poll 처리 뒤), `spans` 는 `MergeTree` 에 `non_replicated_deduplication_window=0` · 중복 제거 토큰 없음. 해결책은 2단계에서 비교 (`docs/kafka-reprocess/10-baseline.md`)
 
 ## 6. 지금 막혀 있는 것
