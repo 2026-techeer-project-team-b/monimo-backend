@@ -11,6 +11,7 @@ on:
       - db/**
       - scripts/check-dev-infra.sh
       - scripts/seed-clickhouse.sh
+      - scripts/seed/**
       - scripts/check-wiring.sh
       - scripts/check-pipeline.sh
       - collector/**
@@ -26,6 +27,7 @@ on:
       - db/**
       - scripts/check-dev-infra.sh
       - scripts/seed-clickhouse.sh
+      - scripts/seed/**
       - scripts/check-wiring.sh
       - scripts/check-pipeline.sh
       - collector/**
