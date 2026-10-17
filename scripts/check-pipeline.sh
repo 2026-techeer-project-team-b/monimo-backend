@@ -81,7 +81,11 @@ dropped_total() {
       r=$(metric_value monimo.collector.sampling outcome:dropped);    r=${r:-0}
       echo $((h + r))
       ;;
-    *) echo 0 ;;   # 메트릭 · 로그는 버리는 자리가 없다
+    logs)
+      l=$(metric_value monimo.collector.dropped reason:log_level); l=${l:-0}   # 로그 하한 (#215). 가짜 발신기는 INFO 라 평소 0
+      echo "$l"
+      ;;
+    *) echo 0 ;;   # 메트릭은 버리는 자리가 없다
   esac
 }
 

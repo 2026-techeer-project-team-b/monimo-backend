@@ -70,6 +70,12 @@ monimo:
     # /actuator/health 는 쇼핑몰, /livez · /readyz 는 우리 모듈 다섯(업무 포트, #135 · #162)의 probe 주소 (#208 B평면)
     health-check:
       paths: /actuator/health,/livez,/readyz
+    # 로그 하한 (#215, ADR #38 ④ · #55 되돌림 ③). severity_number 가 이 등급 미만인 로그 레코드를 Kafka 에 넣기 전에 버린다.
+    # 에이전트는 logback 이 내보낸 등급을 그대로 보내고 하한 옵션이 없어, 남의 앱의 DEBUG 를 막을 문이 여기뿐이다.
+    # 우리 모듈 다섯에 에이전트를 붙이자(#213) DEBUG · TRACE 가 1분에 3,900건 들어왔다.
+    # TRACE · DEBUG · INFO · WARN · ERROR · FATAL 중 하나. 비워 두면 필터가 꺼진다. 환경변수 MONIMO_COLLECTOR_LOG_MIN_LEVEL 로 덮어쓴다
+    log:
+      min-level: INFO
     # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 이 GET /agent/commands 로 명령을 받으러 오고(최대 25초 대기),
     # API 서버 팬아웃이 POST /internal/thread-dump 로 덤프를 시킨다. 토큰이 비면 그 문이 닫힌다
     agent:

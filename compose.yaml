@@ -240,6 +240,9 @@ services:
       # 비우면 필터가 꺼져 헬스체크도 그대로 적재된다. .env 에 COLLECTOR_HEALTH_CHECK_PATHS= 로 빈 값을 넣으면 된다.
       # :- 가 아니라 - 를 쓴다: :- 는 빈 값일 때도 기본값을 되살려서 끌 수가 없다
       MONIMO_COLLECTOR_HEALTH_CHECK_PATHS: "${COLLECTOR_HEALTH_CHECK_PATHS-/actuator/health,/livez,/readyz}"
+      # 로그 하한 (#215). severity_number 가 이 등급 미만인 로그 레코드는 Kafka 로 안 보낸다. 비우면 필터가 꺼져 DEBUG · TRACE 도 적재된다.
+      # :- 가 아니라 - 를 쓴다 (헬스체크 거르기와 같은 이유 : 빈 값으로 끌 수 있어야 한다)
+      MONIMO_COLLECTOR_LOG_MIN_LEVEL: "${COLLECTOR_LOG_MIN_LEVEL-INFO}"
       # 스레드 덤프 명령 문 (#122). 쇼핑몰 Extension 은 /agent/** 에 에이전트 토큰을, API 서버 팬아웃은 /internal/** 에 내부 토큰을 붙인다.
       # 로컬 전용 기본값이다. 에이전트 토큰은 monimo-shop compose 의 MONIMO_AGENT_TOKEN 과 같아야 한다.
       # :- 라서 .env 에 빈 값을 넣어도 기본값이 되살아난다. 문을 닫아 보려면 컨테이너 env 를 직접 비운다 (수집기는 빈 값이면 문을 닫는다)
