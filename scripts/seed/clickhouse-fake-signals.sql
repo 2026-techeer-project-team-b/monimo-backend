@@ -106,8 +106,13 @@ SELECT
 FROM (SELECT number AS n FROM numbers(30000));
 
 -- 2) 메트릭 (15초마다, 파드 8대) ------------------------------------------------------------------
--- 이름은 OTel JVM 규칙 그대로. series_hash 는 attributes 를 숫자로 접은 값.
-INSERT INTO monimo.metrics_raw (service_name, agent_id, metric_name, series_hash, attributes, ts, value)
+-- 모양은 적재 처리기가 OTel Java Agent 2.x 신호를 넣는 그대로 (2026-10-17 실데이터 shop-order-local-1 과 대조).
+--   - 히스토그램(jvm.gc.duration)은 .count · .sum · .min · .max 네 줄로 펴고 metric_type = histogram.
+--     .count · .sum 은 켜진 뒤 총합(is_counter = 1)이라 계속 오른다 — 조회가 칸마다 빼서 보여 준다 (#189 · #196)
+--   - 그 밖의 JVM 지표는 sum(is_counter = 0), CPU 사용률만 gauge
+--   - jvm.thread.count 는 daemon × state 꼬리표로 여러 줄이고 조회가 합쳐서 스레드 수를 낸다
+--   - series_hash = 꼬리표를 키 순으로 "k=v" 줄로 잇고 SHA-256 앞 8바이트 (ingester MetricRow.seriesHashOf 와 같은 식)
+INSERT INTO monimo.metrics_raw (service_name, agent_id, metric_name, metric_type, is_counter, series_hash, attributes, ts, value)
 WITH
     toStartOfInterval(now(), INTERVAL 15 SECOND) AS anchor,
     [
@@ -121,21 +126,31 @@ WITH
     anchor - toIntervalSecond(15 * (239 - step)) AS t,
     (cityHash64(pod.2, step) % 1000) / 1000.0 AS jitter,             -- 0.0 ~ 1.0
     pod.2 = 'shop-payment-84f6c9-x8d3f' AS leaky,
+    map('jvm.gc.name', 'G1 Young Generation', 'jvm.gc.action', 'end of minor GC') AS gc,
     [
-        ('jvm.cpu.recent_utilization', map(), 0.08 + 0.25 * jitter),
-        ('jvm.memory.used', map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Old Gen'),
+        ('jvm.cpu.recent_utilization', 'gauge', 0, map(), 0.08 + 0.25 * jitter),
+        ('jvm.memory.used',  'sum', 0, map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Old Gen'),
             if(leaky, 300e6 + 900e6 * step / 239, 280e6 + 60e6 * jitter)),
-        ('jvm.memory.used', map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Eden Space'), 40e6 + 160e6 * jitter),
-        ('jvm.memory.limit', map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Old Gen'), 1536e6),
-        ('jvm.gc.duration', map('jvm.gc.name', 'G1 Young Generation', 'jvm.gc.action', 'end of minor GC'), 0.004 + 0.02 * jitter),
-        ('jvm.thread.count', map(), toFloat64(38 + cityHash64(pod.2, step, 'th') % 12))
+        ('jvm.memory.used',  'sum', 0, map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Eden Space'), 40e6 + 160e6 * jitter),
+        ('jvm.memory.used',  'sum', 0, map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Survivor Space'), 1e6 + 3e6 * jitter),
+        ('jvm.memory.limit', 'sum', 0, map('jvm.memory.type', 'heap', 'jvm.memory.pool.name', 'G1 Old Gen'), 1536e6),
+        -- GC 는 15초마다 한 번꼴로 4~18ms (단위는 초, 조회가 ms 로 바꾼다). 총합 · 횟수는 step 에 비례해 오른다
+        ('jvm.gc.duration.sum',   'histogram', 1, gc, 0.014 * step + 0.004 * jitter),
+        ('jvm.gc.duration.count', 'histogram', 1, gc, toFloat64(step + 1)),
+        ('jvm.gc.duration.min',   'histogram', 0, gc, 0.004),
+        ('jvm.gc.duration.max',   'histogram', 0, gc, 0.024),
+        ('jvm.thread.count', 'sum', 0, map('jvm.thread.daemon', 'true',  'jvm.thread.state', 'runnable'),      10.0),
+        ('jvm.thread.count', 'sum', 0, map('jvm.thread.daemon', 'true',  'jvm.thread.state', 'timed_waiting'), toFloat64(14 + cityHash64(pod.2, step, 'th') % 12)),
+        ('jvm.thread.count', 'sum', 0, map('jvm.thread.daemon', 'true',  'jvm.thread.state', 'waiting'),       12.0),
+        ('jvm.thread.count', 'sum', 0, map('jvm.thread.daemon', 'false', 'jvm.thread.state', 'runnable'),      2.0)
     ] AS series,
-    arrayJoin(series) AS m
+    arrayJoin(series) AS m,
+    arrayStringConcat(arrayMap(kv -> concat(kv.1, '=', kv.2), arraySort(kv -> kv.1, arrayZip(mapKeys(m.4), mapValues(m.4)))), '\n') AS canon
 SELECT
-    pod.1, pod.2, m.1,
-    cityHash64(toString(m.2))                            AS series_hash,
-    CAST(m.2, 'Map(LowCardinality(String), String)')      AS attributes,
-    t, m.3
+    pod.1, pod.2, m.1, m.2, m.3,
+    reinterpretAsUInt64(reverse(substring(SHA256(canon), 1, 8)))     AS series_hash,
+    CAST(m.4, 'Map(LowCardinality(String), String)')                 AS attributes,
+    t, m.5
 FROM system.one;
 
 -- 3) 로그 ----------------------------------------------------------------------------------------
