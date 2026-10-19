@@ -68,6 +68,7 @@ npm run dev
 
 점검에서 막혔던 곳 — 여기서 읽고 넘어가면 안 막힌다.
 
+- **탐지 프로필은 `api-server` 프로필과 같이 켠다.** 탐지가 API 서버에 `depends_on` 이라 `--profile detector` 만 켜면 compose 가 "정의되지 않은 서비스" 로 거부한다 (#213 · #215 에서 겪음)
 - **3(a) 로 띄우면 다섯 모듈 전부 에이전트가 붙는다** (B평면 `#213`). 수집기 · 적재 처리기는 자기 스팬이 자기 입력으로 돌아오는 되먹임 때문에 트레이스만 끄고 지표 · 로그만 보낸다(이미지 `ENV OTEL_TRACES_EXPORTER=none`). 서비스 이름은 `monimo-api-server` · `monimo-detector` · `monimo-notifier` · `monimo-collector` · `monimo-ingester` 이고, 설정 화면에 등록하기 전까지는 미등록 서비스로 들어온다
 
 - **bootRun 의 `--args='--spring.profiles.active=local'` 을 빼면** `Failed to configure a DataSource: 'url' attribute is not specified` 로 멈춘다. DB 주소가 `application-local.yml` 에만 있다. 모듈 이름만 바꿔 치다 빠뜨리기 쉽다

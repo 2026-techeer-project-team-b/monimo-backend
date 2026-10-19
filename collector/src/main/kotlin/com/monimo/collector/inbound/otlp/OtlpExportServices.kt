@@ -1,6 +1,7 @@
 package com.monimo.collector.inbound.otlp
 
 import com.monimo.collector.filter.HealthCheckFilter // 헬스체크 스팬 빼내기 (SERVER + url.path)
+import com.monimo.collector.filter.LogLevelFilter // 로그 하한 미만 빼내기 (#215)
 import com.monimo.collector.outbound.kafka.RawProducer // 나가는 문 (Kafka raw 발행)
 import com.monimo.collector.sampling.TraceSampler // 남길 스팬 고르기 (비율 + 카나리 예외)
 import com.monimo.collector.sampling.spanCount // 요청 안의 스팬 수 세기
@@ -19,7 +20,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 // OTLP 들어오는 문. 받은 요청을 protobuf 바이트 그대로 Kafka raw 에 넣고, 넣기가 끝나면 응답한다.
-// 트레이스만 중간에 헬스체크 거르기 → 샘플링을 거친다 (메트릭 · 로그는 전부 통과. 로그 레벨 하한 필터는 별도 이슈).
+// 중간 단계 : 트레이스는 헬스체크 거르기 → 샘플링, 로그는 하한 거르기(`#215`), 메트릭은 전부 통과.
 // 부분 실패(partial_success)는 쓰지 않는다. 받았으면 전부 받은 것이다.
 //
 // 세 신호 모두 Kafka 에 넣을 때 보낸 쪽 주소를 봉투 메모로 붙인다 (`#149`, ADR `#63`). 주소는
@@ -101,14 +102,25 @@ class OtlpMetricsService(
 class OtlpLogsService(
     private val counter: OtlpReceiveCounter,
     private val producer: RawProducer,
+    private val logLevelFilter: LogLevelFilter, // 하한 미만 등급 빼내기 (#215)
 ) : LogsServiceGrpc.LogsServiceImplBase() {
 
     override fun export(request: ExportLogsServiceRequest, responseObserver: StreamObserver<ExportLogsServiceResponse>) {
         val records = request.resourceLogsList.sumOf { rl -> rl.scopeLogsList.sumOf { it.logRecordsCount } } // 로그 레코드 개수
-        counter.received(OtlpReceiveCounter.Signal.LOGS, records)
+        counter.received(OtlpReceiveCounter.Signal.LOGS, records) // 거르기 전 숫자 (트레이스와 같은 규칙)
         log.debug("OTLP logs 수신: 로그 레코드 {}건 (resource {}개)", records, request.resourceLogsCount)
+
+        val filtered = logLevelFilter.drop(request)
+        val kept = filtered.resourceLogsList.sumOf { rl -> rl.scopeLogsList.sumOf { it.logRecordsCount } }
+        if (kept == 0) { // 전부 하한 미만. Kafka 에 빈 메시지를 넣을 이유가 없다
+            log.debug("로그 하한에서 레코드 {}건 전부 제외", records)
+            responseObserver.respondNow(ExportLogsServiceResponse.getDefaultInstance())
+            return
+        }
+        if (kept < records) log.debug("로그 하한: 레코드 {}건 중 {}건만 남김", records, kept)
+
         responseObserver.respondAfter(
-            sent = producer.send(RawSignal.LOGS, request.toByteArray(), currentPeerAddress()),
+            sent = producer.send(RawSignal.LOGS, filtered.toByteArray(), currentPeerAddress()),
             response = ExportLogsServiceResponse.getDefaultInstance(),
             signal = "logs",
         )
