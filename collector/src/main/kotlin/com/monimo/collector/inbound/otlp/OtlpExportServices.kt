@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 // OTLP 들어오는 문. 받은 요청을 protobuf 바이트 그대로 Kafka raw 에 넣고, 넣기가 끝나면 응답한다.
-// 트레이스만 중간에 헬스체크 거르기 → 샘플링을 거친다 (메트릭 · 로그는 전부 통과. 로그 레벨 하한 필터는 별도 이슈).
+// 중간 단계 : 트레이스는 헬스체크 거르기 → 샘플링, 로그는 하한 거르기(`#215`), 메트릭은 전부 통과.
 // 부분 실패(partial_success)는 쓰지 않는다. 받았으면 전부 받은 것이다.
 //
 // 세 신호 모두 Kafka 에 넣을 때 보낸 쪽 주소를 봉투 메모로 붙인다 (`#149`, ADR `#63`). 주소는
