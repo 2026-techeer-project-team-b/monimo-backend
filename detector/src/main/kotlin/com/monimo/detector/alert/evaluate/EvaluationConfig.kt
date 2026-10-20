@@ -33,6 +33,21 @@ class EvaluationConfig {
         @Value("\${monimo.internal-token:}") internalToken: String,
         objectMapper: ObjectMapper,
     ): AgentActivityClient = HttpAgentActivityClient(props.query, internalToken, objectMapper)
+
+    // gc-time · 자동 스레드 덤프도 같은 API 서버 · 같은 내부 토큰
+    @Bean
+    fun gcTimeClient(
+        props: EvaluationProperties,
+        @Value("\${monimo.internal-token:}") internalToken: String,
+        objectMapper: ObjectMapper,
+    ): GcTimeClient = HttpGcTimeClient(props.query, internalToken, objectMapper)
+
+    @Bean
+    fun threadDumpClient(
+        props: EvaluationProperties,
+        @Value("\${monimo.internal-token:}") internalToken: String,
+        objectMapper: ObjectMapper,
+    ): ThreadDumpClient = HttpThreadDumpClient(props.query.baseUrl, props.threadDump, internalToken, objectMapper)
 }
 
 // 스케줄러는 따로 켜고 끈다. 테스트는 enabled=false 로 두고 runOnce 를 직접 부른다
@@ -41,6 +56,6 @@ class EvaluationConfig {
 @ConditionalOnProperty(prefix = "monimo.alert.schedule", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 class EvaluationSchedulingConfig {
     @Bean
-    fun evaluationScheduler(runner: EvaluationRunner, agentDown: AgentDownRunner, age: LastSuccessAge) =
-        EvaluationScheduler(runner, agentDown, age)
+    fun evaluationScheduler(runner: EvaluationRunner, agentDown: AgentDownRunner, gcTime: GcTimeRunner, age: LastSuccessAge) =
+        EvaluationScheduler(runner, agentDown, gcTime, age)
 }

@@ -91,7 +91,7 @@ class EvaluationRecorder(
             "threshold" to rule.threshold,
             "observed_value" to fired.observedValue,
             "fired_at" to fired.bucketEnd.toString(),
-        )
+        ) + listOfNotNull(target.agentKey?.let { "agent_key" to it })  // 파드 단위 규칙만. 서비스 단위 payload 는 지금과 같다
         outbox.saveAll(enabledChannelIds(rule.id).map { NotificationOutboxEntity.pending(eventId, OutboxTransition.FIRING, it, payload, now) })
         return eventId
     }
