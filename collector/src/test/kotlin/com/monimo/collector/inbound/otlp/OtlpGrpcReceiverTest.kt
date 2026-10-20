@@ -94,7 +94,8 @@ class OtlpGrpcReceiverTest(
         }
     }
 
-    // 등급 번호 + 이름을 채운 로그 레코드. 번호는 OTLP 규약(DEBUG 5 · INFO 9), 하한 판정은 번호로 한다
+    // 등급 번호 + 이름을 채운 로그 레코드. 번호는 OTLP 규약(DEBUG 5 · INFO 9) 이고, 번호가 0 이거나 규약 밖이면
+    // 하한 판정이 이름 쪽으로 넘어간다 (#236)
     fun logRecord(severityNumber: Int, severityText: String): LogRecord =
         LogRecord.newBuilder().setSeverityNumberValue(severityNumber).setSeverityText(severityText).build()
 
@@ -223,6 +224,27 @@ class OtlpGrpcReceiverTest(
             LogsServiceGrpc.newBlockingStub(channel).export(request)
 
             Then("raw 토픽의 logs 메시지를 풀면 INFO 만 들어 있다") {
+                val record = receivedFromRaw(RawSignal.LOGS)
+                val stored = ExportLogsServiceRequest.parseFrom(record.value())
+                stored.resourceLogsList.flatMap { it.scopeLogsList }.flatMap { it.logRecordsList } shouldBe listOf(info)
+            }
+        }
+
+        // #236 : 번호가 0 이면 하한이 번호로는 판정할 수 없다. 글자로 넘어가는 길이 수신 경로에도 끼어 있는지 본다
+        When("번호 0 · 글자 DEBUG 인 레코드와 번호 0 · 글자 INFO 인 레코드를 함께 보내면") {
+            val info = logRecord(0, "INFO")
+            val request = ExportLogsServiceRequest.newBuilder()
+                .addResourceLogs(
+                    ResourceLogs.newBuilder().addScopeLogs(
+                        ScopeLogs.newBuilder()
+                            .addLogRecords(logRecord(0, "DEBUG"))
+                            .addLogRecords(info),
+                    ),
+                )
+                .build()
+            LogsServiceGrpc.newBlockingStub(channel).export(request)
+
+            Then("raw 토픽의 logs 메시지를 풀면 글자가 INFO 인 것만 들어 있다") {
                 val record = receivedFromRaw(RawSignal.LOGS)
                 val stored = ExportLogsServiceRequest.parseFrom(record.value())
                 stored.resourceLogsList.flatMap { it.scopeLogsList }.flatMap { it.logRecordsList } shouldBe listOf(info)
