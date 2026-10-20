@@ -142,6 +142,29 @@ class LogLevelFilterTest : BehaviorSpec({
         }
     }
 
+    // 음수는 전에 조용히 버려졌다 : `number != 0 && number < min` 산술이 -1 < 9 에 걸렸다.
+    // 규약 밖 숫자를 글자로 보기로 하면서 이 자리도 「모르는 것은 안 버린다」로 돌아온다
+    Given("숫자가 음수(-1)인 로그") {
+        When("글자도 모르는 것이면") {
+            val (filter, _) = filterOf("INFO")
+            val request = requestOf(record(-1, "blah"))
+
+            Then("남는다 (고치기 전에는 산술에 걸려 버려졌다)") {
+                (filter.drop(request) === request) shouldBe true
+            }
+        }
+
+        When("글자가 DEBUG 면") {
+            val (filter, registry) = filterOf("INFO")
+            val result = filter.drop(requestOf(record(-1, "DEBUG")))
+
+            Then("글자로 판정해 버린다 (전에도 버려졌지만 이유가 달랐다)") {
+                result.records() shouldBe emptyList()
+                registry.droppedCount("DEBUG") shouldBe 1.0
+            }
+        }
+    }
+
     Given("하한이 빈 필터 (필터 꺼짐)") {
         When("TRACE 가 와도") {
             val (filter, registry) = filterOf("  ")
