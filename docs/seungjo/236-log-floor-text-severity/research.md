@@ -305,3 +305,60 @@ Ingeter로 하면 이미 다 지나온 것이기 때문에
 ```
 
 원문 그대로 둔다. 여기에 없는 셋(규약 밖 숫자 · 모르는 글자는 남긴다 · ADR `#59` 에 한 줄)은 7절에서 보탰다.
+
+---
+
+## 9. 구현과 확인
+
+### 고친 것 (모듈 셋 · 마이그레이션 0 · 화면 0)
+
+| 파일 | 무엇 |
+|---|---|
+| `common/log/LogSeverity.kt` (새 파일) | 등급 판정 한 곳. 들어오는 것은 `(Int, String)`, 나가는 것은 여섯 이름 또는 빈 글자. 별칭 표 24개를 `LogTranslator` 에서 옮겼다. proto 타입을 안 받아 `common` 이 OTLP 에 묶이지 않는다 |
+| `common/log/LogSeverityTest.kt` (새 파일) | 구간 경계 12개 · 어긋날 때 숫자가 이기는 것 · 별칭(짐작하면 틀리는 아홉 자리) · 규약 밖(99 · 25 · 음수) · 모르는 글자 · 빈 글자 · 구간 첫 번호 표 |
+| `ingester/transform/LogTranslator.kt` | `levelOf` 가 공용 판정을 부른다. 69줄이 지워지고 4줄이 됐다. **`LogTranslatorTest` 는 한 줄도 안 고쳤다** : 옮겨도 동작이 안 바뀌었다는 증거다 |
+| `collector/filter/LogLevelFilter.kt` | `isBelow` 가 판정된 이름의 구간 첫 번호로 하한과 비교한다. 이름을 못 정하면(모르는 글자 · 빈 글자) 남긴다. 카운터 꼬리표도 같은 판정을 쓴다(`(숫자-1)/4` 식을 지웠다). 쓰이지 않게 된 `LEVEL_NAMES` · `LEVELS` 를 지우고 `LogSeverity.FIRST_NUMBER` 로 바꿨다 |
+| 기동 로그 | 「severity_number 가 INFO(9) 미만」 → 「등급이 INFO(9) 미만 (등급은 severity_number, 없거나 규약 밖이면 severity_text)」 |
+| `LogLevelFilterTest` | 규약 밖 숫자 넷(0 · 99)이 글자로 걸리는 것 · 모르는 글자와 빈 글자가 남는 것 · 버린 수가 판정된 이름 칸에서 세어지는 것 · 하한 `WARN` 에서 `WARNING` 은 남고 `NOTICE` 는 버려지는 것 |
+| `OtlpGrpcReceiverTest` | 번호 0 · 글자 `DEBUG` 가 수신 경로에서도 Kafka 로 안 가는 것 |
+
+- **하한 설정값은 그대로 여섯 이름만 받는다** : `min-level: VERBOSE` 는 기동 때 그대로 터진다(7절 되돌림 ④)
+- 구간 첫 번호로 비교해도 번호로 비교한 것과 결과가 같다 : 하한은 늘 구간의 첫 번호(1 · 5 · 9 · 13 · 17 · 21)다
+
+### 실측 (2026-10-20, 로컬 스택)
+
+5절과 **같은 파이썬 일곱 줄**을 이 브랜치로 다시 만든 수집기에 보냈다. 5절 줄(`py-`)과 이번 줄(`fix-`)이 같은 표에 남아 있어 한 번에 대조된다.
+
+```
+   ┌─message──────────┬─level─┬─cnt─┐
+1. │ fix-num0-info    │ INFO  │   1 │
+2. │ fix-num0-unknown │       │   1 │
+3. │ fix-num9-info    │ INFO  │   1 │
+4. │ py-num0-debug    │ DEBUG │   1 │
+5. │ py-num0-fine     │ DEBUG │   1 │
+6. │ py-num0-info     │ INFO  │   1 │
+7. │ py-num0-unknown  │       │   1 │
+8. │ py-num9-info     │ INFO  │   1 │
+9. │ py-num99-debug   │ DEBUG │   1 │
+   └──────────────────┴───────┴─────┘
+```
+
+| 보낸 것 (숫자 · 글자) | 고치기 전 (`py-`) | 고친 뒤 (`fix-`) |
+|---|---|---|
+| 5 · `DEBUG` | 안 남음 | 안 남음 |
+| **0 · `DEBUG`** | **남음 (`DEBUG`)** | **안 남음** |
+| **0 · `FINE`** | **남음 (`DEBUG`)** | **안 남음** |
+| **99 · `DEBUG`** | **남음 (`DEBUG`)** | **안 남음** |
+| 0 · `INFO` | 남음 (`INFO`) | 남음 (`INFO`) |
+| 0 · `blah` | 남음 (빈 글자) | 남음 (빈 글자) |
+| 9 · `INFO` | 남음 (`INFO`) | 남음 (`INFO`) |
+
+- 새던 셋이 전부 막혔고 남아야 하는 셋은 그대로다. **`0 · blah` 가 남는 것이 경계다** : 무엇인지 모르는 것은 안 버린다
+- 버린 수 카운터 : `monimo.collector.dropped{reason=log_level}` = **4**, `level=DEBUG` = **4**, `level=TRACE` = 0. 숫자로 버린 한 줄(`5 · DEBUG`)과 글자로 버린 셋이 **같은 칸**에서 세어진다 (선택지 C 가 고른 것)
+- 기동 로그가 새 문구로 찍혔다 : `로그 하한: 등급이 INFO(9) 미만인 로그 레코드를 버린다 (등급은 severity_number, 없거나 규약 밖이면 severity_text)`
+- 재현 명령은 `scratchpad/send_logs_fix.py` 다 (5절 `send_logs.py` 의 본문 접두만 `py-` → `fix-` 로 바꾼 것)
+
+### 남은 것
+
+- 하한 설정값에 별칭을 받는 것(`min-level: WARNING`)은 범위 밖이다 (7절 되돌림 ④)
+- 「모르는 글자도 버린다」로 올리는 것은 홍수가 실측될 때다 (7절 되돌림 ③)
