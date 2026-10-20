@@ -7,8 +7,9 @@ package com.monimo.common.log
 //   적재 처리기는 "숫자가 없으면 글자를 본다" 였다. 그래서 「숫자 0 + 글자 DEBUG」가 하한을 빠져나가 DEBUG 로
 //   쌓였다(#236). 표를 복사해 두면 한쪽만 고쳐져 다시 갈린다
 //
-// 왜 proto 를 안 받나: 들어오는 것을 숫자와 글자 둘로만 두어 common 이 OTLP 타입에 묶이지 않게 한다.
-//   꺼내는 일(record.severityNumberValue · record.severityText)은 부르는 쪽에 둔다
+// 왜 proto 를 안 받나: `common` 은 이미 `opentelemetry-proto` 를 `api` 로 내보내므로 못 쓰는 것이 아니다.
+//   판정에 필요한 것이 두 칸뿐이라 그렇다 : 꺼내는 자리가 부르는 쪽에 남아 어느 칸을 보는지가 호출부에서 읽히고,
+//   이 시험이 proto 빌더를 안 끼게 된다
 //
 // 판정 순서는 ADR #59 그대로다: 숫자가 정본, 숫자가 없거나 규약 밖이면 글자, 모르는 글자는 빈 글자
 object LogSeverity {
@@ -16,8 +17,17 @@ object LogSeverity {
     // 못 정했을 때의 값. logs.level 의 값 범위를 여섯 + 빈 글자로 닫는다 (ADR #59 ④)
     const val UNKNOWN: String = ""
 
+    // 아래 두 표(구간표 · 별칭 표)가 이 상수만 쓰므로 값에 오타를 내면 컴파일이 깨진다. 글자로 적어 두면
+    // `"ERR" to "ERRORR"` 같은 오타가 시험도 안 깨고 지나가고, 그 줄은 하한을 빠져나간 뒤 규약 밖 값으로 적힌다
+    private const val TRACE = "TRACE"
+    private const val DEBUG = "DEBUG"
+    private const val INFO = "INFO"
+    private const val WARN = "WARN"
+    private const val ERROR = "ERROR"
+    private const val FATAL = "FATAL"
+
     // OTel severity_number 규약의 여섯 구간 이름. 순서가 곧 심각도 순서다
-    val NAMES: List<String> = listOf("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL")
+    val NAMES: List<String> = listOf(TRACE, DEBUG, INFO, WARN, ERROR, FATAL)
 
     // 이름 → 그 구간의 첫 번호 (TRACE 1 · DEBUG 5 · INFO 9 · WARN 13 · ERROR 17 · FATAL 21).
     // 하한을 비교할 때 쓴다: 하한은 늘 구간의 첫 번호라 "번호끼리 비교" 와 "구간끼리 비교" 의 결과가 같다
@@ -38,12 +48,12 @@ object LogSeverity {
     // OTel 규약의 구간표. 구간마다 네 단(WARN · WARN2 · WARN3 · WARN4)이 있는데 우리는 구간 이름 하나로 모은다:
     // logs.level 은 거르는 칸이라 여섯으로 충분하고, LowCardinality(String) 이라 값의 종류가 적어야 한다
     private fun fromNumber(number: Int): String? = when (number) {
-        in 1..4 -> "TRACE"
-        in 5..8 -> "DEBUG"
-        in 9..12 -> "INFO"
-        in 13..16 -> "WARN"
-        in 17..20 -> "ERROR"
-        in 21..24 -> "FATAL"
+        in 1..4 -> TRACE
+        in 5..8 -> DEBUG
+        in 9..12 -> INFO
+        in 13..16 -> WARN
+        in 17..20 -> ERROR
+        in 21..24 -> FATAL
         else -> null // 0 = 등급 없음. 규약 밖의 값(음수 · 25 이상)도 여기로 온다
     }
 
@@ -60,39 +70,39 @@ object LogSeverity {
     // 각 이름은 그 출처가 배정받은 숫자의 **구간**으로 맞춘다. 이름만 보고 구간을 짐작하면 틀린다 (아래 주석 참고)
     private val ALIASES = mapOf(
         // 표준 여섯 이름 자신 (Log4j · Logback · SLF4J)
-        "TRACE" to "TRACE",
-        "DEBUG" to "DEBUG",
-        "INFO" to "INFO",
-        "WARN" to "WARN",
-        "ERROR" to "ERROR",
-        "FATAL" to "FATAL",
+        "TRACE" to TRACE,
+        "DEBUG" to DEBUG,
+        "INFO" to INFO,
+        "WARN" to WARN,
+        "ERROR" to ERROR,
+        "FATAL" to FATAL,
         // java.util.logging. Spring Boot 가 SLF4J 로 넘기지 못한 라이브러리 로그가 이 이름으로 온다.
         // FINEST 만 TRACE(1) 이고 FINER · FINE · CONFIG 는 셋 다 DEBUG 구간(5 · 6 · 7)이다
-        "FINEST" to "TRACE",
-        "FINER" to "DEBUG",
-        "FINE" to "DEBUG",
-        "CONFIG" to "DEBUG",
-        "WARNING" to "WARN",
-        "SEVERE" to "ERROR",
+        "FINEST" to TRACE,
+        "FINER" to DEBUG,
+        "FINE" to DEBUG,
+        "CONFIG" to DEBUG,
+        "WARNING" to WARN,
+        "SEVERE" to ERROR,
         // syslog(RFC 5424) 의 우선순위 낱말. 숫자가 작을수록 심각해서 이름 순서와 구간이 뒤집혀 보인다 :
         // Emergency(0) 만 FATAL(21) 이고 Alert(1) · Critical(2) · Error(3) 는 셋 다 ERROR 구간(19 · 18 · 17)이다.
         // CRIT 은 아래 CRITICAL 과 달리 출처가 syslog 하나로 정해져 모호하지 않다
-        "EMERGENCY" to "FATAL",
-        "EMERG" to "FATAL",
-        "ALERT" to "ERROR",
-        "CRIT" to "ERROR",
-        "ERR" to "ERROR",
-        "NOTICE" to "INFO",
+        "EMERGENCY" to FATAL,
+        "EMERG" to FATAL,
+        "ALERT" to ERROR,
+        "CRIT" to ERROR,
+        "ERR" to ERROR,
+        "NOTICE" to INFO,
         // Windows 이벤트 로그 · ETW · .NET. VERBOSE 는 TRACE 가 아니라 DEBUG(5) 다
-        "VERBOSE" to "DEBUG",
-        "INFORMATION" to "INFO",
-        "INFORMATIONAL" to "INFO",
+        "VERBOSE" to DEBUG,
+        "INFORMATION" to INFO,
+        "INFORMATIONAL" to INFO,
         // Go 의 zap. Panic 과 Dpanic 은 FATAL 이 아니라 ERROR 구간(19 · 18)이고 Fatal 만 FATAL(21) 이다
-        "PANIC" to "ERROR",
-        "DPANIC" to "ERROR",
+        "PANIC" to ERROR,
+        "DPANIC" to ERROR,
         // CRITICAL 만 출처끼리 구간이 다르다 : .NET 과 ETW 는 FATAL(21), syslog 와 Windows 이벤트 로그는 ERROR 구간(18) 이다.
         // 글자만 보고는 출처를 모른다. 더 심한 쪽으로 둔다 : Python 과 .NET 에서 CRITICAL 이 가장 높은 등급이고,
         // syslog 쪽의 더 심한 둘(Alert · Emergency)은 위에서 따로 받고 있다
-        "CRITICAL" to "FATAL",
+        "CRITICAL" to FATAL,
     )
 }
