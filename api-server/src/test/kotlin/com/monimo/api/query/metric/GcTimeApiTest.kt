@@ -66,6 +66,13 @@ class GcTimeApiTest(
     total(-60, 0.0, sum, 26, agent = "pod-p", service = "gc-payment")
     total(0, 0.2, sum, 26, agent = "pod-p", service = "gc-payment")
 
+    // 60초마다 보내는데 보내는 시각이 분 경계를 넘나드는 파드. GC 는 1분에 100ms 로 일정하다.
+    // 점 : t0-1s(앞 1분) · t0+59s · (t0+60 의 1분은 비어 있음) · t0+121s · t0+179s(같은 1분에 둘) · t0+239s
+    fun steady(offsetSec: Long, service: String) = total(offsetSec, 1.0 + 0.1 * (offsetSec + 1) / 60, sum, 31, agent = "pod-g", service = service)
+    listOf(-1L, 59, 121, 179, 239).forEach { steady(it, "gap-steady") }
+    // 간격이 150초를 넘으면 전송이 빠진 것 : t0+59s 다음이 t0+239s(180초 뒤)
+    listOf(-1L, 59, 239).forEach { steady(it, "gap-missing") }
+
     fun get(query: String, token: String? = "test-internal-token"): ResponseEntity<String> {
         val headers = HttpHeaders().apply { token?.let { set("X-Internal-Token", it) } }
         return rest.exchange("/api/v1/internal/metrics/gc-time?$query", HttpMethod.GET, HttpEntity<Void>(headers), String::class.java)
@@ -107,6 +114,31 @@ class GcTimeApiTest(
                 rows.map { it["service_name"].asText() to it["agent_key"].asText() }.toSet() shouldBe
                     setOf("gc-order" to "pod-a", "gc-payment" to "pod-p")
                 rows.first { it["service_name"].asText() == "gc-payment" }["gc_time_ms"].asDouble() shouldBe (200.0 plusOrMinus 0.001)
+            }
+        }
+
+        When("60초 전송이 분 경계를 넘나들어 빈 1분과 점이 둘인 1분이 생기면") {
+            val rows = json(get("service_name=gap-steady&$range"))["data"]
+
+            Then("점이 둘인 1분에 2분치(200ms)가 아니라 실제 간격으로 나눈 1분치가 들어간다") {
+                rows.map { Instant.parse(it["ts_min"].asText()) } shouldBe
+                    listOf(t0, t0.plusSeconds(60), t0.plusSeconds(120), t0.plusSeconds(180))
+                rows.forEach { it["gc_time_ms"].asDouble() shouldBe (100.0 plusOrMinus 0.01) }
+            }
+        }
+
+        When("빈 1분이 범위의 마지막 1분이면") {
+            Then("범위 뒤의 점으로 메운다") {
+                val rows = json(get("service_name=gap-steady&from=$t0&to=${t0.plusSeconds(120)}"))["data"]
+                rows.map { Instant.parse(it["ts_min"].asText()) } shouldBe listOf(t0, t0.plusSeconds(60))
+                rows[1]["gc_time_ms"].asDouble() shouldBe (100.0 plusOrMinus 0.01)
+            }
+        }
+
+        When("두 점이 150초보다 멀면") {
+            Then("전송이 빠진 것이라 그 사이 1분들과 뒤 점의 1분을 짐작하지 않고 비운다") {
+                val rows = json(get("service_name=gap-missing&$range"))["data"]
+                rows.map { Instant.parse(it["ts_min"].asText()) } shouldBe listOf(t0)
             }
         }
 
